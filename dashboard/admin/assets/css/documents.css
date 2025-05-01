@@ -1,0 +1,64 @@
+/* Custom styles for documents.php */
+.category-item {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.category-item:hover {
+    background-color: #f8f9fa;
+}
+
+.category-item.active {
+    background-color: #e9ecef;
+    border-left: 3px solid #3498db;
+}
+
+.document-status {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+
+.document-status.active {
+    background-color: #28a745;
+}
+
+.document-status.inactive {
+    background-color: #dc3545;
+}
+
+#document-list-placeholder {
+    color: #6c757d;
+}
+
+.card-header h2 {
+    font-size: 1.25rem;
+    margin-bottom: 0;
+}
+
+#selected-category {
+    font-size: 1rem;
+    font-weight: normal;
+    color: #6c757d;
+    margin-left: 0.5rem;
+}
+
+.document-actions .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+.btn-xs {
+    padding: 0.12rem 0.25rem;
+    font-size: 0.75rem;
+    line-height: 1.2;
+}
+
+.description-cell {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

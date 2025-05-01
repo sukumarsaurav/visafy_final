@@ -1,0 +1,995 @@
+/* Main CSS file for Canadian Immigration Consultancy Website */
+
+/* Variables for color scheme */
+:root {
+    --color-primary: #042167;
+    --color-secondary: #eaaa34;
+    --color-light: #ffffff;
+    --color-dark: #333333;
+    --color-gray: #666666;
+    --color-light-gray: #f5f5f5;
+    --color-cream: #FEF9E1;
+    --color-gold: #eef8ff;
+    --color-red: #eaaa34;
+    --color-burgundy: #042167;
+    --font-primary: 'Montserrat', sans-serif;
+    --font-secondary: 'Lora', serif;
+}
+
+/* Reset and Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-primary);
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--color-dark);
+    background-color: var(--color-light);
+    overflow-x: hidden;
+    padding-top: 0; /* Remove any top padding */
+}
+
+/* Adjust main content for sticky header */
+.main-content {
+    position: relative;
+    z-index: 1;
+}
+
+/* Hero Section adjustment */
+.hero {
+    margin-top: 0;
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+    background-color: #042167;
+    color: var(--color-light);
+    position: relative;
+    overflow: hidden;
+}
+
+a {
+    text-decoration: none;
+    color: var(--color-primary);
+    transition: color 0.3s ease;
+}
+
+a:hover {
+    color: var(--color-secondary);
+}
+
+ul, ol {
+    list-style: none;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+.container {
+    width: 100%;
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 0 15px;
+}
+
+/* Adjust section padding for smooth scrolling with sticky header */
+.section {
+    padding: 80px 0;
+    scroll-margin-top: 80px; /* This helps with smooth scrolling to sections */
+}
+
+.section-title {
+    font-family: var(--font-secondary);
+    font-size: 2.5rem;
+    color: var(--color-primary);
+    margin-bottom: 20px;
+    text-align: center;
+    position: relative;
+}
+
+.section-title::after {
+    content: '';
+    display: block;
+    width: 80px;
+    height: 3px;
+    background: var(--color-secondary);
+    margin: 15px auto;
+}
+
+.section-subtitle {
+    font-size: 1.1rem;
+    color: var(--color-gray);
+    text-align: center;
+    margin-bottom: 50px;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Button Styles */
+.btn {
+    padding: 12px 30px;
+    border-radius: 5px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background-color: var(--color-secondary);
+    color: var(--color-light);
+    border: 2px solid var(--color-secondary);
+}
+
+.btn-primary:hover {
+    background-color: transparent;
+    color: var(--color-secondary);
+}
+
+.btn-secondary {
+    background-color: transparent;
+    color: var(--color-secondary);
+    border: 2px solid var(--color-secondary);
+}
+
+.btn-secondary:hover {
+    background-color: var(--color-secondary);
+    color: var(--color-light);
+}
+
+.hero-content {
+    max-width: 700px;
+}
+
+.hero-title {
+    font-family: var(--font-secondary);
+    font-size: 3.5rem;
+    margin-bottom: 20px;
+    animation: fadeInDown 1s ease;
+}
+
+.hero-subtitle {
+    font-size: 1.2rem;
+    margin-bottom: 30px;
+    animation: fadeInUp 1s ease;
+}
+
+.hero-buttons {
+    display: flex;
+    gap: 15px;
+    animation: fadeIn 1.5s ease;
+}
+
+/* Services Section */
+.services {
+    background-color: var(--color-light);
+}
+
+.services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px;
+}
+
+.service-card {
+    background-color: var(--color-cream);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.service-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.service-image {
+    height: 200px;
+    background-size: cover;
+    background-position: center;
+}
+
+.service-content {
+    padding: 25px;
+}
+
+.service-title {
+    color: var(--color-primary);
+    margin-bottom: 15px;
+    font-size: 1.5rem;
+}
+
+.service-description {
+    margin-bottom: 20px;
+}
+
+/* Assessment Tools Section */
+.assessment-tools {
+    background-color: var(--color-gold);
+}
+
+.tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px;
+}
+
+.tool-card {
+    background-color: var(--color-light);
+    border-radius: 10px;
+    padding: 30px;
+    text-align: center;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+}
+
+.tool-icon {
+    font-size: 3rem;
+    color: var(--color-primary);
+    margin-bottom: 20px;
+}
+
+.tool-title {
+    color: var(--color-primary);
+    margin-bottom: 15px;
+    font-size: 1.3rem;
+}
+
+/* Success Stories Section */
+.success-stories {
+    background-color: var(--color-light);
+}
+
+.stories-slider {
+    position: relative;
+    overflow: hidden;
+}
+
+.story-card {
+    background-color: var(--color-cream);
+    border-radius: 10px;
+    padding: 30px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+    margin: 10px;
+}
+
+.story-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.story-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    margin-right: 15px;
+    object-fit: cover;
+}
+
+.story-client {
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+.story-visa-type {
+    color: var(--color-secondary);
+    font-size: 0.9rem;
+}
+
+.story-content {
+    font-style: italic;
+    color: var(--color-dark);
+}
+
+/* Contact Section */
+.contact {
+    background-color: var(--color-cream);
+}
+
+.contact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 50px;
+}
+
+.contact-info {
+    margin-bottom: 30px;
+}
+
+.contact-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+.contact-icon {
+    color: var(--color-primary);
+    font-size: 1.2rem;
+    margin-right: 15px;
+    margin-top: 5px;
+}
+
+.contact-details h4 {
+    color: var(--color-primary);
+    margin-bottom: 5px;
+}
+
+.contact-form .form-group {
+    margin-bottom: 20px;
+}
+
+.contact-form label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--color-primary);
+    font-weight: 500;
+}
+
+.contact-form input,
+.contact-form textarea,
+.contact-form select {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-family: var(--font-primary);
+    font-size: 1rem;
+}
+
+.contact-form textarea {
+    resize: vertical;
+    min-height: 150px;
+}
+
+/* Footer */
+.footer {
+    background-color: var(--color-primary);
+    color: var(--color-light);
+    padding: 50px 0 20px;
+}
+
+.footer-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 30px;
+    margin-bottom: 40px;
+}
+
+.footer-col h3 {
+    color: var(--color-gold);
+    margin-bottom: 20px;
+    font-size: 1.2rem;
+    position: relative;
+}
+
+.footer-col h3::after {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 2px;
+    background: var(--color-gold);
+    margin-top: 10px;
+}
+
+.footer-links li {
+    margin-bottom: 10px;
+}
+
+.footer-links a {
+    color: var(--color-cream);
+    transition: all 0.3s ease;
+}
+
+.footer-links a:hover {
+    color: var(--color-gold);
+    padding-left: 5px;
+}
+
+.social-links {
+    display: flex;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.social-links a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--color-cream);
+    transition: all 0.3s ease;
+}
+
+.social-links a:hover {
+    background-color: var(--color-gold);
+    color: var(--color-primary);
+    transform: translateY(-3px);
+}
+
+.footer-bottom {
+    text-align: center;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Responsive Design */
+@media (max-width: 991px) {
+    .section {
+        padding: 60px 0;
+    }
+    
+    .hero-title {
+        font-size: 2.8rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .mobile-menu-toggle {
+        display: block;
+    }
+    
+    .nav-menu {
+        position: fixed;
+        top: 80px;
+        left: -100%;
+        width: 80%;
+        height: calc(100vh - 80px);
+        background-color: var(--color-cream);
+        flex-direction: column;
+        padding: 30px;
+        transition: left 0.3s ease;
+        box-shadow: 5px 0 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .nav-menu.active {
+        left: 0;
+    }
+    
+    .hero-title {
+        font-size: 2.2rem;
+    }
+    
+    .hero-buttons {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .section-title {
+        font-size: 2rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .container {
+        padding: 0 20px;
+    }
+    
+    .services-grid, 
+    .tools-grid, 
+    .contact-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .hero-content {
+        text-align: center;
+    }
+}
+
+/* Dropdown Menu Styles */
+/* .nav-item .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: var(--color-light);
+    min-width: 320px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    padding: 8px 0;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: all 0.2s ease;
+    z-index: 1000;
+}
+
+.nav-item:hover .dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.dropdown-menu .dropdown-item {
+    display: block;
+    padding: 12px 16px;
+    color: var(--color-dark);
+    transition: background-color 0.2s ease;
+    text-decoration: none;
+}
+
+.dropdown-menu .dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+.dropdown-title {
+    font-weight: 500;
+    font-size: 14px;
+    margin-bottom: 4px;
+    color: var(--color-dark);
+}
+
+.dropdown-description {
+    font-size: 12px;
+    color: #6c757d;
+    line-height: 1.4;
+}  */
+
+/* Global Styles */
+body {
+    color: var(--color-dark);
+}
+
+/* Card Styles */
+.card {
+    background: var(--color-light);
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 20px;
+}
+
+input:focus, 
+textarea:focus, 
+select:focus {
+    border-color: var(--color-secondary);
+    outline: none;
+}
+
+/* Background Colors */
+.bg-primary {
+    background-color: var(--color-primary);
+    color: var(--color-light);
+}
+
+.bg-secondary {
+    background-color: var(--color-secondary);
+    color: var(--color-light);
+}
+
+.bg-light {
+    background-color: var(--color-light);
+}
+
+.bg-dark {
+    background-color: var(--color-dark);
+    color: var(--color-light);
+}
+
+/* Text Colors */
+.text-primary {
+    color: var(--color-primary);
+}
+
+.text-secondary {
+    color: var(--color-secondary);
+}
+
+.text-light {
+    color: var(--color-light);
+}
+
+.text-dark {
+    color: var(--color-dark);
+}
+
+/* Icon Colors */
+.icon-primary {
+    color: var(--color-primary);
+}
+
+.icon-secondary {
+    color: var(--color-secondary);
+}
+
+/* Login and Authentication Pages Styles */
+.auth-container {
+    min-height: 80vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 0;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 500px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    background-color: var(--color-light);
+}
+
+.auth-header {
+    background-color: var(--color-primary);
+    color: var(--color-light);
+    padding: 25px;
+    text-align: center;
+}
+
+.auth-header h2 {
+    margin: 0;
+    font-size: 1.8rem;
+    font-weight: 600;
+}
+
+.auth-body {
+    padding: 30px;
+}
+
+.auth-form .form-group {
+    margin-bottom: 20px;
+}
+
+.auth-form label {
+    font-weight: 500;
+    color: var(--color-primary);
+    margin-bottom: 8px;
+    display: block;
+}
+
+.auth-form input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+.auth-form input:focus {
+    border-color: var(--color-secondary);
+    box-shadow: 0 0 0 2px rgba(234, 170, 52, 0.2);
+    outline: none;
+}
+
+.auth-form .btn {
+    padding: 12px 20px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    margin: 25px 0;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: "";
+    flex: 1;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.auth-divider span {
+    padding: 0 15px;
+    color: #777;
+    font-size: 0.9rem;
+}
+
+.social-login-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 12px 20px;
+    border-radius: 5px;
+    border: 1px solid #e0e0e0;
+    background-color: var(--color-light);
+    color: var(--color-dark);
+    font-weight: 500;
+    margin-bottom: 15px;
+    transition: all 0.3s ease;
+}
+
+.social-login-btn:hover {
+    background-color: #f5f5f5;
+    border-color: #d0d0d0;
+}
+
+.social-login-btn i {
+    margin-right: 10px;
+    font-size: 1.2rem;
+}
+
+.auth-footer {
+    text-align: center;
+    margin-top: 20px;
+    color: #777;
+}
+
+.auth-footer a {
+    color: var(--color-secondary);
+    font-weight: 500;
+}
+
+.auth-footer a:hover {
+    text-decoration: underline;
+}
+
+.forgot-password {
+    display: block;
+    text-align: right;
+    margin-bottom: 20px;
+    color: var(--color-secondary);
+    font-size: 0.9rem;
+}
+
+.forgot-password:hover {
+    text-decoration: underline;
+}
+
+.remember-me {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.remember-me input {
+    margin-right: 10px;
+    width: auto;
+}
+
+/* Error message styling */
+.auth-error {
+    background-color: #fff5f5;
+    color: #e53e3e;
+    padding: 12px 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    border-left: 4px solid #e53e3e;
+}
+
+/* Success message styling */
+.auth-success {
+    background-color: #f0fff4;
+    color: #38a169;
+    padding: 12px 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    border-left: 4px solid #38a169;
+}
+
+@media (max-width: 576px) {
+    .auth-card {
+        border-radius: 0;
+        box-shadow: none;
+    }
+    
+    .auth-body {
+        padding: 20px;
+    }
+}
+
+/* Registration Page Styles */
+.register-container {
+    padding: 60px 0;
+}
+
+.register-card {
+    background-color: var(--color-light);
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.register-header {
+    padding: 25px;
+    text-align: center;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.register-header h2 {
+    color: var(--color-primary);
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin-bottom: 0;
+}
+
+.register-body {
+    padding: 30px;
+}
+
+.register-tabs {
+    display: flex;
+    margin-bottom: 30px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.register-tab {
+    flex: 1;
+    text-align: center;
+    padding: 15px;
+    color: var(--color-gray);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-bottom: 2px solid transparent;
+}
+
+.register-tab.active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-secondary);
+}
+
+.register-tab:hover {
+    color: var(--color-primary);
+}
+
+.register-progress {
+    height: 6px;
+    background-color: #f0f0f0;
+    border-radius: 3px;
+    margin-bottom: 25px;
+    overflow: hidden;
+}
+
+.register-progress-bar {
+    height: 100%;
+    background-color: var(--color-secondary);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.register-step-title {
+    text-align: center;
+    color: var(--color-primary);
+    font-weight: 500;
+    margin-bottom: 25px;
+}
+
+.register-form .form-group {
+    margin-bottom: 20px;
+}
+
+.register-form label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--color-primary);
+    font-weight: 500;
+}
+
+.register-form input,
+.register-form textarea,
+.register-form select {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+.register-form input:focus,
+.register-form textarea:focus,
+.register-form select:focus {
+    border-color: var(--color-secondary);
+    box-shadow: 0 0 0 2px rgba(234, 170, 52, 0.2);
+    outline: none;
+}
+
+.register-form textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.register-form .help-text {
+    font-size: 0.85rem;
+    color: var(--color-gray);
+    margin-top: 5px;
+}
+
+.register-form .checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.register-form .checkbox-item {
+    display: flex;
+    align-items: center;
+    background-color: #f8f8f8;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.register-form .checkbox-item:hover {
+    background-color: #f0f0f0;
+}
+
+.register-form .checkbox-item input {
+    width: auto;
+    margin-right: 8px;
+}
+
+.register-nav {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 30px;
+}
+
+.register-nav .btn-back {
+    background-color: transparent;
+    color: var(--color-gray);
+    border: 1px solid #e0e0e0;
+}
+
+.register-nav .btn-back:hover {
+    background-color: #f8f8f8;
+    color: var(--color-dark);
+}
+
+.register-nav .btn-next {
+    background-color: var(--color-secondary);
+    color: var(--color-light);
+}
+
+.register-nav .btn-next:hover {
+    background-color: #d99b2e;
+}
+
+.register-success {
+    text-align: center;
+    padding: 30px;
+}
+
+.register-success .icon {
+    font-size: 4rem;
+    color: #38a169;
+    margin-bottom: 20px;
+}
+
+.register-success h3 {
+    color: var(--color-primary);
+    margin-bottom: 15px;
+}
+
+.register-success p {
+    color: var(--color-gray);
+    margin-bottom: 25px;
+}
+
+@media (max-width: 768px) {
+    .register-body {
+        padding: 20px;
+    }
+    
+    .register-tab {
+        padding: 10px;
+        font-size: 0.9rem;
+    }
+}
