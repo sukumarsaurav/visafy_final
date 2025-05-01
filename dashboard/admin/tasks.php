@@ -6,374 +6,234 @@ $page_title = "Task Management";
 $page_specific_css = "assets/css/tasks.css";
 require_once 'includes/header.php';
 
-// Get filter parameters
-$status_filter = isset($_GET['status']) ? $_GET['status'] : 'all';
-$priority_filter = isset($_GET['priority']) ? $_GET['priority'] : 'all';
-$date_from = isset($_GET['date_from']) ? $_GET['date_from'] : '';
-$date_to = isset($_GET['date_to']) ? $_GET['date_to'] : '';
-$search = isset($_GET['search']) ? $_GET['search'] : '';
-
-// Prepare the base query
-$query = "SELECT t.*, 
-          CONCAT(u.first_name, ' ', u.last_name) as admin_name,
-          COUNT(DISTINCT ta.id) as assignment_count,
-          COUNT(DISTINCT tc.id) as comment_count,
-          COUNT(DISTINCT att.id) as attachment_count
+// Get all tasks - Using prepared statement
+$query = "SELECT t.id, t.name, t.description, t.priority, t.status as task_status, 
+          t.due_date, t.completed_at, t.created_at,
+          u.id as admin_id, u.first_name as admin_first_name, u.last_name as admin_last_name
           FROM tasks t
-          LEFT JOIN users u ON t.admin_id = u.id
-          LEFT JOIN task_assignments ta ON t.id = ta.task_id
-          LEFT JOIN task_comments tc ON t.id = tc.task_id
-          LEFT JOIN task_attachments att ON t.id = att.task_id
-          WHERE t.deleted_at IS NULL";
-
-// Add filters
-if ($status_filter !== 'all') {
-    $query .= " AND t.status = ?";
-}
-
-if ($priority_filter !== 'all') {
-    $query .= " AND t.priority = ?";
-}
-
-if (!empty($date_from)) {
-    $query .= " AND t.due_date >= ?";
-}
-
-if (!empty($date_to)) {
-    $query .= " AND t.due_date <= ?";
-}
-
-if (!empty($search)) {
-    $query .= " AND (t.name LIKE ? OR t.description LIKE ? OR CONCAT(u.first_name, ' ', u.last_name) LIKE ?)";
-}
-
-$query .= " GROUP BY t.id ORDER BY 
-            CASE 
-                WHEN t.status = 'pending' THEN 1
-                WHEN t.status = 'in_progress' THEN 2
-                WHEN t.status = 'completed' THEN 3
-                WHEN t.status = 'cancelled' THEN 4
-            END,
-            CASE 
-                WHEN t.priority = 'high' THEN 1
-                WHEN t.priority = 'normal' THEN 2
-                WHEN t.priority = 'low' THEN 3
-            END,
-            t.due_date ASC";
-
-// Prepare and execute the statement
+          JOIN users u ON t.admin_id = u.id
+          WHERE t.deleted_at IS NULL
+          ORDER BY t.due_date ASC, t.priority DESC";
 $stmt = $conn->prepare($query);
-
-// Bind parameters
-$paramTypes = '';
-$paramValues = [];
-
-if ($status_filter !== 'all') {
-    $paramTypes .= 's';
-    $paramValues[] = $status_filter;
-}
-
-if ($priority_filter !== 'all') {
-    $paramTypes .= 's';
-    $paramValues[] = $priority_filter;
-}
-
-if (!empty($date_from)) {
-    $paramTypes .= 's';
-    $paramValues[] = $date_from;
-}
-
-if (!empty($date_to)) {
-    $paramTypes .= 's';
-    $paramValues[] = $date_to;
-}
-
-if (!empty($search)) {
-    $paramTypes .= 'sss';
-    $paramValues[] = "%$search%";
-    $paramValues[] = "%$search%";
-    $paramValues[] = "%$search%";
-}
-
-if (!empty($paramTypes)) {
-    $stmt->bind_param($paramTypes, ...$paramValues);
-}
-
 $stmt->execute();
 $result = $stmt->get_result();
-$tasks = $result->fetch_all(MYSQLI_ASSOC);
+$tasks = [];
 
-// Get team members for assignment dropdown
-// Using a simpler query with explicit joins to avoid collation issues
-$team_members_query = "SELECT 
-                        tm.id, 
-                        CONCAT(u.first_name, ' ', u.last_name) as name, 
-                        u.email
-                      FROM team_members tm
-                      INNER JOIN users u ON tm.user_id = u.id
-                      WHERE u.status = 'active' AND u.deleted_at IS NULL
-                      ORDER BY u.first_name, u.last_name";
-                      
-// Attempt to execute the query
-$team_members_result = $conn->query($team_members_query);
+if ($result && $result->num_rows > 0) {
+    while ($row = $result->fetch_assoc()) {
+        // Add task to array
+        $tasks[$row['id']] = $row;
+        
+        // Initialize empty array for assignees
+        $tasks[$row['id']]['assignees'] = [];
+    }
+}
+$stmt->close();
 
-// Check for errors
-if (!$team_members_result) {
-    error_log("Team members query error: " . $conn->error);
+// Get assignees for each task
+if (!empty($tasks)) {
+    $task_ids = array_keys($tasks);
+    $task_ids_string = implode(',', $task_ids);
     
-    // Fallback query if the first one fails
-    $fallback_query = "SELECT 
-                        tm.id, 
-                        CONCAT('Member ', tm.id) as name, 
-                        '' as email
-                      FROM team_members tm
-                      WHERE tm.deleted_at IS NULL";
-    $team_members_result = $conn->query($fallback_query);
+    $assignee_query = "SELECT ta.task_id, ta.status as assignee_status, ta.started_at, ta.completed_at,
+                      u.id as user_id, u.first_name, u.last_name, u.email, u.profile_picture,
+                      tm.role, tm.custom_role_name
+                      FROM task_assignments ta
+                      JOIN users u ON ta.team_member_id = u.id
+                      JOIN team_members tm ON u.id = tm.user_id
+                      WHERE ta.task_id IN ($task_ids_string)
+                      ORDER BY u.first_name, u.last_name";
+    
+    $assignee_stmt = $conn->prepare($assignee_query);
+    $assignee_stmt->execute();
+    $assignee_result = $assignee_stmt->get_result();
+    
+    if ($assignee_result && $assignee_result->num_rows > 0) {
+        while ($row = $assignee_result->fetch_assoc()) {
+            $tasks[$row['task_id']]['assignees'][] = $row;
+        }
+    }
+    $assignee_stmt->close();
 }
 
-$team_members = $team_members_result->fetch_all(MYSQLI_ASSOC);
+// Get all team members for assignment
+$team_query = "SELECT tm.id, tm.role, tm.custom_role_name,
+               u.id as user_id, u.first_name, u.last_name, u.email, u.status, u.profile_picture
+               FROM team_members tm
+               JOIN users u ON tm.user_id = u.id
+               WHERE tm.deleted_at IS NULL AND u.status = 'active'
+               ORDER BY u.first_name, u.last_name";
+$team_stmt = $conn->prepare($team_query);
+$team_stmt->execute();
+$team_result = $team_stmt->get_result();
+$team_members = [];
+
+if ($team_result && $team_result->num_rows > 0) {
+    while ($row = $team_result->fetch_assoc()) {
+        $team_members[] = $row;
+    }
+}
+$team_stmt->close();
 
 // Handle task creation
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_task'])) {
-    $task_name = $_POST['task_name'];
-    $task_description = $_POST['task_description'];
-    $task_priority = $_POST['task_priority'];
-    $task_due_date = !empty($_POST['task_due_date']) ? $_POST['task_due_date'] : NULL;
-    $assigned_members = isset($_POST['assigned_members']) ? $_POST['assigned_members'] : [];
+    $name = isset($_POST['task_name']) ? trim($_POST['task_name']) : '';
+    $description = isset($_POST['description']) ? trim($_POST['description']) : '';
+    $priority = isset($_POST['priority']) ? $_POST['priority'] : 'normal';
+    $due_date = isset($_POST['due_date']) && !empty($_POST['due_date']) ? $_POST['due_date'] : null;
+    $assignees = isset($_POST['assignees']) ? $_POST['assignees'] : [];
     
     // Validate inputs
-    if (empty($task_name)) {
-        $error_message = "Task name is required";
-    } else {
-        // Start transaction
+    $errors = [];
+    if (empty($name)) {
+        $errors[] = "Task name is required";
+    }
+    
+    // Check if user is logged in - using $_SESSION["id"] instead of $_SESSION['user_id']
+    if (!isset($_SESSION["id"]) || empty($_SESSION["id"])) {
+        $errors[] = "You need to be logged in to create a task";
+    }
+    
+    if (empty($errors)) {
+        // Begin transaction
         $conn->begin_transaction();
         
         try {
-            // Insert task
-            $task_query = "INSERT INTO tasks (name, description, priority, admin_id, due_date) 
-                          VALUES (?, ?, ?, ?, ?)";
+            // Get admin ID from session - using $_SESSION["id"] instead of $_SESSION['user_id']
+            $admin_id = $_SESSION["id"];
             
-            $task_stmt = $conn->prepare($task_query);
-            $admin_id = $_SESSION['id'];
-            $task_stmt->bind_param('sssis', $task_name, $task_description, $task_priority, $admin_id, $task_due_date);
-            $task_stmt->execute();
+            // Insert task record
+            $task_insert = "INSERT INTO tasks (name, description, priority, admin_id, due_date) 
+                          VALUES (?, ?, ?, ?, ?)";
+            $stmt = $conn->prepare($task_insert);
+            $stmt->bind_param('sssis', $name, $description, $priority, $admin_id, $due_date);
+            $stmt->execute();
             
             $task_id = $conn->insert_id;
+            $stmt->close();
             
-            // Assign team members
-            if (!empty($assigned_members)) {
-                // First, explicitly set charset for this transaction
-                $conn->query("SET NAMES utf8mb4 COLLATE utf8mb4_general_ci");
+            // Insert task assignments
+            if (!empty($assignees)) {
+                $assignment_insert = "INSERT INTO task_assignments (task_id, team_member_id) VALUES (?, ?)";
+                $stmt = $conn->prepare($assignment_insert);
                 
-                // Simple insert query without type casting
-                $assign_query = "INSERT INTO task_assignments (task_id, team_member_id) VALUES (?, ?)";
-                $assign_stmt = $conn->prepare($assign_query);
-                
-                foreach ($assigned_members as $member_id) {
-                    try {
-                        // Convert to integer to ensure type compatibility
-                        $task_id_int = (int)$task_id;
-                        $member_id_int = (int)$member_id;
-                        
-                        $assign_stmt->bind_param('ii', $task_id_int, $member_id_int);
-                        $assign_stmt->execute();
-                        
-                        if ($assign_stmt->affected_rows > 0) {
-                            // Log activity
-                            $activity_query = "INSERT INTO task_activity_logs 
-                                             (task_id, user_id, team_member_id, activity_type, description) 
-                                             VALUES (?, ?, ?, 'assigned', ?)";
-                            
-                            $description = "Assigned team member ID $member_id to the task";
-                            $activity_stmt = $conn->prepare($activity_query);
-                            $activity_stmt->bind_param('iiis', $task_id_int, $admin_id, $member_id_int, $description);
-                            $activity_stmt->execute();
-                        } else {
-                            // Log the error
-                            error_log("Failed to assign member $member_id to task $task_id. Error: " . $assign_stmt->error);
-                        }
-                    } catch (Exception $ex) {
-                        // Log the exception
-                        error_log("Exception assigning member $member_id to task $task_id. Error: " . $ex->getMessage());
-                    }
+                foreach ($assignees as $assignee_id) {
+                    $stmt->bind_param('ii', $task_id, $assignee_id);
+                    $stmt->execute();
+                    
+                    // Create activity log for assignment - use $_SESSION["id"] here too
+                    $log_insert = "INSERT INTO task_activity_logs (task_id, user_id, team_member_id, activity_type, description) 
+                                 VALUES (?, ?, ?, 'assigned', 'Task assigned to team member')";
+                    $log_stmt = $conn->prepare($log_insert);
+                    $log_stmt->bind_param('iii', $task_id, $_SESSION["id"], $assignee_id);
+                    $log_stmt->execute();
+                    $log_stmt->close();
+                    
+                    // Create notification for assignee - use $_SESSION["id"] here too
+                    $notif_insert = "INSERT INTO notifications (user_id, related_user_id, notification_type, title, content, related_to_type, related_to_id, is_actionable, action_url) 
+                                   VALUES (?, ?, 'task_assigned', 'New Task Assignment', ?, 'task', ?, 1, ?)";
+                    $notif_content = "You have been assigned to task: " . $name;
+                    $action_url = "/dashboard/admin/task_detail.php?id=" . $task_id;
+                    
+                    $notif_stmt = $conn->prepare($notif_insert);
+                    $notif_stmt->bind_param('iisss', $assignee_id, $_SESSION["id"], $notif_content, $task_id, $action_url);
+                    $notif_stmt->execute();
+                    $notif_stmt->close();
                 }
+                $stmt->close();
             }
             
-            // Log task creation
-            $activity_query = "INSERT INTO task_activity_logs 
-                             (task_id, user_id, activity_type, description) 
-                             VALUES (?, ?, 'created', ?)";
-            
-            $description = "Task created";
-            $activity_stmt = $conn->prepare($activity_query);
-            $activity_stmt->bind_param('iis', $task_id, $admin_id, $description);
-            $activity_stmt->execute();
+            // Create activity log for task creation - use $_SESSION["id"] here too
+            $log_insert = "INSERT INTO task_activity_logs (task_id, user_id, activity_type, description) 
+                         VALUES (?, ?, 'created', 'Task created')";
+            $log_stmt = $conn->prepare($log_insert);
+            $log_stmt->bind_param('ii', $task_id, $_SESSION["id"]);
+            $log_stmt->execute();
+            $log_stmt->close();
             
             // Commit transaction
             $conn->commit();
             
             $success_message = "Task created successfully";
-            
-            // Refresh task data
-            header("Location: tasks.php");
+            header("Location: tasks.php?success=1");
             exit;
         } catch (Exception $e) {
             // Rollback transaction on error
             $conn->rollback();
             $error_message = "Error creating task: " . $e->getMessage();
         }
+    } else {
+        $error_message = implode("<br>", $errors);
     }
 }
 
 // Handle task status update
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_task_status'])) {
     $task_id = $_POST['task_id'];
     $new_status = $_POST['new_status'];
     
-    $update_query = "UPDATE tasks SET status = ?, 
-                    completed_at = " . ($new_status === 'completed' ? 'NOW()' : 'NULL') . " 
-                    WHERE id = ?";
-    $update_stmt = $conn->prepare($update_query);
-    $update_stmt->bind_param('si', $new_status, $task_id);
+    // Update task status
+    $update_query = "UPDATE tasks SET status = ?, completed_at = ? WHERE id = ?";
+    $completed_at = ($new_status === 'completed') ? date('Y-m-d H:i:s') : null;
     
-    if ($update_stmt->execute()) {
-        // Log activity
-        $activity_query = "INSERT INTO task_activity_logs 
-                        (task_id, user_id, activity_type, description) 
-                        VALUES (?, ?, 'status_changed', ?)";
+    $stmt = $conn->prepare($update_query);
+    $stmt->bind_param('ssi', $new_status, $completed_at, $task_id);
+    
+    if ($stmt->execute()) {
+        // Create activity log
+        $log_insert = "INSERT INTO task_activity_logs (task_id, user_id, activity_type, description) 
+                     VALUES (?, ?, 'status_changed', ?)";
+        $description = "Task status changed to " . $new_status;
         
-        $admin_id = $_SESSION['id'];
-        $description = "Task status changed to $new_status";
-        $activity_stmt = $conn->prepare($activity_query);
-        $activity_stmt->bind_param('iis', $task_id, $admin_id, $description);
-        $activity_stmt->execute();
+        $log_stmt = $conn->prepare($log_insert);
+        $log_stmt->bind_param('iis', $task_id, $_SESSION["id"], $description);
+        $log_stmt->execute();
+        $log_stmt->close();
         
         $success_message = "Task status updated successfully";
-        
-        // Refresh task data
-        header("Location: tasks.php?status=$status_filter");
+        $stmt->close();
+        header("Location: tasks.php?success=2");
         exit;
     } else {
-        $error_message = "Error updating status: " . $conn->error;
+        $error_message = "Error updating task status: " . $conn->error;
+        $stmt->close();
     }
 }
 
-// Handle task assignment update
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_assignment'])) {
+// Handle task deletion
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_task'])) {
     $task_id = $_POST['task_id'];
-    $assigned_members = isset($_POST['assigned_members']) ? $_POST['assigned_members'] : [];
     
-    // Start transaction
-    $conn->begin_transaction();
+    // Soft delete the task
+    $delete_query = "UPDATE tasks SET deleted_at = NOW() WHERE id = ?";
+    $stmt = $conn->prepare($delete_query);
+    $stmt->bind_param('i', $task_id);
     
-    try {
-        // Get current assignments
-        $current_query = "SELECT team_member_id FROM task_assignments WHERE task_id = ?";
-        $current_stmt = $conn->prepare($current_query);
-        $current_stmt->bind_param('i', $task_id);
-        $current_stmt->execute();
-        $current_result = $current_stmt->get_result();
-        
-        $current_assignments = [];
-        while ($row = $current_result->fetch_assoc()) {
-            $current_assignments[] = $row['team_member_id'];
-        }
-        
-        // Determine members to add and remove
-        $to_add = array_diff($assigned_members, $current_assignments);
-        $to_remove = array_diff($current_assignments, $assigned_members);
-        
-        // Add new assignments
-        if (!empty($to_add)) {
-            // Explicitly set charset for this operation
-            $conn->query("SET NAMES utf8mb4 COLLATE utf8mb4_general_ci");
-            
-            // Simple insert query without type casting
-            $add_query = "INSERT INTO task_assignments (task_id, team_member_id) VALUES (?, ?)";
-            $add_stmt = $conn->prepare($add_query);
-            
-            foreach ($to_add as $member_id) {
-                try {
-                    // Convert to integer to ensure type compatibility
-                    $task_id_int = (int)$task_id;
-                    $member_id_int = (int)$member_id;
-                    
-                    $add_stmt->bind_param('ii', $task_id_int, $member_id_int);
-                    $add_stmt->execute();
-                    
-                    if ($add_stmt->affected_rows > 0) {
-                        // Log activity
-                        $activity_query = "INSERT INTO task_activity_logs 
-                                         (task_id, user_id, team_member_id, activity_type, description) 
-                                         VALUES (?, ?, ?, 'assigned', ?)";
-                        
-                        $admin_id = $_SESSION['id'];
-                        $description = "Assigned team member ID $member_id to the task";
-                        $activity_stmt = $conn->prepare($activity_query);
-                        $activity_stmt->bind_param('iiis', $task_id_int, $admin_id, $member_id_int, $description);
-                        $activity_stmt->execute();
-                    } else {
-                        // Log the error
-                        error_log("Failed to assign member $member_id to task $task_id. Error: " . $add_stmt->error);
-                    }
-                } catch (Exception $ex) {
-                    // Log the exception
-                    error_log("Exception assigning member $member_id to task $task_id. Error: " . $ex->getMessage());
-                }
-            }
-        }
-        
-        // Remove assignments
-        if (!empty($to_remove)) {
-            // Explicitly set charset for this operation
-            $conn->query("SET NAMES utf8mb4 COLLATE utf8mb4_general_ci");
-            
-            $remove_query = "DELETE FROM task_assignments WHERE task_id = ? AND team_member_id = ?";
-            $remove_stmt = $conn->prepare($remove_query);
-            
-            foreach ($to_remove as $member_id) {
-                try {
-                    // Convert to integer to ensure type compatibility
-                    $task_id_int = (int)$task_id;
-                    $member_id_int = (int)$member_id;
-                    
-                    $remove_stmt->bind_param('ii', $task_id_int, $member_id_int);
-                    $remove_stmt->execute();
-                    
-                    if ($remove_stmt->affected_rows > 0) {
-                        // Log activity
-                        $activity_query = "INSERT INTO task_activity_logs 
-                                         (task_id, user_id, team_member_id, activity_type, description) 
-                                         VALUES (?, ?, ?, 'unassigned', ?)";
-                        
-                        $admin_id = $_SESSION['id'];
-                        $description = "Removed team member ID $member_id from the task";
-                        $activity_stmt = $conn->prepare($activity_query);
-                        $activity_stmt->bind_param('iiis', $task_id_int, $admin_id, $member_id_int, $description);
-                        $activity_stmt->execute();
-                    }
-                } catch (Exception $ex) {
-                    // Log the exception
-                    error_log("Exception removing member $member_id from task $task_id. Error: " . $ex->getMessage());
-                }
-            }
-        }
-        
-        // Commit transaction
-        $conn->commit();
-        
-        $success_message = "Task assignments updated successfully";
-        
-        // Refresh task data
-        header("Location: tasks.php?status=$status_filter");
+    if ($stmt->execute()) {
+        $success_message = "Task deleted successfully";
+        $stmt->close();
+        header("Location: tasks.php?success=3");
         exit;
-    } catch (Exception $e) {
-        // Rollback transaction on error
-        $conn->rollback();
-        $error_message = "Error updating assignments: " . $e->getMessage();
+    } else {
+        $error_message = "Error deleting task: " . $conn->error;
+        $stmt->close();
     }
 }
 
+// Handle success messages
+if (isset($_GET['success'])) {
+    switch ($_GET['success']) {
+        case 1:
+            $success_message = "Task created successfully";
+            break;
+        case 2:
+            $success_message = "Task status updated successfully";
+            break;
+        case 3:
+            $success_message = "Task deleted successfully";
+            break;
+    }
+}
 ?>
 
 <div class="content">
@@ -383,8 +243,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_assignment']))
             <p>Create, assign, and track tasks for your team members.</p>
         </div>
         <div>
-            <button type="button" class="btn primary-btn" id="addTaskBtn">
-                <i class="fas fa-plus"></i> Add Task
+            <button type="button" class="btn primary-btn" id="createTaskBtn">
+                <i class="fas fa-plus"></i> Create Task
             </button>
         </div>
     </div>
@@ -397,220 +257,182 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_assignment']))
         <div class="alert alert-success"><?php echo $success_message; ?></div>
     <?php endif; ?>
     
-    <!-- Filters Section -->
-    <div class="section">
-        <h2>Filter Tasks</h2>
-        <div class="filter-card">
-            <form action="tasks.php" method="GET" class="filter-form">
-                <div class="form-group">
-                    <label for="status">Status</label>
-                    <select name="status" id="status" class="form-control">
-                        <option value="all" <?php echo $status_filter === 'all' ? 'selected' : ''; ?>>All Statuses</option>
-                        <option value="pending" <?php echo $status_filter === 'pending' ? 'selected' : ''; ?>>Pending</option>
-                        <option value="in_progress" <?php echo $status_filter === 'in_progress' ? 'selected' : ''; ?>>In Progress</option>
-                        <option value="completed" <?php echo $status_filter === 'completed' ? 'selected' : ''; ?>>Completed</option>
-                        <option value="cancelled" <?php echo $status_filter === 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="priority">Priority</label>
-                    <select name="priority" id="priority" class="form-control">
-                        <option value="all" <?php echo $priority_filter === 'all' ? 'selected' : ''; ?>>All Priorities</option>
-                        <option value="high" <?php echo $priority_filter === 'high' ? 'selected' : ''; ?>>High</option>
-                        <option value="normal" <?php echo $priority_filter === 'normal' ? 'selected' : ''; ?>>Normal</option>
-                        <option value="low" <?php echo $priority_filter === 'low' ? 'selected' : ''; ?>>Low</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="date_from">Due Date From</label>
-                    <input type="date" name="date_from" id="date_from" class="form-control" value="<?php echo $date_from; ?>">
-                </div>
-                <div class="form-group">
-                    <label for="date_to">Due Date To</label>
-                    <input type="date" name="date_to" id="date_to" class="form-control" value="<?php echo $date_to; ?>">
-                </div>
-                <div class="form-group">
-                    <label for="search">Search</label>
-                    <input type="text" name="search" id="search" class="form-control" placeholder="Task name, description, creator..." value="<?php echo $search; ?>">
-                </div>
-                <div class="form-buttons">
-                    <button type="submit" class="btn filter-btn">
-                        <i class="fas fa-search"></i> Filter
-                    </button>
-                    <a href="tasks.php" class="btn reset-btn">
-                        <i class="fas fa-sync-alt"></i> Reset
-                    </a>
-                </div>
-            </form>
+    <!-- Task Filters -->
+    <div class="task-filters">
+        <div class="filter-group">
+            <label for="priority-filter">Priority:</label>
+            <select id="priority-filter" class="filter-control">
+                <option value="all">All Priorities</option>
+                <option value="high">High</option>
+                <option value="normal">Normal</option>
+                <option value="low">Low</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="status-filter">Status:</label>
+            <select id="status-filter" class="filter-control">
+                <option value="all">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="due-date-filter">Due Date:</label>
+            <select id="due-date-filter" class="filter-control">
+                <option value="all">All Dates</option>
+                <option value="today">Today</option>
+                <option value="tomorrow">Tomorrow</option>
+                <option value="this_week">This Week</option>
+                <option value="next_week">Next Week</option>
+                <option value="overdue">Overdue</option>
+            </select>
         </div>
     </div>
     
-
-    
-    <!-- Tasks Section -->
-    <div class="section">
-        <h2>Tasks</h2>
-        <div class="table-responsive">
-            <table class="data-table">
+    <!-- Tasks Table Section -->
+    <div class="tasks-table-container">
+        <?php if (empty($tasks)): ?>
+            <div class="empty-state">
+                <i class="fas fa-tasks"></i>
+                <p>No tasks yet. Create a task to get started!</p>
+            </div>
+        <?php else: ?>
+            <table class="tasks-table">
                 <thead>
                     <tr>
-                        <th>Task Name</th>
+                        <th>Task</th>
+                        <th>Assignees</th>
                         <th>Priority</th>
                         <th>Status</th>
                         <th>Due Date</th>
-                        <th>Assignees</th>
-                        <th>Comments</th>
-                        <th>Files</th>
-                        <th>Created By</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (count($tasks) > 0): ?>
-                        <?php foreach ($tasks as $task): ?>
-                            <tr class="task-row status-<?php echo $task['status']; ?> priority-<?php echo $task['priority']; ?>">
-                                <td><?php echo htmlspecialchars($task['name']); ?></td>
-                                <td>
-                                    <span class="badge priority-<?php echo $task['priority']; ?>">
-                                        <?php echo ucfirst($task['priority']); ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <span class="badge <?php echo $task['status']; ?>">
-                                        <?php echo str_replace('_', ' ', ucfirst($task['status'])); ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <?php if ($task['due_date']): ?>
-                                        <?php 
-                                            $due_date = new DateTime($task['due_date']);
-                                            $now = new DateTime();
-                                            $interval = $now->diff($due_date);
-                                            $is_overdue = $due_date < $now && $task['status'] !== 'completed' && $task['status'] !== 'cancelled';
-                                        ?>
-                                        <span class="<?php echo $is_overdue ? 'overdue' : ''; ?>">
-                                            <?php echo date('M d, Y', strtotime($task['due_date'])); ?>
-                                            <?php if ($is_overdue): ?>
-                                                <br><span class="overdue-tag">Overdue</span>
-                                            <?php endif; ?>
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="badge no-date">No Due Date</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
+                    <?php foreach ($tasks as $task): ?>
+                        <tr class="task-row" 
+                            data-priority="<?php echo $task['priority']; ?>" 
+                            data-status="<?php echo $task['task_status']; ?>"
+                            data-due-date="<?php echo $task['due_date']; ?>">
+                            <td class="task-name-cell">
+                                <a href="task_detail.php?id=<?php echo $task['id']; ?>" class="task-name">
+                                    <?php echo htmlspecialchars($task['name']); ?>
+                                </a>
+                                <div class="task-description">
+                                    <?php echo !empty($task['description']) ? substr(htmlspecialchars($task['description']), 0, 80) . (strlen($task['description']) > 80 ? '...' : '') : ''; ?>
+                                </div>
+                            </td>
+                            <td class="assignees-cell">
+                                <?php if (empty($task['assignees'])): ?>
+                                    <span class="no-assignees">Not assigned</span>
+                                <?php else: ?>
+                                    <div class="assignee-avatars">
+                                        <?php foreach (array_slice($task['assignees'], 0, 3) as $index => $assignee): ?>
+                                            <div class="assignee-avatar" title="<?php echo htmlspecialchars($assignee['first_name'] . ' ' . $assignee['last_name']); ?>">
+                                                <?php if (!empty($assignee['profile_picture']) && file_exists('../../uploads/profiles/' . $assignee['profile_picture'])): ?>
+                                                    <img src="../../uploads/profiles/<?php echo $assignee['profile_picture']; ?>" alt="Profile picture">
+                                                <?php else: ?>
+                                                    <div class="initials">
+                                                        <?php echo substr($assignee['first_name'], 0, 1) . substr($assignee['last_name'], 0, 1); ?>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php endforeach; ?>
+                                        
+                                        <?php if (count($task['assignees']) > 3): ?>
+                                            <div class="assignee-avatar more-assignees">
+                                                <span>+<?php echo count($task['assignees']) - 3; ?></span>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php $priority_class = 'priority-badge ' . $task['priority']; ?>
+                                <span class="<?php echo $priority_class; ?>">
+                                    <?php echo ucfirst($task['priority']); ?>
+                                </span>
+                            </td>
+                            <td>
+                                <?php $status_class = 'status-badge ' . $task['task_status']; ?>
+                                <span class="<?php echo $status_class; ?>">
                                     <?php 
-                                        // Get assignee count
-                                        $assignee_query = "SELECT COUNT(*) as count FROM task_assignments WHERE task_id = ?";
-                                        $assignee_stmt = $conn->prepare($assignee_query);
-                                        $assignee_stmt->bind_param('i', $task['id']);
-                                        $assignee_stmt->execute();
-                                        $assignee_count = $assignee_stmt->get_result()->fetch_assoc()['count'];
+                                        $status_display = str_replace('_', ' ', $task['task_status']);
+                                        echo ucwords($status_display);
                                     ?>
-                                    <span class="badge count-badge"><?php echo $assignee_count; ?></span>
-                                </td>
-                                <td>
-                                    <span class="badge count-badge"><?php echo $task['comment_count']; ?></span>
-                                </td>
-                                <td>
-                                    <span class="badge count-badge"><?php echo $task['attachment_count']; ?></span>
-                                </td>
-                                <td><?php echo htmlspecialchars($task['admin_name']); ?></td>
-                                <td class="actions">
-                                    <button class="action-btn view-btn" onclick="location.href='view_task.php?id=<?php echo $task['id']; ?>'">
-                                        <i class="fas fa-eye"></i>
+                                </span>
+                            </td>
+                            <td class="due-date-cell">
+                                <?php if (!empty($task['due_date'])): ?>
+                                    <?php 
+                                        $due_date = new DateTime($task['due_date']);
+                                        $today = new DateTime();
+                                        $interval = $today->diff($due_date);
+                                        $is_overdue = $due_date < $today && $task['task_status'] !== 'completed';
+                                        $date_class = $is_overdue ? 'overdue' : '';
+                                    ?>
+                                    <span class="due-date <?php echo $date_class; ?>">
+                                        <?php echo $due_date->format('M d, Y'); ?>
+                                        <?php if ($is_overdue): ?>
+                                            <span class="overdue-tag">Overdue</span>
+                                        <?php elseif ($interval->days == 0): ?>
+                                            <span class="today-tag">Today</span>
+                                        <?php elseif ($interval->days == 1 && $due_date > $today): ?>
+                                            <span class="tomorrow-tag">Tomorrow</span>
+                                        <?php endif; ?>
+                                    </span>
+                                <?php else: ?>
+                                    <span class="no-due-date">No due date</span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="actions-cell">
+                                <div class="dropdown">
+                                    <button class="btn-action dropdown-toggle">
+                                        <i class="fas fa-ellipsis-v"></i>
                                     </button>
-                                    <button class="action-btn assign-btn" data-task-id="<?php echo $task['id']; ?>"
-                                        data-task-name="<?php echo htmlspecialchars($task['name']); ?>">
-                                        <i class="fas fa-user-plus"></i>
-                                    </button>
-                                    <button class="action-btn status-btn" 
-                                        data-task-id="<?php echo $task['id']; ?>"
-                                        data-task-name="<?php echo htmlspecialchars($task['name']); ?>"
-                                        data-current-status="<?php echo $task['status']; ?>">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="action-btn comment-btn" onclick="location.href='view_task.php?id=<?php echo $task['id']; ?>#comments'">
-                                        <i class="fas fa-comment"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <tr>
-                            <td colspan="9" class="no-data">No tasks found</td>
+                                    <div class="dropdown-menu">
+                                        <a href="task_detail.php?id=<?php echo $task['id']; ?>" class="dropdown-item">
+                                            <i class="fas fa-eye"></i> View Details
+                                        </a>
+                                        <a href="edit_task.php?id=<?php echo $task['id']; ?>" class="dropdown-item">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </a>
+                                        <?php if ($task['task_status'] === 'pending'): ?>
+                                            <button type="button" class="dropdown-item" 
+                                                    onclick="updateTaskStatus(<?php echo $task['id']; ?>, 'in_progress')">
+                                                <i class="fas fa-play"></i> Start
+                                            </button>
+                                        <?php elseif ($task['task_status'] === 'in_progress'): ?>
+                                            <button type="button" class="dropdown-item" 
+                                                    onclick="updateTaskStatus(<?php echo $task['id']; ?>, 'completed')">
+                                                <i class="fas fa-check"></i> Complete
+                                            </button>
+                                        <?php elseif ($task['task_status'] === 'completed'): ?>
+                                            <button type="button" class="dropdown-item" 
+                                                    onclick="updateTaskStatus(<?php echo $task['id']; ?>, 'in_progress')">
+                                                <i class="fas fa-redo"></i> Reopen
+                                            </button>
+                                        <?php endif; ?>
+                                        <div class="dropdown-divider"></div>
+                                        <button type="button" class="dropdown-item text-danger" 
+                                                onclick="confirmDeleteTask(<?php echo $task['id']; ?>)">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </td>
                         </tr>
-                    <?php endif; ?>
+                    <?php endforeach; ?>
                 </tbody>
             </table>
-        </div>
+        <?php endif; ?>
     </div>
 </div>
 
-<!-- Modal for updating task status -->
-<div class="modal" id="status-modal">
-    <div class="modal-content">
-        <span class="close">&times;</span>
-        <h2>Update Task Status</h2>
-        <form id="update-status-form" method="POST" action="tasks.php">
-            <input type="hidden" name="task_id" id="status-task-id">
-            
-            <div class="form-group">
-                <label>Task Name: <span id="status-task-name"></span></label>
-            </div>
-            
-            <div class="form-group">
-                <label for="new_status">New Status*</label>
-                <select name="new_status" id="new_status" class="form-control" required>
-                    <option value="pending">Pending</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                </select>
-            </div>
-            
-            <div class="form-buttons">
-                <button type="button" class="btn cancel-btn" id="cancel-status">Cancel</button>
-                <button type="submit" name="update_status" class="btn submit-btn">Update Status</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Modal for assigning team members -->
-<div class="modal" id="assign-modal">
-    <div class="modal-content">
-        <span class="close">&times;</span>
-        <h2>Assign Team Members</h2>
-        <form id="assign-task-form" method="POST" action="tasks.php">
-            <input type="hidden" name="task_id" id="modal-task-id">
-            
-            <div class="form-group">
-                <label>Task Name: <span id="modal-task-name"></span></label>
-            </div>
-            
-            <div class="form-group">
-                <label for="assigned_members_modal">Select Team Members*</label>
-                <select name="assigned_members[]" id="assigned_members_modal" class="form-control" multiple required>
-                    <?php foreach ($team_members as $member): ?>
-                        <option value="<?php echo $member['id']; ?>">
-                            <?php echo htmlspecialchars($member['name']); ?> (<?php echo htmlspecialchars($member['email']); ?>)
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-                <small>Hold Ctrl/Cmd to select multiple team members</small>
-            </div>
-            
-            <div class="form-buttons">
-                <button type="button" class="btn cancel-btn" id="cancel-assign">Cancel</button>
-                <button type="submit" name="update_assignment" class="btn submit-btn">Update Assignments</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Add Task Modal -->
-<div class="modal" id="addTaskModal">
+<!-- Create Task Modal -->
+<div class="modal" id="createTaskModal">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
@@ -618,39 +440,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_assignment']))
                 <button type="button" class="close" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body">
-                <form action="tasks.php" method="POST" id="addTaskForm">
+                <form action="tasks.php" method="POST" id="createTaskForm">
                     <div class="form-group">
-                        <label for="modal_task_name">Task Name*</label>
-                        <input type="text" name="task_name" id="modal_task_name" class="form-control" required>
+                        <label for="task_name">Task Name*</label>
+                        <input type="text" name="task_name" id="task_name" class="form-control" required>
                     </div>
                     <div class="form-group">
-                        <label for="modal_task_description">Description</label>
-                        <textarea name="task_description" id="modal_task_description" class="form-control" rows="3"></textarea>
+                        <label for="description">Description</label>
+                        <textarea name="description" id="description" class="form-control" rows="3"></textarea>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="modal_task_priority">Priority</label>
-                            <select name="task_priority" id="modal_task_priority" class="form-control">
+                            <label for="priority">Priority*</label>
+                            <select name="priority" id="priority" class="form-control" required>
                                 <option value="normal">Normal</option>
                                 <option value="high">High</option>
                                 <option value="low">Low</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="modal_task_due_date">Due Date</label>
-                            <input type="datetime-local" name="task_due_date" id="modal_task_due_date" class="form-control">
+                            <label for="due_date">Due Date</label>
+                            <input type="date" name="due_date" id="due_date" class="form-control">
                         </div>
                     </div>
                     <div class="form-group">
-                        <label for="modal_assigned_members">Assign To Team Members</label>
-                        <select name="assigned_members[]" id="modal_assigned_members" class="form-control" multiple>
+                        <label for="assignees">Assign To</label>
+                        <select name="assignees[]" id="assignees" class="form-control" multiple>
                             <?php foreach ($team_members as $member): ?>
-                                <option value="<?php echo $member['id']; ?>">
-                                    <?php echo htmlspecialchars($member['name']); ?> (<?php echo htmlspecialchars($member['email']); ?>)
+                                <option value="<?php echo $member['user_id']; ?>">
+                                    <?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name'] . ' (' . 
+                                        ($member['role'] === 'Custom' ? $member['custom_role_name'] : $member['role']) . ')'); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        <small>Hold Ctrl/Cmd to select multiple team members</small>
+                        <small class="form-text text-muted">Hold Ctrl (or Cmd on Mac) to select multiple team members</small>
                     </div>
                     <div class="form-buttons">
                         <button type="button" class="btn cancel-btn" data-dismiss="modal">Cancel</button>
@@ -662,121 +485,671 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_assignment']))
     </div>
 </div>
 
+<!-- Hidden forms for actions -->
+<form id="statusUpdateForm" action="tasks.php" method="POST" style="display: none;">
+    <input type="hidden" name="task_id" id="status_task_id">
+    <input type="hidden" name="new_status" id="new_task_status">
+    <input type="hidden" name="update_task_status" value="1">
+</form>
+
+<form id="deleteTaskForm" action="tasks.php" method="POST" style="display: none;">
+    <input type="hidden" name="task_id" id="delete_task_id">
+    <input type="hidden" name="delete_task" value="1">
+</form>
+
+<style>
+:root {
+    --primary-color: #042167;
+    --secondary-color: #858796;
+    --success-color: #1cc88a;
+    --danger-color: #e74a3b;
+    --light-color: #f8f9fc;
+    --dark-color: #5a5c69;
+    --border-color: #e3e6f0;
+    --warning-color: #f6c23e;
+}
+
+.content {
+    padding: 20px;
+}
+
+.header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.header-container h1 {
+    margin: 0;
+    color: var(--primary-color);
+    font-size: 1.8rem;
+}
+
+.header-container p {
+    margin: 5px 0 0;
+    color: var(--secondary-color);
+}
+
+.primary-btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.primary-btn:hover {
+    background-color: #031c56;
+}
+
+.task-filters {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-group label {
+    font-weight: 500;
+    color: var(--dark-color);
+}
+
+.filter-control {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background-color: white;
+    color: var(--dark-color);
+    min-width: 120px;
+}
+
+.tasks-table-container {
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+}
+
+.tasks-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tasks-table th {
+    background-color: var(--light-color);
+    color: var(--primary-color);
+    font-weight: 600;
+    text-align: left;
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tasks-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--dark-color);
+}
+
+.tasks-table tbody tr:hover {
+    background-color: rgba(4, 33, 103, 0.03);
+}
+
+.tasks-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.task-name-cell {
+    width: 30%;
+}
+
+.task-name {
+    color: var(--primary-color);
+    font-weight: 600;
+    text-decoration: none;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.task-description {
+    font-size: 0.85rem;
+    color: var(--secondary-color);
+}
+
+.assignees-cell {
+    width: 15%;
+}
+
+.assignee-avatars {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.assignee-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    margin-right: -8px;
+    background-color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid white;
+    position: relative;
+    overflow: hidden;
+}
+
+.assignee-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.assignee-avatar.more-assignees {
+    background-color: var(--secondary-color);
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.no-assignees {
+    color: var(--secondary-color);
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+.priority-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.priority-badge.high {
+    background-color: rgba(231, 74, 59, 0.1);
+    color: var(--danger-color);
+}
+
+.priority-badge.normal {
+    background-color: rgba(78, 115, 223, 0.1);
+    color: #4e73df;
+}
+
+.priority-badge.low {
+    background-color: rgba(28, 200, 138, 0.1);
+    color: var(--success-color);
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-badge.pending {
+    background-color: rgba(246, 194, 62, 0.1);
+    color: var(--warning-color);
+}
+
+.status-badge.in_progress {
+    background-color: rgba(78, 115, 223, 0.1);
+    color: #4e73df;
+}
+
+.status-badge.completed {
+    background-color: rgba(28, 200, 138, 0.1);
+    color: var(--success-color);
+}
+
+.status-badge.cancelled {
+    background-color: rgba(133, 135, 150, 0.1);
+    color: var(--secondary-color);
+}
+
+.due-date-cell {
+    width: 15%;
+}
+
+.due-date {
+    display: block;
+    color: var(--dark-color);
+}
+
+.due-date.overdue {
+    color: var(--danger-color);
+}
+
+.overdue-tag, .today-tag, .tomorrow-tag {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 11px;
+    margin-left: 5px;
+}
+
+.overdue-tag {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+.today-tag {
+    background-color: var(--warning-color);
+    color: white;
+}
+
+.tomorrow-tag {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.no-due-date {
+    color: var(--secondary-color);
+    font-style: italic;
+    font-size: 0.85rem;
+}
+
+.actions-cell {
+    width: 10%;
+}
+
+.dropdown {
+    position: relative;
+    display: inline-
+}
+
+.btn-action {
+    background-color: transparent;
+    border: none;
+    color: var(--secondary-color);
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 4px;
+}
+
+.btn-action:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.dropdown-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    background-color: white;
+    min-width: 160px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    z-index: 1;
+}
+
+.dropdown-menu.show {
+    display: block;
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    color: var(--dark-color);
+    text-decoration: none;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.dropdown-item:hover {
+    background-color: var(--light-color);
+}
+
+.dropdown-item i {
+    width: 16px;
+    text-align: center;
+}
+
+.text-danger {
+    color: var(--danger-color) !important;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--secondary-color);
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.alert {
+    padding: 12px 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.alert-danger {
+    background-color: rgba(231, 74, 59, 0.1);
+    color: var(--danger-color);
+    border: 1px solid rgba(231, 74, 59, 0.2);
+}
+
+.alert-success {
+    background-color: rgba(28, 200, 138, 0.1);
+    color: var(--success-color);
+    border: 1px solid rgba(28, 200, 138, 0.2);
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    overflow: auto;
+}
+
+.modal-dialog {
+    margin: 80px auto;
+    max-width: 600px;
+}
+
+.modal-content {
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-title {
+    margin: 0;
+    color: var(--primary-color);
+    font-size: 1.4rem;
+}
+
+.close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--secondary-color);
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.form-row {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.form-group {
+    flex: 1;
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: var(--dark-color);
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(4, 33, 103, 0.1);
+}
+
+textarea.form-control {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.form-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.cancel-btn {
+    background-color: white;
+    color: var(--secondary-color);
+    border: 1px solid var(--border-color);
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.submit-btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.submit-btn:hover {
+    background-color: #031c56;
+}
+
+@media (max-width: 768px) {
+    .header-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .task-filters {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+    
+    .tasks-table {
+        display: block;
+        overflow-x: auto;
+    }
+}
+</style>
+
 <script>
 // Modal functionality
-const statusModal = document.getElementById('status-modal');
-const assignModal = document.getElementById('assign-modal');
-const addTaskModal = document.getElementById('addTaskModal');
-const closeButtons = document.querySelectorAll('.close');
-const cancelStatusBtn = document.getElementById('cancel-status');
-const cancelAssignBtn = document.getElementById('cancel-assign');
-
-// Open add task modal
-document.getElementById('addTaskBtn').addEventListener('click', function() {
-    addTaskModal.style.display = 'block';
+// Open modal when Create Task button is clicked
+document.getElementById('createTaskBtn').addEventListener('click', function() {
+    document.getElementById('createTaskModal').style.display = 'block';
 });
 
-// Open status modal
-document.querySelectorAll('.status-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const taskId = this.dataset.taskId;
-        const taskName = this.dataset.taskName;
-        const currentStatus = this.dataset.currentStatus;
-        
-        document.getElementById('status-task-id').value = taskId;
-        document.getElementById('status-task-name').textContent = taskName;
-        document.getElementById('new_status').value = currentStatus;
-        
-        statusModal.style.display = 'block';
-    });
-});
-
-// Open assign modal
-document.querySelectorAll('.assign-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const taskId = this.dataset.taskId;
-        const taskName = this.dataset.taskName;
-        
-        document.getElementById('modal-task-id').value = taskId;
-        document.getElementById('modal-task-name').textContent = taskName;
-        
-        // Fetch current assignments for this task
-        fetch('ajax/get_task_assignments.php?task_id=' + taskId)
-            .then(response => response.json())
-            .then(data => {
-                const selectElement = document.getElementById('assigned_members_modal');
-                
-                // Clear previous selections
-                Array.from(selectElement.options).forEach(option => {
-                    option.selected = false;
-                });
-                
-                // Set selected options based on current assignments
-                if (data.success) {
-                    data.assignments.forEach(assignmentId => {
-                        Array.from(selectElement.options).forEach(option => {
-                            if (option.value == assignmentId) {
-                                option.selected = true;
-                            }
-                        });
-                    });
-                }
-                
-                assignModal.style.display = 'block';
-            })
-            .catch(error => {
-                console.error('Error fetching assignments:', error);
-                // Still show the modal even if fetch fails
-                assignModal.style.display = 'block';
-            });
-    });
-});
-
-// Close buttons functionality
-closeButtons.forEach(btn => {
-    btn.addEventListener('click', function() {
-        this.closest('.modal').style.display = 'none';
-    });
-});
-
-// Cancel buttons
-if (cancelStatusBtn) {
-    cancelStatusBtn.addEventListener('click', function() {
-        statusModal.style.display = 'none';
-    });
-}
-
-if (cancelAssignBtn) {
-    cancelAssignBtn.addEventListener('click', function() {
-        assignModal.style.display = 'none';
-    });
-}
-
-// Close modal when clicking outside
-window.addEventListener('click', function(event) {
-    if (event.target === statusModal) {
-        statusModal.style.display = 'none';
-    }
-    if (event.target === assignModal) {
-        assignModal.style.display = 'none';
-    }
-    if (event.target === addTaskModal) {
-        addTaskModal.style.display = 'none';
-    }
-});
-
-
-
-// Close modal when clicking dismiss buttons
+// Close modal when close button is clicked
 document.querySelectorAll('[data-dismiss="modal"]').forEach(function(element) {
     element.addEventListener('click', function() {
-        this.closest('.modal').style.display = 'none';
+        document.getElementById('createTaskModal').style.display = 'none';
     });
 });
+
+// Close modal when clicking outside of it
+window.addEventListener('click', function(event) {
+    const modal = document.getElementById('createTaskModal');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+});
+
+// Dropdown menus for task actions
+document.querySelectorAll('.dropdown-toggle').forEach(function(button) {
+    button.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const menu = this.nextElementSibling;
+        
+        // Close all other open dropdowns
+        document.querySelectorAll('.dropdown-menu.show').forEach(function(openMenu) {
+            if (openMenu !== menu) {
+                openMenu.classList.remove('show');
+            }
+        });
+        
+        // Toggle this dropdown
+        menu.classList.toggle('show');
+    });
+});
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function() {
+    document.querySelectorAll('.dropdown-menu.show').forEach(function(menu) {
+        menu.classList.remove('show');
+    });
+});
+
+// Prevent dropdown menu clicks from closing the dropdown
+document.querySelectorAll('.dropdown-menu').forEach(function(menu) {
+    menu.addEventListener('click', function(e) {
+        e.stopPropagation();
+    });
+});
+
+// Task filtering functionality
+function filterTasks() {
+    const priorityFilter = document.getElementById('priority-filter').value;
+    const statusFilter = document.getElementById('status-filter').value;
+    const dueDateFilter = document.getElementById('due-date-filter').value;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    document.querySelectorAll('.task-row').forEach(function(row) {
+        const priority = row.getAttribute('data-priority');
+        const status = row.getAttribute('data-status');
+        const dueDate = row.getAttribute('data-due-date');
+        
+        let showRow = true;
+        
+        // Priority filter
+        if (priorityFilter !== 'all' && priorityFilter !== priority) {
+            showRow = false;
+        }
+        
+        // Status filter
+        if (statusFilter !== 'all' && statusFilter !== status) {
+            showRow = false;
+        }
+        
+        // Due date filter
+        if (dueDateFilter !== 'all' && dueDate) {
+            const taskDueDate = new Date(dueDate);
+            taskDueDate.setHours(0, 0, 0, 0);
+            
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            
+            const nextWeekStart = new Date(today);
+            nextWeekStart.setDate(nextWeekStart.getDate() - nextWeekStart.getDay() + 7);
+            
+            const nextWeekEnd = new Date(nextWeekStart);
+            nextWeekEnd.setDate(nextWeekEnd.getDate() + 6);
+            
+            const thisWeekStart = new Date(today);
+            thisWeekStart.setDate(thisWeekStart.getDate() - thisWeekStart.getDay());
+            
+            const thisWeekEnd = new Date(thisWeekStart);
+            thisWeekEnd.setDate(thisWeekEnd.getDate() + 6);
+            
+            switch (dueDateFilter) {
+                case 'today':
+                    if (taskDueDate.getTime() !== today.getTime()) {
+                        showRow = false;
+                    }
+                    break;
+                case 'tomorrow':
+                    if (taskDueDate.getTime() !== tomorrow.getTime()) {
+                        showRow = false;
+                    }
+                    break;
+                case 'this_week':
+                    if (taskDueDate < thisWeekStart || taskDueDate > thisWeekEnd) {
+                        showRow = false;
+                    }
+                    break;
+                case 'next_week':
+                    if (taskDueDate < nextWeekStart || taskDueDate > nextWeekEnd) {
+                        showRow = false;
+                    }
+                    break;
+                case 'overdue':
+                    if (taskDueDate >= today || status === 'completed') {
+                        showRow = false;
+                    }
+                    break;
+            }
+        }
+        
+        row.style.display = showRow ? '' : 'none';
+    });
+}
+
+// Add event listeners for filters
+document.getElementById('priority-filter').addEventListener('change', filterTasks);
+document.getElementById('status-filter').addEventListener('change', filterTasks);
+document.getElementById('due-date-filter').addEventListener('change', filterTasks);
+
+// Function to update task status
+function updateTaskStatus(taskId, newStatus) {
+    document.getElementById('status_task_id').value = taskId;
+    document.getElementById('new_task_status').value = newStatus;
+    document.getElementById('statusUpdateForm').submit();
+}
+
+// Function to confirm task deletion
+function confirmDeleteTask(taskId) {
+    if (confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
+        document.getElementById('delete_task_id').value = taskId;
+        document.getElementById('deleteTaskForm').submit();
+    }
+}
 </script>
 
-<?php 
-require_once 'includes/footer.php'; 
-// Flush the output buffer and send content to browser
+<?php
+// End output buffering and send content to browser
 ob_end_flush();
 ?>
+
+<?php require_once 'includes/footer.php'; ?>
