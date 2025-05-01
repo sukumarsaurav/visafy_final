@@ -6,14 +6,16 @@ $page_title = "Team Management";
 $page_specific_css = "assets/css/team.css";
 require_once 'includes/header.php';
 
-// Get all team members
+// Get all team members - Updated to use prepared statement
 $query = "SELECT tm.id, tm.role, tm.custom_role_name, tm.permissions, tm.created_at, tm.phone,
           u.id as user_id, u.first_name, u.last_name, u.email, u.status, u.profile_picture, u.email_verified
           FROM team_members tm
           JOIN users u ON tm.user_id = u.id
           WHERE tm.deleted_at IS NULL
           ORDER BY u.first_name, u.last_name";
-$result = $conn->query($query);
+$stmt = $conn->prepare($query);
+$stmt->execute();
+$result = $stmt->get_result();
 $team_members = [];
 
 if ($result && $result->num_rows > 0) {
@@ -21,6 +23,7 @@ if ($result && $result->num_rows > 0) {
         $team_members[] = $row;
     }
 }
+$stmt->close();
 
 // Generate random invite token
 function generateInviteToken($length = 32) {
@@ -63,6 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['invite_member'])) {
     if ($check_result->num_rows > 0) {
         $errors[] = "Email already exists";
     }
+    $check_stmt->close();
     
     if (empty($errors)) {
         // Create invite token
@@ -81,12 +85,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['invite_member'])) {
             $stmt->execute();
             
             $user_id = $conn->insert_id;
+            $stmt->close();
             
             // Create team member record
             $member_insert = "INSERT INTO team_members (user_id, phone, role, custom_role_name) VALUES (?, ?, ?, ?)";
             $stmt = $conn->prepare($member_insert);
             $stmt->bind_param('isss', $user_id, $phone, $role, $custom_role_name);
             $stmt->execute();
+            $stmt->close();
             
             // Send invitation email
             $invite_link = "https://" . $_SERVER['HTTP_HOST'] . "/activate.php?token=" . $token;
@@ -145,10 +151,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['deactivate_member']))
     
     if ($stmt->execute()) {
         $success_message = "Team member deactivated successfully";
+        $stmt->close();
         header("Location: team.php?success=2");
         exit;
     } else {
         $error_message = "Error deactivating team member: " . $conn->error;
+        $stmt->close();
     }
 }
 
@@ -164,10 +172,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reactivate_member']))
     
     if ($stmt->execute()) {
         $success_message = "Team member reactivated successfully";
+        $stmt->close();
         header("Location: team.php?success=3");
         exit;
     } else {
         $error_message = "Error reactivating team member: " . $conn->error;
+        $stmt->close();
     }
 }
 
@@ -183,6 +193,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resend_invite'])) {
     $stmt->execute();
     $user_result = $stmt->get_result();
     $user = $user_result->fetch_assoc();
+    $stmt->close();
     
     if ($user) {
         // Create new token
@@ -195,6 +206,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resend_invite'])) {
         $stmt->bind_param('ssi', $token, $expires, $user_id);
         
         if ($stmt->execute()) {
+            $stmt->close();
             // Send invitation email
             $invite_link = "https://" . $_SERVER['HTTP_HOST'] . "/activate.php?token=" . $token;
             $subject = "Invitation to join the team at Visafy";
@@ -227,6 +239,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resend_invite'])) {
             exit;
         } else {
             $error_message = "Error resending invitation: " . $conn->error;
+            $stmt->close();
         }
     } else {
         $error_message = "User not found";
@@ -273,84 +286,85 @@ if (isset($_GET['success'])) {
         <div class="alert alert-success"><?php echo $success_message; ?></div>
     <?php endif; ?>
     
-    <!-- Team Members Section -->
-    <div class="section">
-        <h2>Team Members</h2>
+    <!-- Team Members Table Section -->
+    <div class="team-table-container">
         <?php if (empty($team_members)): ?>
             <div class="empty-state">
                 <i class="fas fa-users"></i>
                 <p>No team members yet. Invite someone to get started!</p>
             </div>
         <?php else: ?>
-            <div class="members-grid">
-                <?php foreach ($team_members as $member): ?>
-                    <div class="member-card <?php echo $member['status'] === 'active' ? 'active' : 'inactive'; ?>">
-                        <div class="member-status">
-                            <?php if ($member['status'] === 'active'): ?>
-                                <span class="status-indicator active" title="Active"></span>
-                            <?php else: ?>
-                                <span class="status-indicator inactive" title="Inactive"></span>
-                            <?php endif; ?>
-                        </div>
-                        <div class="member-photo">
-                            <?php if (!empty($member['profile_picture']) && file_exists('../../uploads/profiles/' . $member['profile_picture'])): ?>
-                                <img src="../../uploads/profiles/<?php echo $member['profile_picture']; ?>" alt="Profile picture">
-                            <?php else: ?>
-                                <div class="member-initials">
-                                    <?php echo substr($member['first_name'], 0, 1) . substr($member['last_name'], 0, 1); ?>
+            <table class="team-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Role</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($team_members as $member): ?>
+                        <tr>
+                            <td class="name-cell">
+                                <div class="member-avatar">
+                                    <?php if (!empty($member['profile_picture']) && file_exists('../../uploads/profiles/' . $member['profile_picture'])): ?>
+                                        <img src="../../uploads/profiles/<?php echo $member['profile_picture']; ?>" alt="Profile picture">
+                                    <?php else: ?>
+                                        <div class="initials">
+                                            <?php echo substr($member['first_name'], 0, 1) . substr($member['last_name'], 0, 1); ?>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
-                            <?php endif; ?>
-                        </div>
-                        <div class="member-details">
-                            <h3><?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?></h3>
-                            <p class="member-role">
+                                <?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?>
+                            </td>
+                            <td>
                                 <?php echo $member['role'] === 'Custom' ? htmlspecialchars($member['custom_role_name']) : htmlspecialchars($member['role']); ?>
-                            </p>
-                            <p class="member-email"><?php echo htmlspecialchars($member['email']); ?></p>
-                            <?php if (!empty($member['phone'])): ?>
-                                <p class="member-phone"><i class="fas fa-phone"></i> <?php echo htmlspecialchars($member['phone']); ?></p>
-                            <?php endif; ?>
-                            
-                            <?php if (!$member['email_verified']): ?>
-                                <p class="member-pending">Pending activation</p>
-                            <?php endif; ?>
-                        </div>
-                        <div class="member-actions">
-                            <?php if ($member['status'] === 'active'): ?>
-                                <form action="team.php" method="POST" class="action-form">
-                                    <input type="hidden" name="member_id" value="<?php echo $member['id']; ?>">
-                                    <input type="hidden" name="user_id" value="<?php echo $member['user_id']; ?>">
-                                    <button type="submit" name="deactivate_member" class="action-btn danger-btn" onclick="return confirm('Are you sure you want to deactivate this team member?')">
+                            </td>
+                            <td>
+                                <?php echo htmlspecialchars($member['email']); ?>
+                                <?php if (!$member['email_verified']): ?>
+                                    <span class="pending-badge" title="Pending activation"><i class="fas fa-clock"></i></span>
+                                <?php endif; ?>
+                            </td>
+                            <td><?php echo !empty($member['phone']) ? htmlspecialchars($member['phone']) : '-'; ?></td>
+                            <td>
+                                <?php if ($member['status'] === 'active'): ?>
+                                    <span class="status-badge active"><i class="fas fa-circle"></i> Active</span>
+                                <?php else: ?>
+                                    <span class="status-badge inactive"><i class="fas fa-circle"></i> Inactive</span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="actions-cell">
+                                <?php if ($member['status'] === 'active'): ?>
+                                    <button type="button" class="btn-action btn-deactivate" 
+                                            onclick="confirmAction('deactivate', <?php echo $member['id']; ?>, <?php echo $member['user_id']; ?>)">
                                         <i class="fas fa-user-slash"></i> Deactivate
                                     </button>
-                                </form>
-                            <?php else: ?>
-                                <form action="team.php" method="POST" class="action-form">
-                                    <input type="hidden" name="member_id" value="<?php echo $member['id']; ?>">
-                                    <input type="hidden" name="user_id" value="<?php echo $member['user_id']; ?>">
-                                    <button type="submit" name="reactivate_member" class="action-btn success-btn">
+                                <?php else: ?>
+                                    <button type="button" class="btn-action btn-activate" 
+                                            onclick="confirmAction('activate', <?php echo $member['id']; ?>, <?php echo $member['user_id']; ?>)">
                                         <i class="fas fa-user-check"></i> Activate
                                     </button>
-                                </form>
-                            <?php endif; ?>
-                            
-                            <?php if (!$member['email_verified']): ?>
-                                <form action="team.php" method="POST" class="action-form">
-                                    <input type="hidden" name="member_id" value="<?php echo $member['id']; ?>">
-                                    <input type="hidden" name="user_id" value="<?php echo $member['user_id']; ?>">
-                                    <button type="submit" name="resend_invite" class="action-btn primary-btn">
-                                        <i class="fas fa-paper-plane"></i> Resend Invite
+                                <?php endif; ?>
+                                
+                                <?php if (!$member['email_verified']): ?>
+                                    <button type="button" class="btn-action btn-resend" 
+                                            onclick="confirmAction('resend', <?php echo $member['id']; ?>, <?php echo $member['user_id']; ?>)">
+                                        <i class="fas fa-paper-plane"></i> Resend
                                     </button>
-                                </form>
-                            <?php endif; ?>
-                            
-                            <a href="edit_member.php?id=<?php echo $member['id']; ?>" class="action-btn edit-btn">
-                                <i class="fas fa-edit"></i> Edit
-                            </a>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            </div>
+                                <?php endif; ?>
+                                
+                                <a href="edit_member.php?id=<?php echo $member['id']; ?>" class="btn-action btn-edit">
+                                    <i class="fas fa-edit"></i> Edit
+                                </a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
         <?php endif; ?>
     </div>
 </div>
@@ -412,12 +426,390 @@ if (isset($_GET['success'])) {
     </div>
 </div>
 
-<style>
+<!-- Hidden forms for actions -->
+<form id="deactivateForm" action="team.php" method="POST" style="display: none;">
+    <input type="hidden" name="member_id" id="deactivate_member_id">
+    <input type="hidden" name="user_id" id="deactivate_user_id">
+    <input type="hidden" name="deactivate_member" value="1">
+</form>
 
+<form id="activateForm" action="team.php" method="POST" style="display: none;">
+    <input type="hidden" name="member_id" id="activate_member_id">
+    <input type="hidden" name="user_id" id="activate_user_id">
+    <input type="hidden" name="reactivate_member" value="1">
+</form>
+
+<form id="resendForm" action="team.php" method="POST" style="display: none;">
+    <input type="hidden" name="member_id" id="resend_member_id">
+    <input type="hidden" name="user_id" id="resend_user_id">
+    <input type="hidden" name="resend_invite" value="1">
+</form>
+
+<style>
+:root {
+    --primary-color: #042167;
+    --secondary-color: #858796;
+    --success-color: #1cc88a;
+    --danger-color: #e74a3b;
+    --light-color: #f8f9fc;
+    --dark-color: #5a5c69;
+    --border-color: #e3e6f0;
+}
+
+.content {
+    padding: 20px;
+}
+
+.header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.header-container h1 {
+    margin: 0;
+    color: var(--primary-color);
+    font-size: 1.8rem;
+}
+
+.header-container p {
+    margin: 5px 0 0;
+    color: var(--secondary-color);
+}
+
+.primary-btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.primary-btn:hover {
+    background-color: #031c56;
+}
+
+.team-table-container {
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+}
+
+.team-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.team-table th {
+    background-color: var(--light-color);
+    color: var(--primary-color);
+    font-weight: 600;
+    text-align: left;
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.team-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--dark-color);
+}
+
+.team-table tbody tr:hover {
+    background-color: rgba(4, 33, 103, 0.03);
+}
+
+.team-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.name-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.member-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    overflow: hidden;
+    background-color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.member-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.initials {
+    color: white;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-badge.active {
+    background-color: rgba(28, 200, 138, 0.1);
+    color: var(--success-color);
+}
+
+.status-badge.inactive {
+    background-color: rgba(231, 74, 59, 0.1);
+    color: var(--danger-color);
+}
+
+.status-badge i {
+    font-size: 8px;
+}
+
+.pending-badge {
+    display: inline-flex;
+    margin-left: 5px;
+    color: #f6c23e;
+}
+
+.actions-cell {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.btn-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    color: white;
+}
+
+.btn-deactivate {
+    background-color: var(--danger-color);
+}
+
+.btn-deactivate:hover {
+    background-color: #d44235;
+}
+
+.btn-activate {
+    background-color: var(--success-color);
+}
+
+.btn-activate:hover {
+    background-color: #18b07b;
+}
+
+.btn-resend {
+    background-color: var(--primary-color);
+}
+
+.btn-resend:hover {
+    background-color: #031c56;
+}
+
+.btn-edit {
+    background-color: var(--secondary-color);
+}
+
+.btn-edit:hover {
+    background-color: #767a8a;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--secondary-color);
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.alert {
+    padding: 12px 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.alert-danger {
+    background-color: rgba(231, 74, 59, 0.1);
+    color: var(--danger-color);
+    border: 1px solid rgba(231, 74, 59, 0.2);
+}
+
+.alert-success {
+    background-color: rgba(28, 200, 138, 0.1);
+    color: var(--success-color);
+    border: 1px solid rgba(28, 200, 138, 0.2);
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    overflow: auto;
+}
+
+.modal-dialog {
+    margin: 80px auto;
+    max-width: 500px;
+}
+
+.modal-content {
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-title {
+    margin: 0;
+    color: var(--primary-color);
+    font-size: 1.4rem;
+}
+
+.close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--secondary-color);
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.form-row {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.form-group {
+    flex: 1;
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: var(--dark-color);
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(4, 33, 103, 0.1);
+}
+
+.form-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.cancel-btn {
+    background-color: white;
+    color: var(--secondary-color);
+    border: 1px solid var(--border-color);
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.submit-btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.submit-btn:hover {
+    background-color: #031c56;
+}
+
+@media (max-width: 768px) {
+    .header-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+    
+    .team-table {
+        display: block;
+        overflow-x: auto;
+    }
+    
+    .actions-cell {
+        flex-direction: column;
+    }
+    
+    .btn-action {
+        width: 100%;
+        justify-content: center;
+    }
+}
 </style>
 
 <script>
-
 // Modal functionality
 document.getElementById('modal_role').addEventListener('change', function() {
     const customRoleGroup = document.getElementById('modal_custom_role_group');
@@ -451,6 +843,31 @@ window.addEventListener('click', function(event) {
         modal.style.display = 'none';
     }
 });
+
+// Function to handle action confirmations (deactivate, activate, resend)
+function confirmAction(action, memberId, userId) {
+    switch(action) {
+        case 'deactivate':
+            if (confirm('Are you sure you want to deactivate this team member?')) {
+                document.getElementById('deactivate_member_id').value = memberId;
+                document.getElementById('deactivate_user_id').value = userId;
+                document.getElementById('deactivateForm').submit();
+            }
+            break;
+        case 'activate':
+            document.getElementById('activate_member_id').value = memberId;
+            document.getElementById('activate_user_id').value = userId;
+            document.getElementById('activateForm').submit();
+            break;
+        case 'resend':
+            if (confirm('Resend invitation email to this team member?')) {
+                document.getElementById('resend_member_id').value = memberId;
+                document.getElementById('resend_user_id').value = userId;
+                document.getElementById('resendForm').submit();
+            }
+            break;
+    }
+}
 </script>
 
 <?php
@@ -459,3 +876,4 @@ ob_end_flush();
 ?>
 
 <?php require_once 'includes/footer.php'; ?>
+
