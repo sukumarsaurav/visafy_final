@@ -2,10 +2,6 @@
 // Start output buffering to prevent 'headers already sent' errors
 ob_start();
 
-// Enable all error reporting for debugging
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
 // Set execution time to avoid PHP timing out
 ini_set('max_execution_time', 300); // 5 minutes
 
@@ -13,321 +9,41 @@ ini_set('max_execution_time', 300); // 5 minutes
 if (isset($conn)) {
     $conn->query("SET SESSION wait_timeout=600");
     $conn->query("SET SESSION interactive_timeout=600");
-    $conn->options(MYSQLI_OPT_CONNECT_TIMEOUT, 60);
-    $conn->options(MYSQLI_OPT_READ_TIMEOUT, 60);
-}
-
-// Custom function to log SQL errors
-function logSqlError($message, $query, $error) {
-    echo '<div class="sql-error" style="background-color: #ffebee; border: 1px solid #f44336; padding: 15px; margin: 15px 0; border-radius: 4px; color: #b71c1c;">';
-    echo '<h3 style="margin-top: 0;">SQL Error Detected</h3>';
-    echo '<p><strong>Message:</strong> ' . htmlspecialchars($message) . '</p>';
-    echo '<p><strong>Query:</strong> <pre>' . htmlspecialchars($query) . '</pre></p>';
-    echo '<p><strong>MySQL Error:</strong> ' . htmlspecialchars($error) . '</p>';
-    
-    // Try to detect collation issues
-    if (stripos($error, 'collation') !== false) {
-        echo '<p><strong>Collation Issue Detected!</strong> This might be due to tables or columns having different collations.</p>';
-        
-        // Extract tables from the query
-        preg_match_all('/FROM\s+([^\s,]+)|JOIN\s+([^\s,]+)/i', $query, $matches);
-        $tables = array_filter(array_merge($matches[1], $matches[2]));
-        
-        if (!empty($tables)) {
-            echo '<h4>Tables involved in this query:</h4>';
-            echo '<ul>';
-            foreach ($tables as $table) {
-                echo '<li>' . htmlspecialchars($table) . '</li>';
-                
-                // Get the table's collation
-                try {
-                    $tableInfoQuery = "SHOW TABLE STATUS LIKE '" . $GLOBALS['conn']->real_escape_string($table) . "'";
-                    $tableResult = $GLOBALS['conn']->query($tableInfoQuery);
-                    if ($tableResult && $row = $tableResult->fetch_assoc()) {
-                        echo '<ul>';
-                        echo '<li>Table Collation: ' . htmlspecialchars($row['Collation']) . '</li>';
-                        echo '</ul>';
-                    }
-                    
-                    // Get column collations
-                    $columnQuery = "SHOW FULL COLUMNS FROM " . $table;
-                    $columnResult = $GLOBALS['conn']->query($columnQuery);
-                    if ($columnResult && $columnResult->num_rows > 0) {
-                        echo '<ul>';
-                        echo '<li>Column Collations:';
-                        echo '<ul>';
-                        while ($column = $columnResult->fetch_assoc()) {
-                            if (isset($column['Collation']) && $column['Collation'] !== null) {
-                                echo '<li>' . htmlspecialchars($column['Field']) . ': ' . htmlspecialchars($column['Collation']) . '</li>';
-                            }
-                        }
-                        echo '</ul></li>';
-                        echo '</ul>';
-                    }
-                } catch (Exception $e) {
-                    echo '<ul><li>Error getting table info: ' . htmlspecialchars($e->getMessage()) . '</li></ul>';
-                }
-            }
-            echo '</ul>';
-        }
-    }
-    
-    echo '</div>';
-}
-
-// Function to analyze and report on collation issues across tables
-function analyzeCollations() {
-    global $conn;
-    
-    echo '<div class="collation-analysis" style="background-color: #e3f2fd; border: 1px solid #2196f3; padding: 15px; margin: 15px 0; border-radius: 4px; color: #0d47a1;">';
-    echo '<h3 style="margin-top: 0;">Database Collation Analysis</h3>';
-    
-    try {
-        // Get all tables
-        $tablesQuery = "SHOW TABLES";
-        $tablesResult = $conn->query($tablesQuery);
-        
-        if (!$tablesResult) {
-            throw new Exception("Failed to retrieve tables: " . $conn->error);
-        }
-        
-        // Store all collations to check for consistency
-        $tableCollations = [];
-        $columnCollations = [];
-        $mismatchedTables = [];
-        $mismatchedColumns = [];
-        
-        // Process each table
-        while ($tableRow = $tablesResult->fetch_row()) {
-            $tableName = $tableRow[0];
-            
-            // Get table collation
-            $tableInfoQuery = "SHOW TABLE STATUS LIKE '" . $conn->real_escape_string($tableName) . "'";
-            $tableInfoResult = $conn->query($tableInfoQuery);
-            
-            if (!$tableInfoResult) {
-                echo "<p>Error getting info for table {$tableName}: {$conn->error}</p>";
-                continue;
-            }
-            
-            $tableInfo = $tableInfoResult->fetch_assoc();
-            $tableCollation = $tableInfo['Collation'];
-            $tableCollations[$tableName] = $tableCollation;
-            
-            // Get column collations
-            $columnQuery = "SHOW FULL COLUMNS FROM `{$tableName}`";
-            $columnResult = $conn->query($columnQuery);
-            
-            if (!$columnResult) {
-                echo "<p>Error getting columns for table {$tableName}: {$conn->error}</p>";
-                continue;
-            }
-            
-            // Check each column's collation
-            while ($column = $columnResult->fetch_assoc()) {
-                if (isset($column['Collation']) && $column['Collation'] !== null) {
-                    $columnName = $column['Field'];
-                    $columnCollation = $column['Collation'];
-                    $columnCollations["{$tableName}.{$columnName}"] = $columnCollation;
-                    
-                    // Check if column collation differs from table collation
-                    if ($columnCollation !== $tableCollation && $columnCollation !== null) {
-                        $mismatchedColumns[] = [
-                            'table' => $tableName,
-                            'column' => $columnName,
-                            'table_collation' => $tableCollation,
-                            'column_collation' => $columnCollation
-                        ];
-                    }
-                }
-            }
-        }
-        
-        // Check for different table collations
-        $uniqueTableCollations = array_unique($tableCollations);
-        if (count($uniqueTableCollations) > 1) {
-            echo '<div style="margin-bottom: 15px;">';
-            echo '<p><strong>⚠️ Multiple table collations detected!</strong> This could cause collation conflicts in JOINs.</p>';
-            echo '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">';
-            echo '<tr style="background-color: #bbdefb;"><th style="text-align:left; padding: 8px; border: 1px solid #90caf9;">Table</th><th style="text-align:left; padding: 8px; border: 1px solid #90caf9;">Collation</th></tr>';
-            
-            foreach ($tableCollations as $table => $collation) {
-                $style = '';
-                if ($collation !== reset($uniqueTableCollations)) {
-                    $style = 'background-color: #ffccbc;';
-                }
-                echo "<tr style=\"{$style}\"><td style=\"text-align:left; padding: 8px; border: 1px solid #90caf9;\">{$table}</td><td style=\"text-align:left; padding: 8px; border: 1px solid #90caf9;\">{$collation}</td></tr>";
-            }
-            
-            echo '</table>';
-            echo '</div>';
-        } else {
-            echo '<p><strong>✅ All tables use the same collation:</strong> ' . reset($uniqueTableCollations) . '</p>';
-        }
-        
-        // Report on column collation mismatches
-        if (!empty($mismatchedColumns)) {
-            echo '<div style="margin-top: 15px;">';
-            echo '<p><strong>⚠️ Column collation mismatches detected!</strong> This could cause collation conflicts in JOINs and comparisons.</p>';
-            echo '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">';
-            echo '<tr style="background-color: #bbdefb;"><th style="text-align:left; padding: 8px; border: 1px solid #90caf9;">Table</th><th style="text-align:left; padding: 8px; border: 1px solid #90caf9;">Column</th><th style="text-align:left; padding: 8px; border: 1px solid #90caf9;">Table Collation</th><th style="text-align:left; padding: 8px; border: 1px solid #90caf9;">Column Collation</th></tr>';
-            
-            foreach ($mismatchedColumns as $mismatch) {
-                echo "<tr style=\"background-color: #ffccbc;\"><td style=\"text-align:left; padding: 8px; border: 1px solid #90caf9;\">{$mismatch['table']}</td><td style=\"text-align:left; padding: 8px; border: 1px solid #90caf9;\">{$mismatch['column']}</td><td style=\"text-align:left; padding: 8px; border: 1px solid #90caf9;\">{$mismatch['table_collation']}</td><td style=\"text-align:left; padding: 8px; border: 1px solid #90caf9;\">{$mismatch['column_collation']}</td></tr>";
-            }
-            
-            echo '</table>';
-            echo '</div>';
-        } else {
-            echo '<p><strong>✅ No column collation mismatches detected.</strong></p>';
-        }
-        
-        // Analyze the applications_view specifically
-        echo '<div style="margin-top: 15px;">';
-        echo '<h4 style="margin-top: 0;">Analysis of applications_view</h4>';
-        
-        $viewExistsQuery = "SHOW TABLES LIKE 'applications_view'";
-        $viewExistsResult = $conn->query($viewExistsQuery);
-        
-        if ($viewExistsResult && $viewExistsResult->num_rows > 0) {
-            echo '<p><strong>✅ The applications_view exists.</strong></p>';
-            
-            // Get the view definition
-            $viewDefQuery = "SHOW CREATE VIEW applications_view";
-            $viewDefResult = $conn->query($viewDefQuery);
-            
-            if ($viewDefResult && $viewDefResult->num_rows > 0) {
-                $viewDef = $viewDefResult->fetch_assoc();
-                if (isset($viewDef['Create View'])) {
-                    $createViewSQL = $viewDef['Create View'];
-                    
-                    // Extract tables used in the view
-                    preg_match_all('/FROM\s+([^\s,]+)|JOIN\s+([^\s,]+)/i', $createViewSQL, $matches);
-                    $viewTables = array_filter(array_merge($matches[1], $matches[2]));
-                    
-                    if (!empty($viewTables)) {
-                        echo '<p><strong>Tables used in the view:</strong></p>';
-                        echo '<ul>';
-                        
-                        $differentCollations = false;
-                        $firstCollation = null;
-                        
-                        foreach ($viewTables as $table) {
-                            // Clean up table name
-                            $table = trim($table, '`');
-                            
-                            if (isset($tableCollations[$table])) {
-                                echo "<li>{$table} - Collation: {$tableCollations[$table]}</li>";
-                                
-                                if ($firstCollation === null) {
-                                    $firstCollation = $tableCollations[$table];
-                                } elseif ($tableCollations[$table] !== $firstCollation) {
-                                    $differentCollations = true;
-                                }
-                            } else {
-                                echo "<li>{$table} - Table not found or no collation info available</li>";
-                            }
-                        }
-                        
-                        echo '</ul>';
-                        
-                        if ($differentCollations) {
-                            echo '<p style="color: #f44336;"><strong>⚠️ The view uses tables with different collations!</strong> This is likely causing your collation errors.</p>';
-                        } else {
-                            echo '<p><strong>✅ All tables in the view use the same collation.</strong></p>';
-                        }
-                    }
-                }
-            } else {
-                echo '<p>Unable to get view definition: ' . $conn->error . '</p>';
-            }
-        } else {
-            echo '<p style="color: #f44336;"><strong>⚠️ The applications_view does not exist!</strong> This will cause errors when trying to query it.</p>';
-        }
-        
-        echo '</div>';
-        
-    } catch (Exception $e) {
-        echo '<p>Error during collation analysis: ' . htmlspecialchars($e->getMessage()) . '</p>';
-    }
-    
-    echo '<p><strong>Recommendations:</strong></p>';
-    echo '<ol>';
-    echo '<li>Make sure all tables use the same collation (preferably utf8mb4_general_ci or utf8mb4_unicode_ci).</li>';
-    echo '<li>Fix any tables with different collations using: ALTER TABLE tablename CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;</li>';
-    echo '<li>Fix specific columns with: ALTER TABLE tablename MODIFY COLUMN columnname VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;</li>';
-    echo '<li>After fixing collations, recreate the applications_view.</li>';
-    echo '</ol>';
-    
-    echo '</div>';
 }
 
 $page_title = "Visa Applications";
 $page_specific_css = "assets/css/applications.css";
 require_once 'includes/header.php';
 
-// Run collation analysis if a special parameter is present 
-if (isset($_GET['analyze_collation'])) {
-    analyzeCollations();
-}
-
 // Get all applications with related information
-// First check if the applications_view exists and if it has a priority column
-$checkViewQuery = "SHOW COLUMNS FROM applications_view LIKE 'priority'";
-$priorityExists = false;
-
-try {
-    $checkResult = $conn->query($checkViewQuery);
-    $priorityExists = ($checkResult && $checkResult->num_rows > 0);
-    
-    if (!$priorityExists) {
-        // Log the issue
-        echo '<div class="alert alert-warning">Warning: The priority column is missing from applications_view. 
-              Please run the fix script: <a href="fix_database_timeouts.php">Fix Database Issues</a></div>';
-    }
-} catch (Exception $e) {
-    // The view might not exist
-    echo '<div class="alert alert-danger">Error: Could not check applications_view structure: ' . $e->getMessage() . '</div>';
-}
-
-// Adjust query based on whether priority column exists
-if ($priorityExists) {
-    $query = "SELECT av.*, 
-             (SELECT COUNT(DISTINCT ad.id) FROM application_documents ad WHERE ad.application_id = av.id) as document_count,
-             (SELECT COUNT(DISTINCT ac.id) FROM application_comments ac WHERE ac.application_id = av.id) as comment_count
-             FROM applications_view av 
-             ORDER BY 
-             CASE 
-                 WHEN av.priority = 'urgent' THEN 1
-                 WHEN av.priority = 'high' THEN 2
-                 WHEN av.priority = 'normal' THEN 3
-                 WHEN av.priority = 'low' THEN 4
-                 ELSE 5
-             END, 
-             av.created_at DESC";
-} else {
-    // Fallback query without using priority for sorting
-    $query = "SELECT av.*, 
-             (SELECT COUNT(DISTINCT ad.id) FROM application_documents ad WHERE ad.application_id = av.id) as document_count,
-             (SELECT COUNT(DISTINCT ac.id) FROM application_comments ac WHERE ac.application_id = av.id) as comment_count
-             FROM applications_view av 
-             ORDER BY av.created_at DESC";
-}
+$query = "SELECT av.*, 
+         (SELECT COUNT(DISTINCT ad.id) FROM application_documents ad WHERE ad.application_id = av.id) as document_count,
+         (SELECT COUNT(DISTINCT ac.id) FROM application_comments ac WHERE ac.application_id = av.id) as comment_count
+         FROM applications_view av 
+         ORDER BY 
+         CASE 
+             WHEN av.priority = 'urgent' THEN 1
+             WHEN av.priority = 'high' THEN 2
+             WHEN av.priority = 'normal' THEN 3
+             WHEN av.priority = 'low' THEN 4
+             ELSE 5
+         END, 
+         av.created_at DESC";
 
 $applications = [];
 try {
     $stmt = $conn->prepare($query);
     if (!$stmt) {
-        throw new Exception("Prepare failed: " . $conn->error);
+        throw new Exception("Error preparing query");
     }
     
     if (!$stmt->execute()) {
-        throw new Exception("Execute failed: " . $stmt->error);
+        throw new Exception("Error executing query");
     }
     
     $result = $stmt->get_result();
     if (!$result) {
-        throw new Exception("Get result failed: " . $stmt->error);
+        throw new Exception("Error getting result");
     }
     
     if ($result->num_rows > 0) {
@@ -337,7 +53,7 @@ try {
     }
     $stmt->close();
 } catch (Exception $e) {
-    logSqlError("Error fetching applications", $query, $e->getMessage());
+    $error_message = "Error fetching applications: " . $e->getMessage();
 }
 
 // Get all visa types for filter
@@ -346,27 +62,19 @@ $visas = [];
 
 try {
     $visa_stmt = $conn->prepare($visa_query);
-    if (!$visa_stmt) {
-        throw new Exception("Prepare failed: " . $conn->error);
-    }
-    
-    if (!$visa_stmt->execute()) {
-        throw new Exception("Execute failed: " . $visa_stmt->error);
-    }
-    
-    $visa_result = $visa_stmt->get_result();
-    if (!$visa_result) {
-        throw new Exception("Get result failed: " . $visa_stmt->error);
-    }
-    
-    if ($visa_result->num_rows > 0) {
-        while ($row = $visa_result->fetch_assoc()) {
-            $visas[] = $row;
+    if ($visa_stmt) {
+        $visa_stmt->execute();
+        $visa_result = $visa_stmt->get_result();
+        
+        if ($visa_result && $visa_result->num_rows > 0) {
+            while ($row = $visa_result->fetch_assoc()) {
+                $visas[] = $row;
+            }
         }
+        $visa_stmt->close();
     }
-    $visa_stmt->close();
 } catch (Exception $e) {
-    logSqlError("Error fetching visa types", $visa_query, $e->getMessage());
+    // Silently handle error
 }
 
 // Get all application statuses for filter
@@ -375,27 +83,19 @@ $statuses = [];
 
 try {
     $status_stmt = $conn->prepare($status_query);
-    if (!$status_stmt) {
-        throw new Exception("Prepare failed: " . $conn->error);
-    }
-    
-    if (!$status_stmt->execute()) {
-        throw new Exception("Execute failed: " . $status_stmt->error);
-    }
-    
-    $status_result = $status_stmt->get_result();
-    if (!$status_result) {
-        throw new Exception("Get result failed: " . $status_stmt->error);
-    }
-    
-    if ($status_result->num_rows > 0) {
-        while ($row = $status_result->fetch_assoc()) {
-            $statuses[] = $row;
+    if ($status_stmt) {
+        $status_stmt->execute();
+        $status_result = $status_stmt->get_result();
+        
+        if ($status_result && $status_result->num_rows > 0) {
+            while ($row = $status_result->fetch_assoc()) {
+                $statuses[] = $row;
+            }
         }
+        $status_stmt->close();
     }
-    $status_stmt->close();
 } catch (Exception $e) {
-    logSqlError("Error fetching application statuses", $status_query, $e->getMessage());
+    // Silently handle error
 }
 
 // Get all team members for assignment
@@ -407,27 +107,19 @@ $team_members = [];
 
 try {
     $team_stmt = $conn->prepare($team_query);
-    if (!$team_stmt) {
-        throw new Exception("Prepare failed: " . $conn->error);
-    }
-    
-    if (!$team_stmt->execute()) {
-        throw new Exception("Execute failed: " . $team_stmt->error);
-    }
-    
-    $team_result = $team_stmt->get_result();
-    if (!$team_result) {
-        throw new Exception("Get result failed: " . $team_stmt->error);
-    }
-    
-    if ($team_result->num_rows > 0) {
-        while ($row = $team_result->fetch_assoc()) {
-            $team_members[] = $row;
+    if ($team_stmt) {
+        $team_stmt->execute();
+        $team_result = $team_stmt->get_result();
+        
+        if ($team_result && $team_result->num_rows > 0) {
+            while ($row = $team_result->fetch_assoc()) {
+                $team_members[] = $row;
+            }
         }
+        $team_stmt->close();
     }
-    $team_stmt->close();
 } catch (Exception $e) {
-    logSqlError("Error fetching team members", $team_query, $e->getMessage());
+    // Silently handle error
 }
 
 // Handle application status update
@@ -443,28 +135,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
         // Update application status
         $update_query = "UPDATE applications SET status_id = ? WHERE id = ?";
         $stmt = $conn->prepare($update_query);
-        if (!$stmt) {
-            throw new Exception("Prepare failed: " . $conn->error);
-        }
-        
         $stmt->bind_param('ii', $new_status_id, $application_id);
-        if (!$stmt->execute()) {
-            throw new Exception("Execute failed: " . $stmt->error);
-        }
+        $stmt->execute();
         $stmt->close();
         
         // Add to status history
         $history_query = "INSERT INTO application_status_history (application_id, status_id, changed_by, notes) 
                           VALUES (?, ?, ?, ?)";
         $stmt = $conn->prepare($history_query);
-        if (!$stmt) {
-            throw new Exception("Prepare failed: " . $conn->error);
-        }
-        
         $stmt->bind_param('iiis', $application_id, $new_status_id, $user_id, $notes);
-        if (!$stmt->execute()) {
-            throw new Exception("Execute failed: " . $stmt->error);
-        }
+        $stmt->execute();
         $stmt->close();
         
         // Log the activity
@@ -480,15 +160,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
         $activity_query = "INSERT INTO application_activity_logs (application_id, user_id, activity_type, description, ip_address) 
                            VALUES (?, ?, 'status_changed', ?, ?)";
         $stmt = $conn->prepare($activity_query);
-        if (!$stmt) {
-            throw new Exception("Prepare failed: " . $conn->error);
-        }
-        
         $ip = $_SERVER['REMOTE_ADDR'];
         $stmt->bind_param('iiss', $application_id, $user_id, $description, $ip);
-        if (!$stmt->execute()) {
-            throw new Exception("Execute failed: " . $stmt->error);
-        }
+        $stmt->execute();
         $stmt->close();
         
         // Commit the transaction
@@ -500,9 +174,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     } catch (Exception $e) {
         // Rollback on error
         $conn->rollback();
-        logSqlError("Error updating application status", isset($update_query) ? $update_query : 
-                   (isset($history_query) ? $history_query : 
-                   (isset($activity_query) ? $activity_query : "Unknown query")), $e->getMessage());
         $error_message = "Error updating application status: " . $e->getMessage();
     }
 }
@@ -522,28 +193,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_application'])
                            SET status = 'reassigned' 
                            WHERE application_id = ? AND status = 'active'";
         $stmt = $conn->prepare($update_existing);
-        if (!$stmt) {
-            throw new Exception("Prepare failed: " . $conn->error);
-        }
-        
         $stmt->bind_param('i', $application_id);
-        if (!$stmt->execute()) {
-            throw new Exception("Execute failed: " . $stmt->error);
-        }
+        $stmt->execute();
         $stmt->close();
         
         // Now create the new assignment
         $assign_query = "INSERT INTO application_assignments (application_id, team_member_id, assigned_by, notes) 
                         VALUES (?, ?, ?, ?)";
         $stmt = $conn->prepare($assign_query);
-        if (!$stmt) {
-            throw new Exception("Prepare failed: " . $conn->error);
-        }
-        
         $stmt->bind_param('iiis', $application_id, $team_member_id, $user_id, $notes);
-        if (!$stmt->execute()) {
-            throw new Exception("Execute failed: " . $stmt->error);
-        }
+        $stmt->execute();
         $stmt->close();
         
         // Log the activity
@@ -559,15 +218,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_application'])
         $activity_query = "INSERT INTO application_activity_logs (application_id, user_id, activity_type, description, ip_address) 
                            VALUES (?, ?, 'assigned', ?, ?)";
         $stmt = $conn->prepare($activity_query);
-        if (!$stmt) {
-            throw new Exception("Prepare failed: " . $conn->error);
-        }
-        
         $ip = $_SERVER['REMOTE_ADDR'];
         $stmt->bind_param('iiss', $application_id, $user_id, $description, $ip);
-        if (!$stmt->execute()) {
-            throw new Exception("Execute failed: " . $stmt->error);
-        }
+        $stmt->execute();
         $stmt->close();
         
         // Commit the transaction
@@ -579,9 +232,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_application'])
     } catch (Exception $e) {
         // Rollback on error
         $conn->rollback();
-        logSqlError("Error assigning application", isset($update_existing) ? $update_existing : 
-                   (isset($assign_query) ? $assign_query : 
-                   (isset($activity_query) ? $activity_query : "Unknown query")), $e->getMessage());
         $error_message = "Error assigning application: " . $e->getMessage();
     }
 }
@@ -602,33 +252,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_application'])
         // Create new application
         $initial_status_query = "SELECT id FROM application_statuses WHERE name = 'draft' LIMIT 1";
         $status_stmt = $conn->prepare($initial_status_query);
-        if (!$status_stmt) {
-            throw new Exception("Prepare failed: " . $conn->error);
-        }
-        
-        if (!$status_stmt->execute()) {
-            throw new Exception("Execute failed: " . $status_stmt->error);
-        }
-        
+        $status_stmt->execute();
         $status_result = $status_stmt->get_result();
-        if (!$status_result || $status_result->num_rows === 0) {
-            throw new Exception("No draft status found in application_statuses table");
-        }
-        
         $status_id = $status_result->fetch_assoc()['id'];
         $status_stmt->close();
         
         $insert_query = "INSERT INTO applications (user_id, visa_id, status_id, expected_completion_date, notes, priority, created_by) 
                         VALUES (?, ?, ?, ?, ?, ?, ?)";
         $stmt = $conn->prepare($insert_query);
-        if (!$stmt) {
-            throw new Exception("Prepare failed: " . $conn->error);
-        }
-        
         $stmt->bind_param('iiisssi', $user_id, $visa_id, $status_id, $expected_completion_date, $notes, $priority, $user_id);
-        if (!$stmt->execute()) {
-            throw new Exception("Execute failed: " . $stmt->error);
-        }
+        $stmt->execute();
         
         $application_id = $conn->insert_id;
         $stmt->close();
@@ -637,14 +270,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_application'])
         $history_query = "INSERT INTO application_status_history (application_id, status_id, changed_by, notes) 
                          VALUES (?, ?, ?, 'Application created')";
         $stmt = $conn->prepare($history_query);
-        if (!$stmt) {
-            throw new Exception("Prepare failed: " . $conn->error);
-        }
-        
         $stmt->bind_param('iii', $application_id, $status_id, $user_id);
-        if (!$stmt->execute()) {
-            throw new Exception("Execute failed: " . $stmt->error);
-        }
+        $stmt->execute();
         $stmt->close();
         
         // Assign to team member if selected
@@ -652,14 +279,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_application'])
             $assign_query = "INSERT INTO application_assignments (application_id, team_member_id, assigned_by, notes) 
                             VALUES (?, ?, ?, 'Assigned during application creation')";
             $stmt = $conn->prepare($assign_query);
-            if (!$stmt) {
-                throw new Exception("Prepare failed: " . $conn->error);
-            }
-            
             $stmt->bind_param('iii', $application_id, $team_member_id, $user_id);
-            if (!$stmt->execute()) {
-                throw new Exception("Execute failed: " . $stmt->error);
-            }
+            $stmt->execute();
             $stmt->close();
             
             // Get team member name for activity log
@@ -676,15 +297,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_application'])
             $assign_activity_query = "INSERT INTO application_activity_logs (application_id, user_id, activity_type, description, ip_address) 
                                      VALUES (?, ?, 'assigned', ?, ?)";
             $stmt = $conn->prepare($assign_activity_query);
-            if (!$stmt) {
-                throw new Exception("Prepare failed: " . $conn->error);
-            }
-            
             $ip = $_SERVER['REMOTE_ADDR'];
             $stmt->bind_param('iiss', $application_id, $user_id, $assign_description, $ip);
-            if (!$stmt->execute()) {
-                throw new Exception("Execute failed: " . $stmt->error);
-            }
+            $stmt->execute();
             $stmt->close();
         }
         
@@ -693,15 +308,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_application'])
         $activity_query = "INSERT INTO application_activity_logs (application_id, user_id, activity_type, description, ip_address) 
                          VALUES (?, ?, 'created', ?, ?)";
         $stmt = $conn->prepare($activity_query);
-        if (!$stmt) {
-            throw new Exception("Prepare failed: " . $conn->error);
-        }
-        
         $ip = $_SERVER['REMOTE_ADDR'];
         $stmt->bind_param('iiss', $application_id, $user_id, $description, $ip);
-        if (!$stmt->execute()) {
-            throw new Exception("Execute failed: " . $stmt->error);
-        }
+        $stmt->execute();
         $stmt->close();
         
         // Commit the transaction
@@ -713,11 +322,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_application'])
     } catch (Exception $e) {
         // Rollback on error
         $conn->rollback();
-        logSqlError("Error creating application", isset($initial_status_query) ? $initial_status_query : 
-                   (isset($insert_query) ? $insert_query : 
-                   (isset($history_query) ? $history_query : 
-                   (isset($assign_query) ? $assign_query :
-                   (isset($activity_query) ? $activity_query : "Unknown query")))), $e->getMessage());
         $error_message = "Error creating application: " . $e->getMessage();
     }
 }
@@ -736,24 +340,6 @@ if (isset($_GET['success'])) {
             break;
     }
 }
-
-// Add diagnostic check for the applications_view
-try {
-    $checkViewQuery = "SHOW TABLES LIKE 'applications_view'";
-    $checkViewResult = $conn->query($checkViewQuery);
-    if ($checkViewResult && $checkViewResult->num_rows === 0) {
-        echo '<div class="alert alert-warning">Warning: The applications_view does not exist. This may cause errors.</div>';
-    } else {
-        // Check the structure of the view to verify its columns
-        $viewColumnsQuery = "SHOW COLUMNS FROM applications_view";
-        $viewColumnsResult = $conn->query($viewColumnsQuery);
-        if (!$viewColumnsResult) {
-            echo '<div class="alert alert-warning">Warning: Unable to check applications_view columns: ' . $conn->error . '</div>';
-        }
-    }
-} catch (Exception $e) {
-    echo '<div class="alert alert-warning">Warning: Error checking view: ' . $e->getMessage() . '</div>';
-}
 ?>
 
 <div class="content">
@@ -766,9 +352,6 @@ try {
             <button type="button" class="btn primary-btn" id="createApplicationBtn">
                 <i class="fas fa-plus"></i> New Application
             </button>
-            <a href="applications.php?analyze_collation=1" class="btn secondary-btn" style="margin-left: 10px;">
-                <i class="fas fa-database"></i> Diagnose DB Issues
-            </a>
         </div>
     </div>
     
