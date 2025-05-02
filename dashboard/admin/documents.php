@@ -758,7 +758,13 @@ if (isset($_GET['success'])) {
                     </div>
                     <div class="form-group">
                         <label for="content">Template Content*</label>
-                        <textarea name="content" id="content" class="form-control" rows="10" required></textarea>
+                        <div class="ai-generator-controls">
+                            <button type="button" id="ai-generate-btn" class="btn ai-btn" onclick="generateTemplateWithAI()">
+                                <i class="fas fa-robot"></i> Generate with Visafy AI
+                            </button>
+                            <span id="ai-generate-status" class="ai-status"></span>
+                        </div>
+                        <textarea name="content" id="content" class="form-control" rows="15" required></textarea>
                     </div>
                     <div class="form-group checkbox-group">
                         <input type="checkbox" name="template_is_active" id="template_is_active" checked>
@@ -1216,6 +1222,42 @@ if (isset($_GET['success'])) {
     background-color: #031c56;
 }
 
+/* AI Template Generator styles */
+.ai-generator-controls {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.ai-btn {
+    background-color: #4e73df;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.ai-btn:hover {
+    background-color: #375ad3;
+}
+
+.ai-btn i {
+    font-size: 14px;
+}
+
+.ai-status {
+    margin-left: 10px;
+    font-size: 14px;
+    color: var(--secondary-color);
+    display: none;
+}
+
 @media (max-width: 768px) {
     .header-container {
         flex-direction: column;
@@ -1420,6 +1462,64 @@ document.getElementById('gen_document_type_id').addEventListener('change', funct
         templateSelect.disabled = true;
     }
 });
+
+// AI Template Generator functionality
+async function generateTemplateWithAI() {
+    const templateTypeSelect = document.getElementById('document_type_id');
+    const contentTextarea = document.getElementById('content');
+    const generateBtn = document.getElementById('ai-generate-btn');
+    const generateStatus = document.getElementById('ai-generate-status');
+    
+    if (!templateTypeSelect.value) {
+        alert('Please select a document type first.');
+        templateTypeSelect.focus();
+        return;
+    }
+    
+    // Get the selected document type text
+    const selectedOption = templateTypeSelect.options[templateTypeSelect.selectedIndex];
+    const documentTypeName = selectedOption.text;
+    
+    // Update UI to show loading state
+    generateBtn.disabled = true;
+    generateStatus.textContent = 'Generating template...';
+    generateStatus.style.display = 'block';
+    
+    try {
+        // Make API call to get AI-generated template
+        const response = await fetch('ajax/ai_template_generator.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                document_type: documentTypeName,
+                prompt: `Create a professional ${documentTypeName} template in HTML format. Include placeholders for variables like {client_name}, {client_email}, {current_date}, etc. where appropriate. The document should be well-structured with headers, paragraphs, and any relevant sections.`
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Insert the generated content into the textarea
+            contentTextarea.value = data.content;
+            generateStatus.textContent = 'Template generated successfully!';
+            generateStatus.style.color = 'var(--success-color)';
+        } else {
+            generateStatus.textContent = 'Error: ' + data.error;
+            generateStatus.style.color = 'var(--danger-color)';
+        }
+    } catch (error) {
+        generateStatus.textContent = 'Error connecting to AI service. Please try again.';
+        generateStatus.style.color = 'var(--danger-color)';
+    } finally {
+        generateBtn.disabled = false;
+        // Hide status message after 5 seconds
+        setTimeout(() => {
+            generateStatus.style.display = 'none';
+        }, 5000);
+    }
+}
 </script>
 
 <?php
