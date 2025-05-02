@@ -46,6 +46,9 @@ $date_from = isset($_GET['date_from']) ? $_GET['date_from'] : '';
 $date_to = isset($_GET['date_to']) ? $_GET['date_to'] : '';
 $search_term = isset($_GET['search']) ? trim($_GET['search']) : '';
 
+// Get active tab from query params
+$active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'bookings';
+
 // Build booking query with filters
 $query = "SELECT b.*, bs.name as status_name, bs.color as status_color,
           CONCAT(u.first_name, ' ', u.last_name) as client_name, u.email as client_email,
@@ -386,6 +389,30 @@ if (isset($_GET['success'])) {
         case 5:
             $success_message = "Booking marked as completed";
             break;
+        case 6:
+            $success_message = "Business hours updated successfully";
+            $active_tab = "business-hours";
+            break;
+        case 7:
+            $success_message = "Special day added successfully";
+            $active_tab = "special-days";
+            break;
+        case 8:
+            $success_message = "Special day deleted successfully";
+            $active_tab = "special-days";
+            break;
+        case 9:
+            $success_message = "Special day updated successfully";
+            $active_tab = "special-days";
+            break;
+    }
+}
+
+// Handle error messages
+if (isset($_GET['error'])) {
+    $error_message = $_GET['error'];
+    if (isset($_GET['tab'])) {
+        $active_tab = $_GET['tab'];
     }
 }
 ?>
@@ -411,148 +438,325 @@ if (isset($_GET['success'])) {
         <div class="alert alert-success"><?php echo $success_message; ?></div>
     <?php endif; ?>
     
-    <!-- Filters Section -->
-    <div class="filters-container">
-        <form action="bookings.php" method="GET" class="filters-form">
-            <div class="filter-group">
-                <label for="status">Status</label>
-                <select name="status" id="status" class="form-control">
-                    <option value="">All Statuses</option>
-                    <?php foreach ($booking_statuses as $status): ?>
-                        <option value="<?php echo $status['name']; ?>" <?php echo ($status_filter === $status['name']) ? 'selected' : ''; ?>>
-                            <?php echo ucfirst(str_replace('_', ' ', $status['name'])); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+    <!-- Tabs Navigation -->
+    <div class="tabs-container">
+        <div class="tabs">
+            <button class="tab-btn <?php echo $active_tab === 'bookings' ? 'active' : ''; ?>" data-tab="bookings">Bookings</button>
+            <button class="tab-btn <?php echo $active_tab === 'business-hours' ? 'active' : ''; ?>" data-tab="business-hours">Business Hours</button>
+            <button class="tab-btn <?php echo $active_tab === 'special-days' ? 'active' : ''; ?>" data-tab="special-days">Special Days</button>
+        </div>
+        
+        <!-- Bookings Tab -->
+        <div class="tab-content <?php echo $active_tab === 'bookings' ? 'active' : ''; ?>" id="bookings-tab">
+            <!-- Filters Section -->
+            <div class="filters-container">
+                <form action="bookings.php" method="GET" class="filters-form">
+                    <div class="filter-group">
+                        <label for="status">Status</label>
+                        <select name="status" id="status" class="form-control">
+                            <option value="">All Statuses</option>
+                            <?php foreach ($booking_statuses as $status): ?>
+                                <option value="<?php echo $status['name']; ?>" <?php echo ($status_filter === $status['name']) ? 'selected' : ''; ?>>
+                                    <?php echo ucfirst(str_replace('_', ' ', $status['name'])); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="consultant">Consultant</label>
+                        <select name="consultant" id="consultant" class="form-control">
+                            <option value="0">All Consultants</option>
+                            <?php foreach ($team_members as $member): ?>
+                                <option value="<?php echo $member['id']; ?>" <?php echo ($consultant_filter === $member['id']) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="date_from">From Date</label>
+                        <input type="date" name="date_from" id="date_from" class="form-control" value="<?php echo $date_from; ?>">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="date_to">To Date</label>
+                        <input type="date" name="date_to" id="date_to" class="form-control" value="<?php echo $date_to; ?>">
+                    </div>
+                    
+                    <div class="filter-group search-group">
+                        <label for="search">Search</label>
+                        <input type="text" name="search" id="search" class="form-control" 
+                               placeholder="Ref #, Client name or email" value="<?php echo htmlspecialchars($search_term); ?>">
+                    </div>
+                    
+                    <div class="filter-buttons">
+                        <button type="submit" class="btn filter-btn">Apply Filters</button>
+                        <a href="bookings.php" class="btn reset-btn">Reset</a>
+                    </div>
+                </form>
             </div>
             
-            <div class="filter-group">
-                <label for="consultant">Consultant</label>
-                <select name="consultant" id="consultant" class="form-control">
-                    <option value="0">All Consultants</option>
-                    <?php foreach ($team_members as $member): ?>
-                        <option value="<?php echo $member['id']; ?>" <?php echo ($consultant_filter === $member['id']) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+            <!-- Bookings Table Section -->
+            <div class="bookings-table-container">
+                <?php if (empty($bookings)): ?>
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-alt"></i>
+                        <p>No bookings found. Adjust your filters or create a new booking.</p>
+                    </div>
+                <?php else: ?>
+                    <table class="bookings-table">
+                        <thead>
+                            <tr>
+                                <th>Ref #</th>
+                                <th>Date & Time</th>
+                                <th>Client</th>
+                                <th>Service</th>
+                                <th>Consultation</th>
+                                <th>Consultant</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($bookings as $booking): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($booking['reference_number']); ?></td>
+                                    <td>
+                                        <?php echo date('M d, Y', strtotime($booking['booking_datetime'])); ?><br>
+                                        <span class="time"><?php echo date('h:i A', strtotime($booking['booking_datetime'])); ?></span>
+                                        <span class="duration">(<?php echo $booking['duration_minutes']; ?> min)</span>
+                                    </td>
+                                    <td>
+                                        <?php echo htmlspecialchars($booking['client_name']); ?><br>
+                                        <span class="email"><?php echo htmlspecialchars($booking['client_email']); ?></span>
+                                    </td>
+                                    <td>
+                                        <strong><?php echo htmlspecialchars($booking['visa_type']); ?></strong><br>
+                                        <span><?php echo htmlspecialchars($booking['service_name']); ?></span>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($booking['consultation_mode']); ?></td>
+                                    <td>
+                                        <?php if (!empty($booking['consultant_name'])): ?>
+                                            <?php echo htmlspecialchars($booking['consultant_name']); ?>
+                                        <?php else: ?>
+                                            <span class="not-assigned">Not assigned</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <span class="status-badge" style="background-color: <?php echo $booking['status_color']; ?>">
+                                            <?php echo ucfirst(str_replace('_', ' ', $booking['status_name'])); ?>
+                                        </span>
+                                    </td>
+                                    <td class="actions-cell">
+                                        <a href="view_booking.php?id=<?php echo $booking['id']; ?>" class="btn-action btn-view" title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        
+                                        <button type="button" class="btn-action btn-edit" title="Edit Booking" 
+                                                onclick="openEditModal(<?php echo $booking['id']; ?>)">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        
+                                        <?php if (empty($booking['consultant_name']) && in_array($booking['status_name'], ['pending', 'confirmed'])): ?>
+                                            <button type="button" class="btn-action btn-assign" title="Assign Consultant" 
+                                                    onclick="openAssignModal(<?php echo $booking['id']; ?>, '<?php echo addslashes($booking['client_name']); ?>')">
+                                                <i class="fas fa-user-plus"></i>
+                                            </button>
+                                        <?php endif; ?>
+                                        
+                                        <?php if (in_array($booking['status_name'], ['pending', 'confirmed'])): ?>
+                                            <button type="button" class="btn-action btn-reschedule" title="Reschedule" 
+                                                    onclick="openRescheduleModal(<?php echo $booking['id']; ?>, '<?php echo $booking['booking_datetime']; ?>', <?php echo $booking['duration_minutes']; ?>)">
+                                                <i class="fas fa-calendar-alt"></i>
+                                            </button>
+                                            
+                                            <button type="button" class="btn-action btn-cancel" title="Cancel Booking" 
+                                                    onclick="openCancelModal(<?php echo $booking['id']; ?>, '<?php echo addslashes($booking['reference_number']); ?>')">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        <?php endif; ?>
+                                        
+                                        <?php if ($booking['status_name'] === 'confirmed'): ?>
+                                            <button type="button" class="btn-action btn-complete" title="Mark as Completed" 
+                                                    onclick="openCompleteModal(<?php echo $booking['id']; ?>, '<?php echo addslashes($booking['reference_number']); ?>')">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </div>
+        </div>
+        
+        <!-- Business Hours Tab -->
+        <div class="tab-content <?php echo $active_tab === 'business-hours' ? 'active' : ''; ?>" id="business-hours-tab">
+            <div class="section-header">
+                <h3>Business Hours</h3>
+                <p>Set the regular operating hours for consultation bookings</p>
             </div>
             
-            <div class="filter-group">
-                <label for="date_from">From Date</label>
-                <input type="date" name="date_from" id="date_from" class="form-control" value="<?php echo $date_from; ?>">
+            <?php
+            // Get business hours
+            $query = "SELECT * FROM business_hours ORDER BY day_of_week";
+            $stmt = $conn->prepare($query);
+            $stmt->execute();
+            $business_hours_result = $stmt->get_result();
+            $business_hours = [];
+            
+            if ($business_hours_result && $business_hours_result->num_rows > 0) {
+                while ($row = $business_hours_result->fetch_assoc()) {
+                    $business_hours[$row['day_of_week']] = $row;
+                }
+            }
+            $stmt->close();
+            
+            $days = [
+                0 => 'Sunday',
+                1 => 'Monday',
+                2 => 'Tuesday',
+                3 => 'Wednesday',
+                4 => 'Thursday',
+                5 => 'Friday',
+                6 => 'Saturday'
+            ];
+            ?>
+            
+            <form action="update_business_hours.php" method="POST" class="business-hours-form">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Day</th>
+                                <th>Open?</th>
+                                <th>Open Time</th>
+                                <th>Close Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($days as $day_num => $day_name): ?>
+                                <?php 
+                                $is_open = isset($business_hours[$day_num]) ? $business_hours[$day_num]['is_open'] : 0;
+                                $open_time = isset($business_hours[$day_num]) ? $business_hours[$day_num]['open_time'] : '09:00:00';
+                                $close_time = isset($business_hours[$day_num]) ? $business_hours[$day_num]['close_time'] : '17:00:00';
+                                ?>
+                                <tr>
+                                    <td><?php echo $day_name; ?></td>
+                                    <td>
+                                        <div class="toggle-switch">
+                                            <input type="checkbox" name="is_open[<?php echo $day_num; ?>]" id="is_open_<?php echo $day_num; ?>" 
+                                                   value="1" <?php echo $is_open ? 'checked' : ''; ?> class="toggle-input">
+                                            <label for="is_open_<?php echo $day_num; ?>" class="toggle-label"></label>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <input type="time" name="open_time[<?php echo $day_num; ?>]" class="form-control time-input" 
+                                               value="<?php echo substr($open_time, 0, 5); ?>" <?php echo !$is_open ? 'disabled' : ''; ?>>
+                                    </td>
+                                    <td>
+                                        <input type="time" name="close_time[<?php echo $day_num; ?>]" class="form-control time-input" 
+                                               value="<?php echo substr($close_time, 0, 5); ?>" <?php echo !$is_open ? 'disabled' : ''; ?>>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="form-buttons">
+                    <button type="submit" name="update_business_hours" class="btn primary-btn">
+                        <i class="fas fa-save"></i> Save Business Hours
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Special Days Tab -->
+        <div class="tab-content <?php echo $active_tab === 'special-days' ? 'active' : ''; ?>" id="special-days-tab">
+            <div class="section-header">
+                <h3>Special Days & Holidays</h3>
+                <p>Manage holidays and special operating hours</p>
             </div>
             
-            <div class="filter-group">
-                <label for="date_to">To Date</label>
-                <input type="date" name="date_to" id="date_to" class="form-control" value="<?php echo $date_to; ?>">
+            <?php
+            // Get special days
+            $query = "SELECT * FROM special_days WHERE date >= CURDATE() ORDER BY date";
+            $stmt = $conn->prepare($query);
+            $stmt->execute();
+            $special_days_result = $stmt->get_result();
+            $special_days = [];
+            
+            if ($special_days_result && $special_days_result->num_rows > 0) {
+                while ($row = $special_days_result->fetch_assoc()) {
+                    $special_days[] = $row;
+                }
+            }
+            $stmt->close();
+            ?>
+            
+            <div class="actions-bar">
+                <button type="button" class="btn primary-btn" onclick="openAddSpecialDayModal()">
+                    <i class="fas fa-plus"></i> Add Special Day
+                </button>
             </div>
             
-            <div class="filter-group search-group">
-                <label for="search">Search</label>
-                <input type="text" name="search" id="search" class="form-control" 
-                       placeholder="Ref #, Client name or email" value="<?php echo htmlspecialchars($search_term); ?>">
-            </div>
-            
-            <div class="filter-buttons">
-                <button type="submit" class="btn filter-btn">Apply Filters</button>
-                <a href="bookings.php" class="btn reset-btn">Reset</a>
-            </div>
-        </form>
-    </div>
-    
-    <!-- Bookings Table Section -->
-    <div class="bookings-table-container">
-        <?php if (empty($bookings)): ?>
-            <div class="empty-state">
-                <i class="fas fa-calendar-alt"></i>
-                <p>No bookings found. Adjust your filters or create a new booking.</p>
-            </div>
-        <?php else: ?>
-            <table class="bookings-table">
-                <thead>
-                    <tr>
-                        <th>Ref #</th>
-                        <th>Date & Time</th>
-                        <th>Client</th>
-                        <th>Service</th>
-                        <th>Consultation</th>
-                        <th>Consultant</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($bookings as $booking): ?>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
                         <tr>
-                            <td><?php echo htmlspecialchars($booking['reference_number']); ?></td>
-                            <td>
-                                <?php echo date('M d, Y', strtotime($booking['booking_datetime'])); ?><br>
-                                <span class="time"><?php echo date('h:i A', strtotime($booking['booking_datetime'])); ?></span>
-                                <span class="duration">(<?php echo $booking['duration_minutes']; ?> min)</span>
-                            </td>
-                            <td>
-                                <?php echo htmlspecialchars($booking['client_name']); ?><br>
-                                <span class="email"><?php echo htmlspecialchars($booking['client_email']); ?></span>
-                            </td>
-                            <td>
-                                <strong><?php echo htmlspecialchars($booking['visa_type']); ?></strong><br>
-                                <span><?php echo htmlspecialchars($booking['service_name']); ?></span>
-                            </td>
-                            <td><?php echo htmlspecialchars($booking['consultation_mode']); ?></td>
-                            <td>
-                                <?php if (!empty($booking['consultant_name'])): ?>
-                                    <?php echo htmlspecialchars($booking['consultant_name']); ?>
-                                <?php else: ?>
-                                    <span class="not-assigned">Not assigned</span>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <span class="status-badge" style="background-color: <?php echo $booking['status_color']; ?>">
-                                    <?php echo ucfirst(str_replace('_', ' ', $booking['status_name'])); ?>
-                                </span>
-                            </td>
-                            <td class="actions-cell">
-                                <a href="view_booking.php?id=<?php echo $booking['id']; ?>" class="btn-action btn-view" title="View Details">
-                                    <i class="fas fa-eye"></i>
-                                </a>
-                                
-                                <button type="button" class="btn-action btn-edit" title="Edit Booking" 
-                                        onclick="openEditModal(<?php echo $booking['id']; ?>)">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                
-                                <?php if (empty($booking['consultant_name']) && in_array($booking['status_name'], ['pending', 'confirmed'])): ?>
-                                    <button type="button" class="btn-action btn-assign" title="Assign Consultant" 
-                                            onclick="openAssignModal(<?php echo $booking['id']; ?>, '<?php echo addslashes($booking['client_name']); ?>')">
-                                        <i class="fas fa-user-plus"></i>
-                                    </button>
-                                <?php endif; ?>
-                                
-                                <?php if (in_array($booking['status_name'], ['pending', 'confirmed'])): ?>
-                                    <button type="button" class="btn-action btn-reschedule" title="Reschedule" 
-                                            onclick="openRescheduleModal(<?php echo $booking['id']; ?>, '<?php echo $booking['booking_datetime']; ?>', <?php echo $booking['duration_minutes']; ?>)">
-                                        <i class="fas fa-calendar-alt"></i>
-                                    </button>
-                                    
-                                    <button type="button" class="btn-action btn-cancel" title="Cancel Booking" 
-                                            onclick="openCancelModal(<?php echo $booking['id']; ?>, '<?php echo addslashes($booking['reference_number']); ?>')">
-                                        <i class="fas fa-times"></i>
-                                    </button>
-                                <?php endif; ?>
-                                
-                                <?php if ($booking['status_name'] === 'confirmed'): ?>
-                                    <button type="button" class="btn-action btn-complete" title="Mark as Completed" 
-                                            onclick="openCompleteModal(<?php echo $booking['id']; ?>, '<?php echo addslashes($booking['reference_number']); ?>')">
-                                        <i class="fas fa-check"></i>
-                                    </button>
-                                <?php endif; ?>
-                            </td>
+                            <th>Date</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                            <th>Alternative Hours</th>
+                            <th>Actions</th>
                         </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        <?php endif; ?>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($special_days)): ?>
+                            <tr>
+                                <td colspan="5" class="text-center">No special days or holidays set</td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($special_days as $day): ?>
+                                <tr>
+                                    <td><?php echo date('M d, Y', strtotime($day['date'])); ?></td>
+                                    <td><?php echo htmlspecialchars($day['description']); ?></td>
+                                    <td>
+                                        <?php if ($day['is_closed']): ?>
+                                            <span class="status-badge inactive">Closed</span>
+                                        <?php else: ?>
+                                            <span class="status-badge active">Open (Modified Hours)</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if (!$day['is_closed']): ?>
+                                            <?php echo substr($day['alternative_open_time'], 0, 5); ?> - 
+                                            <?php echo substr($day['alternative_close_time'], 0, 5); ?>
+                                        <?php else: ?>
+                                            -
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="actions-cell">
+                                        <button type="button" class="btn-action btn-edit" 
+                                                onclick="editSpecialDay(<?php echo $day['id']; ?>)">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button type="button" class="btn-action btn-deactivate" 
+                                                onclick="deleteSpecialDay(<?php echo $day['id']; ?>, '<?php echo date('M d, Y', strtotime($day['date'])); ?>')">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -720,6 +924,57 @@ if (isset($_GET['success'])) {
                     <div class="form-buttons">
                         <button type="button" class="btn cancel-btn" data-dismiss="modal">Cancel</button>
                         <button type="submit" name="update_status" class="btn submit-btn">Update Status</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Special Day Modal -->
+<div class="modal" id="specialDayModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Add Special Day</h3>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form action="update_special_day.php" method="POST" id="specialDayForm">
+                    <input type="hidden" name="special_day_id" id="special_day_id" value="">
+                    
+                    <div class="form-group">
+                        <label for="special_date">Date*</label>
+                        <input type="date" name="special_date" id="special_date" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="description">Description*</label>
+                        <input type="text" name="description" id="description" class="form-control" 
+                               placeholder="e.g., Christmas Day, Company Event" required>
+                    </div>
+                    
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" name="is_closed" id="is_closed" value="1" checked>
+                        <label for="is_closed">Office Closed</label>
+                    </div>
+                    
+                    <div id="alternative_hours" style="display: none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="alternative_open_time">Open Time*</label>
+                                <input type="time" name="alternative_open_time" id="alternative_open_time" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="alternative_close_time">Close Time*</label>
+                                <input type="time" name="alternative_close_time" id="alternative_close_time" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-buttons">
+                        <button type="button" class="btn cancel-btn" data-dismiss="modal">Cancel</button>
+                        <button type="submit" name="save_special_day" class="btn submit-btn">Save</button>
                     </div>
                 </form>
             </div>
@@ -1145,6 +1400,144 @@ if (isset($_GET['success'])) {
         margin: 60px 15px;
     }
 }
+
+.tabs-container {
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+.tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tab-btn {
+    padding: 12px 20px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--secondary-color);
+    font-weight: 500;
+    position: relative;
+}
+
+.tab-btn:hover {
+    color: var(--primary-color);
+}
+
+.tab-btn.active {
+    color: var(--primary-color);
+}
+
+.tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background-color: var(--primary-color);
+}
+
+.tab-content {
+    display: none;
+    padding: 20px;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.section-header {
+    margin-bottom: 20px;
+}
+
+.section-header h3 {
+    margin: 0 0 5px 0;
+    color: var(--primary-color);
+    font-size: 1.4rem;
+}
+
+.section-header p {
+    margin: 0;
+    color: var(--secondary-color);
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+.table th, .table td {
+    padding: 10px 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.table th {
+    background-color: var(--light-color);
+    text-align: left;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+}
+
+.toggle-input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-label {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.toggle-label:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+.toggle-input:checked + .toggle-label {
+    background-color: var(--success-color);
+}
+
+.toggle-input:checked + .toggle-label:before {
+    transform: translateX(26px);
+}
+
+.time-input {
+    width: 120px;
+}
+
+.actions-bar {
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: flex-end;
+}
 </style>
 
 <script>
@@ -1224,6 +1617,98 @@ document.getElementById('cancelForm').addEventListener('submit', function(e) {
         alert('Please provide a cancellation reason.');
     }
 });
+
+// Tab functionality
+document.querySelectorAll('.tab-btn').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+        // Remove active class from all tabs
+        document.querySelectorAll('.tab-btn').forEach(function(t) {
+            t.classList.remove('active');
+        });
+        
+        // Add active class to clicked tab
+        this.classList.add('active');
+        
+        // Hide all tab content
+        document.querySelectorAll('.tab-content').forEach(function(content) {
+            content.classList.remove('active');
+        });
+        
+        // Show corresponding tab content
+        const tabId = this.getAttribute('data-tab');
+        document.getElementById(tabId + '-tab').classList.add('active');
+    });
+});
+
+// Toggle business hours open/closed
+document.querySelectorAll('.toggle-input').forEach(function(toggle) {
+    toggle.addEventListener('change', function() {
+        const dayNum = this.id.replace('is_open_', '');
+        const timeInputs = document.querySelectorAll(`input[name^="open_time[${dayNum}]"], input[name^="close_time[${dayNum}]"]`);
+        
+        timeInputs.forEach(function(input) {
+            input.disabled = !toggle.checked;
+        });
+    });
+});
+
+// Special day modal
+function openAddSpecialDayModal() {
+    document.getElementById('special_day_id').value = '';
+    document.getElementById('specialDayForm').reset();
+    document.querySelector('#specialDayModal .modal-title').textContent = 'Add Special Day';
+    
+    // Set default date to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById('special_date').value = tomorrow.toISOString().split('T')[0];
+    
+    openModal('specialDayModal');
+}
+
+// Toggle alternative hours when is_closed changes
+document.getElementById('is_closed').addEventListener('change', function() {
+    const alternativeHours = document.getElementById('alternative_hours');
+    alternativeHours.style.display = this.checked ? 'none' : 'block';
+    
+    const timeInputs = document.querySelectorAll('#alternative_open_time, #alternative_close_time');
+    timeInputs.forEach(function(input) {
+        input.required = !this.checked;
+    }, this);
+});
+
+function editSpecialDay(id) {
+    // This function would be implemented to load special day data via AJAX and populate the form
+    fetch('get_special_day.php?id=' + id)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('special_day_id').value = data.id;
+            document.getElementById('special_date').value = data.date;
+            document.getElementById('description').value = data.description;
+            document.getElementById('is_closed').checked = data.is_closed == 1;
+            
+            if (data.is_closed != 1) {
+                document.getElementById('alternative_hours').style.display = 'block';
+                document.getElementById('alternative_open_time').value = data.alternative_open_time.substring(0, 5);
+                document.getElementById('alternative_close_time').value = data.alternative_close_time.substring(0, 5);
+            } else {
+                document.getElementById('alternative_hours').style.display = 'none';
+            }
+            
+            document.querySelector('#specialDayModal .modal-title').textContent = 'Edit Special Day';
+            openModal('specialDayModal');
+        })
+        .catch(error => {
+            console.error('Error fetching special day:', error);
+            alert('Error loading special day data.');
+        });
+}
+
+function deleteSpecialDay(id, date) {
+    if (confirm('Are you sure you want to delete the special day for ' + date + '?')) {
+        window.location.href = 'update_special_day.php?delete_id=' + id;
+    }
+}
 </script>
 
 <?php
