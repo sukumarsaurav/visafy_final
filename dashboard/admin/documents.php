@@ -2,6 +2,21 @@
 // Start output buffering to prevent 'headers already sent' errors
 ob_start();
 
+// Start session if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Ensure user is logged in and has a valid user_id
+if (!isset($_SESSION['id']) || empty($_SESSION['id'])) {
+    // Redirect to login if no user_id is set
+    header("Location: login.php");
+    exit;
+}
+
+// Assign user_id from session['id'] to be consistent with header.php
+$_SESSION['user_id'] = $_SESSION['id'];
+
 $page_title = "Document Management";
 $page_specific_css = "assets/css/documents.css";
 require_once 'includes/header.php';
@@ -515,10 +530,9 @@ if (isset($_GET['success'])) {
                                         <a href="edit_template.php?id=<?php echo $template['id']; ?>" class="btn-action btn-edit" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <button type="button" class="btn-action btn-view" title="View Template" 
-                                                onclick="viewTemplate(<?php echo $template['id']; ?>)">
+                                        <a href="view_template.php?id=<?php echo $template['id']; ?>" class="btn-action btn-view" title="View Template">
                                             <i class="fas fa-eye"></i>
-                                        </button>
+                                        </a>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
