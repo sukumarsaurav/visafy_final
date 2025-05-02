@@ -210,7 +210,7 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                     <span class="nav-item-text">Leads</span>
                 </a>
                 <a href="clients.php" class="nav-item <?php echo $current_page == 'clients' ? 'active' : ''; ?>">
-                    <i class="fas fa-users"></i>
+                <i class="fa-solid fa-user-check"></i>
                     <span class="nav-item-text">Clients</span>
                 </a>
                 <a href="applications.php" class="nav-item <?php echo $current_page == 'applications' ? 'active' : ''; ?>">
