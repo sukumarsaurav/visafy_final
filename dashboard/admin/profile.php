@@ -116,6 +116,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     
+    // Update just the profile picture (Ajax request)
+    if (isset($_POST['update_profile_picture']) && isset($_FILES['profile_picture'])) {
+        $allowed_types = ['image/jpeg', 'image/png', 'image/gif'];
+        $max_size = 2 * 1024 * 1024; // 2MB
+        $validation_errors = [];
+        
+        if ($_FILES['profile_picture']['error'] != 0) {
+            $validation_errors[] = "Error uploading file. Please try again.";
+        } elseif (!in_array($_FILES['profile_picture']['type'], $allowed_types)) {
+            $validation_errors[] = "Only JPG, PNG or GIF files are allowed";
+        } elseif ($_FILES['profile_picture']['size'] > $max_size) {
+            $validation_errors[] = "File size should be less than 2MB";
+        } else {
+            $upload_dir = '../../uploads/profiles/';
+            
+            // Create directory if it doesn't exist
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0755, true);
+            }
+            
+            $file_extension = pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION);
+            $filename = 'profile_' . $user_id . '_' . time() . '.' . $file_extension;
+            $target_file = $upload_dir . $filename;
+            
+            if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $target_file)) {
+                // Update database
+                $update_query = "UPDATE users SET profile_picture = ? WHERE id = ?";
+                $stmt = $conn->prepare($update_query);
+                $stmt->bind_param('si', $filename, $user_id);
+                
+                if ($stmt->execute()) {
+                    // Success - redirect to refresh the page
+                    header('Location: profile.php?success=profile_picture_updated');
+                    exit;
+                } else {
+                    $validation_errors[] = "Error updating profile picture in database";
+                }
+                $stmt->close();
+            } else {
+                $validation_errors[] = "Failed to upload profile picture";
+            }
+        }
+        
+        if (!empty($validation_errors)) {
+            $error_message = implode("<br>", $validation_errors);
+        }
+    }
+    
     // Password Update
     if (isset($_POST['update_password'])) {
         $current_password = $_POST['current_password'];
@@ -202,6 +250,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Check for success message from redirect
+if (isset($_GET['success']) && $_GET['success'] === 'profile_picture_updated') {
+    $success_message = "Profile picture updated successfully";
+}
+
 // Get profile picture URL
 $profile_img = '../../assets/images/default-profile.jpg';
 if (!empty($user_data['profile_picture'])) {
@@ -231,14 +284,11 @@ if (!empty($user_data['profile_picture'])) {
     <div class="profile-container">
         <div class="profile-sidebar">
             <div class="profile-image-container">
-                <img src="<?php echo $profile_img; ?>" alt="Profile Picture" class="profile-image">
+                <img src="<?php echo $profile_img; ?>" alt="Profile Picture" class="profile-image" id="profile-image-preview">
                 <div class="change-photo-overlay">
-                    <form id="profile-picture-form" enctype="multipart/form-data">
-                        <label for="profile-picture-upload" class="change-photo-btn">
-                            <i class="fas fa-camera"></i> Change
-                        </label>
-                        <input type="file" id="profile-picture-upload" name="profile_picture" class="hidden-file-input">
-                    </form>
+                    <label for="profile-picture-upload" class="change-photo-btn">
+                        <i class="fas fa-camera"></i>
+                    </label>
                 </div>
             </div>
             <div class="profile-info">
@@ -289,7 +339,7 @@ if (!empty($user_data['profile_picture'])) {
                     <div class="form-group">
                         <label for="profile_picture">Profile Picture</label>
                         <div class="file-upload-container">
-                            <input type="file" id="profile_picture" name="profile_picture" class="form-control file-upload">
+                            <input type="file" id="profile_picture" name="profile_picture" class="form-control file-upload" accept="image/jpeg, image/png, image/gif">
                             <div class="file-upload-text">
                                 <i class="fas fa-upload"></i> Choose a file...
                             </div>
@@ -378,6 +428,12 @@ if (!empty($user_data['profile_picture'])) {
         </div>
     </div>
 </div>
+
+<!-- Hidden form for profile picture upload -->
+<form id="profile-picture-form" action="profile.php" method="POST" enctype="multipart/form-data" style="display: none;">
+    <input type="file" id="profile-picture-upload" name="profile_picture" accept="image/jpeg, image/png, image/gif">
+    <input type="hidden" name="update_profile_picture" value="1">
+</form>
 
 <style>
 :root {
@@ -486,6 +542,15 @@ if (!empty($user_data['profile_picture'])) {
     cursor: pointer;
     color: white;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.change-photo-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
 }
 
 .hidden-file-input {
@@ -646,6 +711,7 @@ if (!empty($user_data['profile_picture'])) {
     top: 0;
     left: 0;
     cursor: pointer;
+    z-index: 2;
 }
 
 .file-upload-text {
@@ -654,6 +720,8 @@ if (!empty($user_data['profile_picture'])) {
     border-radius: 4px;
     text-align: center;
     color: var(--secondary-color);
+    position: relative;
+    z-index: 1;
 }
 
 .form-buttons {
@@ -781,26 +849,35 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // File upload preview (profile picture)
-    const fileInput = document.getElementById('profile-picture-upload');
-    const profileImage = document.querySelector('.profile-image');
+    // Profile picture change via the camera icon
+    const profilePicForm = document.getElementById('profile-picture-form');
+    const profilePicUpload = document.getElementById('profile-picture-upload');
+    const profileImagePreview = document.getElementById('profile-image-preview');
+    const changePhotoBtn = document.querySelector('.change-photo-btn');
     
-    fileInput.addEventListener('change', function() {
+    // Open file picker when the camera icon is clicked
+    changePhotoBtn.addEventListener('click', function() {
+        profilePicUpload.click();
+    });
+    
+    // Preview and submit when file is selected
+    profilePicUpload.addEventListener('change', function() {
         if (this.files && this.files[0]) {
+            // First show a preview
             const reader = new FileReader();
             
             reader.onload = function(e) {
-                profileImage.src = e.target.result;
+                profileImagePreview.src = e.target.result;
                 
                 // Submit the form to update the profile picture
-                document.getElementById('profile-picture-form').submit();
+                profilePicForm.submit();
             }
             
             reader.readAsDataURL(this.files[0]);
         }
     });
     
-    // Display filename when selecting a file
+    // Handle the file upload in the main form
     const fileUpload = document.getElementById('profile_picture');
     const fileText = document.querySelector('.file-upload-text');
     
