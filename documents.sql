@@ -1,3 +1,14 @@
+-- Document categories for organization
+CREATE TABLE `document_categories` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `description` text DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 -- Insert common document categories
 INSERT INTO `document_categories` (`name`, `description`) VALUES
 ('Identity', 'Identity documents like passport, ID card'),
@@ -36,3 +47,80 @@ INSERT INTO `document_types` (`category_id`, `name`, `description`) VALUES
 (5, 'Previous Visa', 'Copy of previous visas'),
 (6, 'Medical Certificate', 'Medical fitness certificate'),
 (7, 'Photographs', 'Passport-sized photographs');
+
+-- Document Templates table
+CREATE TABLE `document_templates` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `document_type_id` int(11) NOT NULL,
+  `content` longtext NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_by` int(11) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`),
+  KEY `document_type_id` (`document_type_id`),
+  KEY `created_by` (`created_by`),
+  CONSTRAINT `templates_document_type_id_fk` FOREIGN KEY (`document_type_id`) REFERENCES `document_types` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `templates_created_by_fk` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Insert a sample document template for testing
+INSERT INTO `document_templates` (`name`, `document_type_id`, `content`, `is_active`, `created_by`) VALUES
+('Service Agreement Template', 3, '<h1>Service Agreement</h1>
+<p>This Service Agreement (the "Agreement") is made and entered into on {current_date} by and between:</p>
+<p><strong>Visafy</strong>, a visa and immigration services company, and</p>
+<p><strong>{client_name}</strong> (the "Client") with email address {client_email}.</p>
+<h2>1. Services</h2>
+<p>Visafy agrees to provide the following services to the Client:</p>
+<ul>
+<li>Consultation regarding visa application requirements</li>
+<li>Assistance with documentation preparation</li>
+<li>Application form review and submission guidance</li>
+<li>Follow-up support during the visa processing period</li>
+</ul>
+<h2>2. Client Responsibilities</h2>
+<p>The Client agrees to:</p>
+<ul>
+<li>Provide accurate and truthful information</li>
+<li>Submit all required documents in a timely manner</li>
+<li>Attend scheduled appointments</li>
+<li>Pay all applicable fees as agreed</li>
+</ul>
+<h2>3. Fees and Payment</h2>
+<p>The Client agrees to pay the fees as outlined in the fee schedule provided separately.</p>
+<h2>4. Confidentiality</h2>
+<p>Visafy agrees to maintain the confidentiality of all Client information and documents.</p>
+<h2>5. Termination</h2>
+<p>Either party may terminate this Agreement with written notice to the other party.</p>
+<h2>6. Acceptance</h2>
+<p>By engaging Visafy services, the Client acknowledges that they have read, understood, and agreed to the terms of this Agreement.</p>
+<p>Signed and accepted on {current_date}</p>
+<p>______________________<br>Visafy Representative</p>
+<p>______________________<br>{client_name}<br>Client</p>', 1, 1);
+
+-- Generated Documents table
+CREATE TABLE `generated_documents` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `document_type_id` int(11) NOT NULL,
+  `template_id` int(11) NOT NULL,
+  `client_id` int(11) NOT NULL,
+  `file_path` varchar(255) NOT NULL,
+  `created_by` int(11) NOT NULL,
+  `generated_date` datetime NOT NULL,
+  `email_sent` tinyint(1) NOT NULL DEFAULT 0,
+  `email_sent_date` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `document_type_id` (`document_type_id`),
+  KEY `template_id` (`template_id`),
+  KEY `client_id` (`client_id`),
+  KEY `created_by` (`created_by`),
+  CONSTRAINT `generated_document_type_id_fk` FOREIGN KEY (`document_type_id`) REFERENCES `document_types` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `generated_template_id_fk` FOREIGN KEY (`template_id`) REFERENCES `document_templates` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `generated_client_id_fk` FOREIGN KEY (`client_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `generated_created_by_fk` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
