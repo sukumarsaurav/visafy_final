@@ -223,3 +223,28 @@ CREATE TABLE `notification_preferences` (
 -- Insert default notification preferences for common user types
 INSERT INTO `notification_preferences` (`user_id`, `notification_type`, `email_enabled`, `push_enabled`, `in_app_enabled`)
 SELECT `id`, 'all', 1, 1, 1 FROM `users` WHERE `user_type` IN ('admin', 'member');
+
+-- Create the countries table with active status
+CREATE TABLE countries (
+    country_id INT PRIMARY KEY AUTO_INCREMENT,
+    country_name VARCHAR(100) NOT NULL,
+    country_code CHAR(3) NOT NULL UNIQUE,
+    is_active BOOLEAN DEFAULT TRUE,  -- New column to track if country is active
+    inactive_reason VARCHAR(255),    -- Optional reason for inactivity
+    inactive_since DATE              -- Optional date since when inactive
+);
+
+-- Create the visas table with country relationship
+CREATE TABLE visas (
+    visa_id INT PRIMARY KEY AUTO_INCREMENT,
+    country_id INT NOT NULL,
+    visa_type VARCHAR(100) NOT NULL,
+    description TEXT,
+    validity_period INT, -- in days
+    fee DECIMAL(10, 2),
+    requirements TEXT,
+    is_active BOOLEAN DEFAULT TRUE,  -- New column to track if visa is active
+    inactive_reason VARCHAR(255),    -- Optional reason for inactivity
+    inactive_since DATE,             -- Optional date since when inactive
+    FOREIGN KEY (country_id) REFERENCES countries(country_id) ON DELETE CASCADE
+);
