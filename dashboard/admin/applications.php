@@ -1,4 +1,9 @@
 <?php
+// Add error reporting at the top 
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
+
 // Start output buffering to prevent 'headers already sent' errors
 ob_start();
 
@@ -980,6 +985,18 @@ if (isset($_GET['success'])) {
         width: auto;
     }
 }
+
+.document-category {
+    margin-top: 15px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--primary-color);
+}
+
+.document-category h5 {
+    color: var(--primary-color);
+    font-size: 15px;
+    margin: 0 0 5px 0;
+}
 </style>
 
 <script>
@@ -1101,7 +1118,7 @@ document.getElementById('country_id').addEventListener('change', function() {
         visaSelect.disabled = false;
         
         // Use AJAX to fetch visa types for the selected country
-        fetch('ajax/get_visa_types.php?country_id=' + countryId)
+        fetch('/dashboard/admin/ajax/get_visa_types.php?country_id=' + countryId)
             .then(response => response.json())
             .then(data => {
                 visaSelect.innerHTML = '<option value="">Select Visa Type</option>';
@@ -1144,9 +1161,22 @@ document.getElementById('visa_id').addEventListener('change', function() {
     const documentContainer = document.getElementById('document_requirements');
     
     if (visaId) {
+        // Show loading state
+        documentContainer.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading document requirements...</p>
+            </div>`;
+            
         // Use AJAX to fetch visa information
-        fetch('ajax/get_visa_info.php?visa_id=' + visaId)
-            .then(response => response.json())
+        console.log('Attempting to fetch from:', 'ajax/get_document_requirements.php?visa_id=' + visaId);
+        fetch('/dashboard/admin/ajax/get_document_requirements.php?visa_id=' + visaId)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Status: ${response.status} - ${response.statusText}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 // Show visa info
                 const visaInfoBox = document.getElementById('visa_info');
@@ -1161,31 +1191,63 @@ document.getElementById('visa_id').addEventListener('change', function() {
                 }
                 
                 // Load document requirements
-                return fetch('ajax/get_document_requirements.php?visa_id=' + visaId);
+                return fetch('/dashboard/admin/ajax/get_document_requirements.php?visa_id=' + visaId);
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Status: ${response.status} - ${response.statusText}`);
+                }
+                
+                // Debug: check content type
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    return response.text().then(text => {
+                        throw new Error(`Expected JSON but got content-type: ${contentType}\nResponse: ${text.substring(0, 200)}...`);
+                    });
+                }
+                
+                return response.json();
+            })
             .then(data => {
                 if (data.length > 0) {
-                    let html = '';
+                    // Group documents by category
+                    const documentsByCategory = {};
                     
                     data.forEach(function(doc) {
-                        html += `
-                            <div class="document-item">
-                                <input type="checkbox" name="documents[]" id="doc_${doc.id}" 
-                                       value="${doc.id}" class="document-checkbox" 
-                                       ${doc.is_mandatory ? 'checked data-mandatory="1" required' : ''}>
-                                <div class="document-details">
-                                    <label for="doc_${doc.id}" class="document-name">
-                                        ${doc.name} 
-                                        ${doc.is_mandatory ? '<span class="mandatory-badge">Required</span>' : ''}
-                                    </label>
-                                    <div class="document-description">
-                                        ${doc.description || 'No additional details available.'}
+                        if (!documentsByCategory[doc.category_name]) {
+                            documentsByCategory[doc.category_name] = [];
+                        }
+                        documentsByCategory[doc.category_name].push(doc);
+                    });
+                    
+                    let html = '';
+                    
+                    // Create sections for each category
+                    for (const category in documentsByCategory) {
+                        html += `<div class="document-category">
+                                    <h5>${category}</h5>
+                                 </div>`;
+                        
+                        // Add documents in this category
+                        documentsByCategory[category].forEach(function(doc) {
+                            html += `
+                                <div class="document-item">
+                                    <input type="checkbox" name="documents[]" id="doc_${doc.id}" 
+                                           value="${doc.id}" class="document-checkbox" 
+                                           ${doc.is_mandatory == 1 ? 'checked data-mandatory="1" required' : ''}>
+                                    <div class="document-details">
+                                        <label for="doc_${doc.id}" class="document-name">
+                                            ${doc.name} 
+                                            ${doc.is_mandatory == 1 ? '<span class="mandatory-badge">Required</span>' : ''}
+                                        </label>
+                                        <div class="document-description">
+                                            ${doc.description || 'No additional details available.'}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        `;
-                    });
+                            `;
+                        });
+                    }
                     
                     documentContainer.innerHTML = html;
                 } else {
@@ -1197,11 +1259,12 @@ document.getElementById('visa_id').addEventListener('change', function() {
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('Error loading document requirements:', error);
                 documentContainer.innerHTML = `
                     <div class="empty-state">
                         <i class="fas fa-exclamation-triangle"></i>
                         <p>Error loading document requirements. Please try again.</p>
+                        <small>Details: ${error.message || 'Unknown error'}</small>
                     </div>`;
             });
     } else {
