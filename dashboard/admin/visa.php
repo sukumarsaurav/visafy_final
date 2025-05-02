@@ -363,6 +363,11 @@ if (isset($_GET['success'])) {
                                                     <i class="fas fa-edit"></i>
                                                 </a>
                                                 
+                                                <button type="button" class="btn-action btn-documents" 
+                                                        title="Manage Required Documents" onclick="manageRequiredDocuments(<?php echo $visa['visa_id']; ?>, '<?php echo htmlspecialchars(addslashes($visa['visa_type'])); ?>')">
+                                                    <i class="fas fa-file-alt"></i>
+                                                </button>
+                                                
                                                 <?php if ($visa['is_active']): ?>
                                                     <button type="button" class="btn-action btn-deactivate" 
                                                             title="Deactivate" onclick="toggleVisaStatus(<?php echo $visa['visa_id']; ?>, 0)">
@@ -544,6 +549,40 @@ if (isset($_GET['success'])) {
                         <button type="submit" class="btn submit-btn" id="toggleVisaStatusBtn">Deactivate</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Manage Required Documents Modal -->
+<div class="modal" id="manageDocumentsModal">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="documentsModalTitle">Manage Required Documents</h3>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="documentsModalLoading" class="text-center p-4">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p class="mt-2">Loading documents...</p>
+                </div>
+                <div id="documentsModalContent" style="display: none;">
+                    <p class="mb-3">Select documents required for <strong id="visaTypeDisplay"></strong>:</p>
+                    
+                    <form id="requiredDocumentsForm">
+                        <input type="hidden" id="modal_visa_id" name="visa_id">
+                        
+                        <div class="document-categories">
+                            <!-- Document categories and types will be loaded here via AJAX -->
+                        </div>
+                        
+                        <div class="form-buttons mt-4">
+                            <button type="button" class="btn cancel-btn" data-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn submit-btn" id="saveRequiredDocsBtn">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -1105,6 +1144,94 @@ textarea.form-control {
         overflow-x: auto;
     }
 }
+
+.btn-documents {
+    background-color: #4e73df;
+}
+
+.btn-documents:hover {
+    background-color: #375ad3;
+}
+
+.document-categories {
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 15px;
+}
+
+.document-category {
+    margin-bottom: 20px;
+}
+
+.category-title {
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.document-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-left: 15px;
+}
+
+.document-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.document-checkbox {
+    margin: 0;
+}
+
+.mandatory-checkbox {
+    margin-left: auto;
+}
+
+.notes-field {
+    width: 100%;
+    margin-top: 8px;
+    display: none;
+}
+
+.notes-toggle {
+    font-size: 12px;
+    color: var(--secondary-color);
+    cursor: pointer;
+    margin-left: 10px;
+}
+
+.notes-toggle:hover {
+    text-decoration: underline;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.p-4 {
+    padding: 1rem;
+}
+
+.mt-2 {
+    margin-top: 0.5rem;
+}
+
+.mb-3 {
+    margin-bottom: 0.75rem;
+}
+
+.mt-4 {
+    margin-top: 1rem;
+}
+
+.modal-lg {
+    max-width: 800px;
+}
 </style>
 
 <script>
@@ -1253,6 +1380,215 @@ document.getElementById('search-visa').addEventListener('keyup', function(e) {
 document.getElementById('country_code').addEventListener('input', function() {
     this.value = this.value.toUpperCase();
 });
+
+// Function to manage required documents for a visa
+function manageRequiredDocuments(visaId, visaType) {
+    // Set visa ID and title
+    document.getElementById('modal_visa_id').value = visaId;
+    document.getElementById('visaTypeDisplay').textContent = visaType;
+    
+    // Show loading, hide content
+    document.getElementById('documentsModalLoading').style.display = 'block';
+    document.getElementById('documentsModalContent').style.display = 'none';
+    
+    // Show modal
+    document.getElementById('manageDocumentsModal').style.display = 'block';
+    
+    // Load document categories and types
+    loadDocumentTypes(visaId);
+}
+
+// Function to load document types and categories
+function loadDocumentTypes(visaId) {
+    // First, get all document types grouped by category
+    fetch('ajax/get_document_types.php')
+        .then(response => response.json())
+        .then(types => {
+            // Then get currently required documents for this visa
+            fetch('get_required_documents.php?visa_id=' + visaId)
+                .then(response => response.json())
+                .then(requiredDocs => {
+                    // Build the document selection UI
+                    buildDocumentSelectionUI(types, requiredDocs);
+                    
+                    // Hide loading, show content
+                    document.getElementById('documentsModalLoading').style.display = 'none';
+                    document.getElementById('documentsModalContent').style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error fetching required documents:', error);
+                    alert('Error loading required documents. Please try again.');
+                });
+        })
+        .catch(error => {
+            console.error('Error fetching document types:', error);
+            alert('Error loading document types. Please try again.');
+        });
+}
+
+// Function to build document selection UI
+function buildDocumentSelectionUI(documentsByCategory, requiredDocs) {
+    const container = document.querySelector('.document-categories');
+    container.innerHTML = '';
+    
+    // Create a map of required documents for easy lookup
+    const requiredDocsMap = {};
+    requiredDocs.forEach(doc => {
+        requiredDocsMap[doc.document_name] = {
+            is_mandatory: doc.is_mandatory,
+            notes: doc.notes || ''
+        };
+    });
+    
+    // Build UI for each category
+    for (const category in documentsByCategory) {
+        const documents = documentsByCategory[category];
+        
+        const categoryDiv = document.createElement('div');
+        categoryDiv.className = 'document-category';
+        
+        const categoryTitle = document.createElement('div');
+        categoryTitle.className = 'category-title';
+        categoryTitle.textContent = category;
+        categoryDiv.appendChild(categoryTitle);
+        
+        const documentList = document.createElement('div');
+        documentList.className = 'document-list';
+        
+        documents.forEach(doc => {
+            const isRequired = requiredDocsMap.hasOwnProperty(doc.name);
+            const isMandatory = isRequired && requiredDocsMap[doc.name].is_mandatory === '1';
+            const notes = isRequired ? requiredDocsMap[doc.name].notes : '';
+            
+            const documentItem = document.createElement('div');
+            documentItem.className = 'document-item';
+            
+            // Document selection checkbox
+            const checkboxLabel = document.createElement('label');
+            checkboxLabel.className = 'document-label';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'document-checkbox';
+            checkbox.name = 'documents[]';
+            checkbox.value = doc.id;
+            checkbox.checked = isRequired;
+            checkbox.dataset.documentName = doc.name;
+            
+            checkboxLabel.appendChild(checkbox);
+            checkboxLabel.appendChild(document.createTextNode(' ' + doc.name));
+            
+            // Add a notes toggle
+            const notesToggle = document.createElement('span');
+            notesToggle.className = 'notes-toggle';
+            notesToggle.textContent = 'Add Notes';
+            notesToggle.onclick = function() {
+                const notesField = this.parentElement.nextElementSibling;
+                notesField.style.display = notesField.style.display === 'none' ? 'block' : 'none';
+                this.textContent = notesField.style.display === 'none' ? 'Add Notes' : 'Hide Notes';
+            };
+            
+            // Mandatory checkbox
+            const mandatoryLabel = document.createElement('label');
+            mandatoryLabel.className = 'mandatory-label';
+            
+            const mandatoryCheckbox = document.createElement('input');
+            mandatoryCheckbox.type = 'checkbox';
+            mandatoryCheckbox.className = 'mandatory-checkbox';
+            mandatoryCheckbox.name = 'mandatory_' + doc.id;
+            mandatoryCheckbox.checked = isMandatory;
+            mandatoryCheckbox.disabled = !isRequired;
+            
+            checkbox.onchange = function() {
+                mandatoryCheckbox.disabled = !this.checked;
+                if (!this.checked) {
+                    mandatoryCheckbox.checked = false;
+                }
+            };
+            
+            mandatoryLabel.appendChild(document.createTextNode('Mandatory '));
+            mandatoryLabel.appendChild(mandatoryCheckbox);
+            
+            documentItem.appendChild(checkboxLabel);
+            documentItem.appendChild(notesToggle);
+            documentItem.appendChild(mandatoryLabel);
+            
+            // Notes textarea (initially hidden)
+            const notesContainer = document.createElement('div');
+            notesContainer.className = 'notes-field';
+            notesContainer.style.display = notes ? 'block' : 'none';
+            
+            const notesTextarea = document.createElement('textarea');
+            notesTextarea.className = 'form-control';
+            notesTextarea.name = 'notes_' + doc.id;
+            notesTextarea.placeholder = 'Add notes about this document';
+            notesTextarea.rows = 2;
+            notesTextarea.value = notes;
+            
+            notesContainer.appendChild(notesTextarea);
+            
+            documentList.appendChild(documentItem);
+            documentList.appendChild(notesContainer);
+            
+            if (notes) {
+                notesToggle.textContent = 'Hide Notes';
+            }
+        });
+        
+        categoryDiv.appendChild(documentList);
+        container.appendChild(categoryDiv);
+    }
+    
+    // Add save button event listener
+    document.getElementById('saveRequiredDocsBtn').onclick = saveRequiredDocuments;
+}
+
+// Function to save required documents
+function saveRequiredDocuments() {
+    const form = document.getElementById('requiredDocumentsForm');
+    const visaId = document.getElementById('modal_visa_id').value;
+    
+    // Get all selected documents
+    const documentCheckboxes = form.querySelectorAll('.document-checkbox:checked');
+    const documents = [];
+    
+    documentCheckboxes.forEach(checkbox => {
+        const docId = checkbox.value;
+        const mandatoryCheckbox = form.querySelector(`input[name="mandatory_${docId}"]`);
+        const notesTextarea = form.querySelector(`textarea[name="notes_${docId}"]`);
+        
+        documents.push({
+            document_id: docId,
+            is_mandatory: mandatoryCheckbox.checked ? 1 : 0,
+            notes: notesTextarea ? notesTextarea.value : ''
+        });
+    });
+    
+    // Send data to server
+    fetch('ajax/save_required_documents.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            visa_id: visaId,
+            documents: documents
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Required documents saved successfully!');
+            document.getElementById('manageDocumentsModal').style.display = 'none';
+        } else {
+            alert('Error: ' + (data.message || 'Could not save required documents'));
+        }
+    })
+    .catch(error => {
+        console.error('Error saving required documents:', error);
+        alert('Error saving required documents. Please try again.');
+    });
+}
 </script>
 
 <?php

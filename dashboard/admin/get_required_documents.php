@@ -9,11 +9,12 @@ if (!isset($_GET['visa_id']) || empty($_GET['visa_id'])) {
 
 $visa_id = intval($_GET['visa_id']);
 
-// Get required documents for the selected visa
-$query = "SELECT vrd.is_mandatory, dt.name as document_name, dt.document_type 
+// Get required documents for the selected visa with explicit collation
+$query = "SELECT vrd.is_mandatory, vrd.notes, dt.id as document_type_id, dt.name as document_name, dc.name as document_type 
           FROM visa_required_documents vrd 
           JOIN document_types dt ON vrd.document_type_id = dt.id 
-          WHERE vrd.visa_id = ?";
+          JOIN document_categories dc ON dt.category_id = dc.id
+          WHERE vrd.visa_id = ? COLLATE utf8mb4_general_ci";
 $stmt = $conn->prepare($query);
 $stmt->bind_param('i', $visa_id);
 $stmt->execute();

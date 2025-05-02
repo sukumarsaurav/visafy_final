@@ -1,5 +1,6 @@
+
 <?php
-require_once '../../../config/db_connect.php';
+require_once '../../config/db_connect.php';
 header('Content-Type: application/json');
 
 if (!isset($_GET['country_id']) || empty($_GET['country_id'])) {

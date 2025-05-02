@@ -14,6 +14,11 @@ if (session_status() == PHP_SESSION_NONE) {
 // Set headers
 header('Content-Type: application/json');
 
+// Set character set to utf8mb4
+if (!$conn->set_charset("utf8mb4")) {
+    error_log("Error setting charset: " . $conn->error);
+}
+
 try {
     // Check if user is logged in as admin
     if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {

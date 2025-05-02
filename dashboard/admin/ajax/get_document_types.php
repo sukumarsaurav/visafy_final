@@ -22,42 +22,36 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     exit;
 }
 
-// Get category ID
-$category_id = isset($_GET['category_id']) ? intval($_GET['category_id']) : 0;
+// Get all document types grouped by categories with explicit collation
+$query = "SELECT dt.id, dt.name, dt.description, dc.name as category_name
+          FROM document_types dt
+          JOIN document_categories dc ON dt.category_id = dc.id COLLATE utf8mb4_general_ci
+          WHERE dt.is_active = 1
+          ORDER BY dc.name, dt.name";
 
-// Validate category ID
-if ($category_id <= 0) {
-    echo json_encode(['success' => false, 'error' => 'Invalid category ID']);
-    exit;
-}
+$stmt = $conn->prepare($query);
+$stmt->execute();
+$result = $stmt->get_result();
 
-try {
-    // Verify category exists
-    $check_stmt = $conn->prepare("SELECT id FROM document_categories WHERE id = ?");
-    $check_stmt->bind_param("i", $category_id);
-    $check_stmt->execute();
-    $check_result = $check_stmt->get_result();
-    
-    if ($check_result->num_rows === 0) {
-        echo json_encode(['success' => false, 'error' => 'Category not found']);
-        exit;
+// Group results by category
+$document_types = [];
+
+if ($result && $result->num_rows > 0) {
+    while ($row = $result->fetch_assoc()) {
+        $category = $row['category_name'];
+        
+        if (!isset($document_types[$category])) {
+            $document_types[$category] = [];
+        }
+        
+        $document_types[$category][] = [
+            'id' => $row['id'],
+            'name' => $row['name'],
+            'description' => $row['description']
+        ];
     }
-    
-    // Fetch document types
-    $stmt = $conn->prepare("SELECT id, name, description, is_active FROM document_types 
-                          WHERE category_id = ? ORDER BY name");
-    $stmt->bind_param("i", $category_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    $documents = [];
-    while ($document = $result->fetch_assoc()) {
-        $documents[] = $document;
-    }
-    
-    echo json_encode(['success' => true, 'documents' => $documents]);
-    
-} catch (Exception $e) {
-    echo json_encode(['success' => false, 'error' => 'Error: ' . $e->getMessage()]);
 }
+$stmt->close();
+
+echo json_encode($document_types);
 ?>

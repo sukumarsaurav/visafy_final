@@ -46,7 +46,6 @@ CREATE TABLE `applications` (
   `user_id` int(11) NOT NULL COMMENT 'Applicant',
   `visa_id` int(11) NOT NULL COMMENT 'Visa being applied for',
   `status_id` int(11) NOT NULL,
-  `team_member_id` int(11) DEFAULT NULL COMMENT 'Assigned case manager',
   `submitted_at` datetime DEFAULT NULL,
   `notes` text DEFAULT NULL COMMENT 'Internal notes for application',
   `expected_completion_date` date DEFAULT NULL,
@@ -60,13 +59,11 @@ CREATE TABLE `applications` (
   KEY `user_id` (`user_id`),
   KEY `visa_id` (`visa_id`),
   KEY `status_id` (`status_id`),
-  KEY `team_member_id` (`team_member_id`),
   KEY `created_by` (`created_by`),
   KEY `idx_applications_priority` (`priority`),
   CONSTRAINT `applications_user_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `applications_visa_id_fk` FOREIGN KEY (`visa_id`) REFERENCES `visas` (`visa_id`) ON DELETE CASCADE,
   CONSTRAINT `applications_status_id_fk` FOREIGN KEY (`status_id`) REFERENCES `application_statuses` (`id`),
-  CONSTRAINT `applications_team_member_id_fk` FOREIGN KEY (`team_member_id`) REFERENCES `team_members` (`id`) ON DELETE SET NULL,
   CONSTRAINT `applications_created_by_fk` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -130,6 +127,25 @@ CREATE TABLE `application_comments` (
   CONSTRAINT `application_comments_user_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+
+-- Create application assignments junction table
+CREATE TABLE `application_assignments` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `application_id` int(11) NOT NULL,
+  `team_member_id` int(11) NOT NULL,
+  `assigned_by` int(11) NOT NULL,
+  `assigned_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `status` enum('active','completed','reassigned') NOT NULL DEFAULT 'active',
+  `notes` text DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `application_id` (`application_id`),
+  KEY `team_member_id` (`team_member_id`),
+  KEY `assigned_by` (`assigned_by`),
+  CONSTRAINT `app_assignments_application_id_fk` FOREIGN KEY (`application_id`) REFERENCES `applications` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `app_assignments_team_member_id_fk` FOREIGN KEY (`team_member_id`) REFERENCES `team_members` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `app_assignments_assigned_by_fk` FOREIGN KEY (`assigned_by`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 -- Application activity logs
 CREATE TABLE `application_activity_logs` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -184,27 +200,29 @@ END //
 DELIMITER ;
 
 -- Create a view for applications with related information
-CREATE OR REPLACE VIEW applications_view AS
+DROP VIEW IF EXISTS applications_view;
+CREATE VIEW applications_view AS
 SELECT 
     a.id,
-    a.reference_number,
+    a.reference_number COLLATE utf8mb4_general_ci AS reference_number,
     a.visa_id,
     a.status_id,
-    a.team_member_id,
+    aa.team_member_id,  -- From application_assignments
     a.submitted_at,
     a.expected_completion_date,
-    a.priority,
+    a.priority COLLATE utf8mb4_general_ci AS priority,
     a.created_at,
+    a.updated_at,
     a.deleted_at,
-    ast.name AS status_name,
-    ast.color AS status_color,
+    ast.name COLLATE utf8mb4_general_ci AS status_name,
+    ast.color COLLATE utf8mb4_general_ci AS status_color,
     u.id AS applicant_id,
-    CONCAT(u.first_name, ' ', u.last_name) AS applicant_name,
-    u.email AS applicant_email,
-    v.visa_type,
-    c.country_name,
-    CONCAT(tm_u.first_name, ' ', tm_u.last_name) AS case_manager_name,
-    tm.role AS case_manager_role,
+    CONCAT(u.first_name, ' ', u.last_name) COLLATE utf8mb4_general_ci AS applicant_name,
+    u.email COLLATE utf8mb4_general_ci AS applicant_email,
+    v.visa_type COLLATE utf8mb4_general_ci,
+    c.country_name COLLATE utf8mb4_general_ci,
+    CONCAT(tm_u.first_name, ' ', tm_u.last_name) COLLATE utf8mb4_general_ci AS case_manager_name,
+    tm.role COLLATE utf8mb4_general_ci AS case_manager_role,
     COUNT(DISTINCT ad.id) AS total_documents,
     SUM(CASE WHEN ad.status = 'approved' THEN 1 ELSE 0 END) AS approved_documents,
     SUM(CASE WHEN ad.status = 'rejected' THEN 1 ELSE 0 END) AS rejected_documents,
@@ -221,7 +239,9 @@ JOIN
 JOIN 
     countries c ON v.country_id = c.country_id
 LEFT JOIN 
-    team_members tm ON a.team_member_id = tm.id
+    application_assignments aa ON a.id = aa.application_id AND aa.status = 'active'
+LEFT JOIN 
+    team_members tm ON aa.team_member_id = tm.id
 LEFT JOIN 
     users tm_u ON tm.user_id = tm_u.id
 LEFT JOIN 
@@ -229,8 +249,8 @@ LEFT JOIN
 WHERE 
     a.deleted_at IS NULL
 GROUP BY 
-    a.id, a.reference_number, a.visa_id, a.status_id, a.team_member_id, a.submitted_at,
-    a.expected_completion_date, a.priority, a.created_at, a.deleted_at, ast.name, ast.color,
+    a.id, a.reference_number, a.visa_id, a.status_id, aa.team_member_id, a.submitted_at,
+    a.expected_completion_date, a.priority, a.created_at, a.updated_at, a.deleted_at, ast.name, ast.color,
     u.id, u.first_name, u.last_name, u.email, v.visa_type, c.country_name,
     tm_u.first_name, tm_u.last_name, tm.role
 ORDER BY 
