@@ -340,25 +340,25 @@ if (isset($_GET['success'])) {
                             <td class="actions-cell">
                                 <?php if ($member['status'] === 'active'): ?>
                                     <button type="button" class="btn-action btn-deactivate" 
-                                            onclick="confirmAction('deactivate', <?php echo $member['id']; ?>, <?php echo $member['user_id']; ?>)">
-                                        <i class="fas fa-user-slash"></i> Deactivate
+                                            title="Deactivate" onclick="confirmAction('deactivate', <?php echo $member['id']; ?>, <?php echo $member['user_id']; ?>)">
+                                        <i class="fas fa-user-slash"></i>
                                     </button>
                                 <?php else: ?>
                                     <button type="button" class="btn-action btn-activate" 
-                                            onclick="confirmAction('activate', <?php echo $member['id']; ?>, <?php echo $member['user_id']; ?>)">
-                                        <i class="fas fa-user-check"></i> Activate
+                                            title="Activate" onclick="confirmAction('activate', <?php echo $member['id']; ?>, <?php echo $member['user_id']; ?>)">
+                                        <i class="fas fa-user-check"></i>
                                     </button>
                                 <?php endif; ?>
                                 
                                 <?php if (!$member['email_verified']): ?>
                                     <button type="button" class="btn-action btn-resend" 
-                                            onclick="confirmAction('resend', <?php echo $member['id']; ?>, <?php echo $member['user_id']; ?>)">
-                                        <i class="fas fa-paper-plane"></i> Resend
+                                            title="Resend Invitation" onclick="confirmAction('resend', <?php echo $member['id']; ?>, <?php echo $member['user_id']; ?>)">
+                                        <i class="fas fa-paper-plane"></i>
                                     </button>
                                 <?php endif; ?>
                                 
-                                <a href="edit_member.php?id=<?php echo $member['id']; ?>" class="btn-action btn-edit">
-                                    <i class="fas fa-edit"></i> Edit
+                                <a href="edit_member.php?id=<?php echo $member['id']; ?>" class="btn-action btn-edit" title="Edit">
+                                    <i class="fas fa-edit"></i>
                                 </a>
                             </td>
                         </tr>
@@ -598,22 +598,32 @@ if (isset($_GET['success'])) {
 .btn-action {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 6px 12px;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
     border-radius: 4px;
-    font-size: 12px;
+    font-size: 14px;
     border: none;
     cursor: pointer;
     text-decoration: none;
     color: white;
+    transition: background-color 0.2s;
 }
 
-.btn-deactivate {
-    background-color: var(--danger-color);
+.btn-view {
+    background-color: var(--primary-color);
 }
 
-.btn-deactivate:hover {
-    background-color: #d44235;
+.btn-view:hover {
+    background-color: #031c56;
+}
+
+.btn-edit {
+    background-color: var(--warning-color);
+}
+
+.btn-edit:hover {
+    background-color: #e0b137;
 }
 
 .btn-activate {
@@ -624,20 +634,20 @@ if (isset($_GET['success'])) {
     background-color: #18b07b;
 }
 
+.btn-deactivate {
+    background-color: var(--danger-color);
+}
+
+.btn-deactivate:hover {
+    background-color: #d44235;
+}
+
 .btn-resend {
-    background-color: var(--primary-color);
+    background-color: #4e73df;
 }
 
 .btn-resend:hover {
-    background-color: #031c56;
-}
-
-.btn-edit {
-    background-color: var(--secondary-color);
-}
-
-.btn-edit:hover {
-    background-color: #767a8a;
+    background-color: #4262c3;
 }
 
 .empty-state {

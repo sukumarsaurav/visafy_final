@@ -388,40 +388,35 @@ if (isset($_GET['success'])) {
                                 <?php endif; ?>
                             </td>
                             <td class="actions-cell">
-                                <div class="dropdown">
-                                    <button class="btn-action dropdown-toggle">
-                                        <i class="fas fa-ellipsis-v"></i>
+                                <a href="task_detail.php?id=<?php echo $task['id']; ?>" class="btn-action btn-view" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                
+                                <a href="edit_task.php?id=<?php echo $task['id']; ?>" class="btn-action btn-edit" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                
+                                <?php if ($task['task_status'] === 'pending'): ?>
+                                    <button type="button" class="btn-action btn-start" 
+                                            title="Start" onclick="updateTaskStatus(<?php echo $task['id']; ?>, 'in_progress')">
+                                        <i class="fas fa-play"></i>
                                     </button>
-                                    <div class="dropdown-menu">
-                                        <a href="task_detail.php?id=<?php echo $task['id']; ?>" class="dropdown-item">
-                                            <i class="fas fa-eye"></i> View Details
-                                        </a>
-                                        <a href="edit_task.php?id=<?php echo $task['id']; ?>" class="dropdown-item">
-                                            <i class="fas fa-edit"></i> Edit
-                                        </a>
-                                        <?php if ($task['task_status'] === 'pending'): ?>
-                                            <button type="button" class="dropdown-item" 
-                                                    onclick="updateTaskStatus(<?php echo $task['id']; ?>, 'in_progress')">
-                                                <i class="fas fa-play"></i> Start
-                                            </button>
-                                        <?php elseif ($task['task_status'] === 'in_progress'): ?>
-                                            <button type="button" class="dropdown-item" 
-                                                    onclick="updateTaskStatus(<?php echo $task['id']; ?>, 'completed')">
-                                                <i class="fas fa-check"></i> Complete
-                                            </button>
-                                        <?php elseif ($task['task_status'] === 'completed'): ?>
-                                            <button type="button" class="dropdown-item" 
-                                                    onclick="updateTaskStatus(<?php echo $task['id']; ?>, 'in_progress')">
-                                                <i class="fas fa-redo"></i> Reopen
-                                            </button>
-                                        <?php endif; ?>
-                                        <div class="dropdown-divider"></div>
-                                        <button type="button" class="dropdown-item text-danger" 
-                                                onclick="confirmDeleteTask(<?php echo $task['id']; ?>)">
-                                            <i class="fas fa-trash"></i> Delete
-                                        </button>
-                                    </div>
-                                </div>
+                                <?php elseif ($task['task_status'] === 'in_progress'): ?>
+                                    <button type="button" class="btn-action btn-complete" 
+                                            title="Complete" onclick="updateTaskStatus(<?php echo $task['id']; ?>, 'completed')">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                <?php elseif ($task['task_status'] === 'completed'): ?>
+                                    <button type="button" class="btn-action btn-reopen" 
+                                            title="Reopen" onclick="updateTaskStatus(<?php echo $task['id']; ?>, 'in_progress')">
+                                        <i class="fas fa-redo"></i>
+                                    </button>
+                                <?php endif; ?>
+                                
+                                <button type="button" class="btn-action btn-delete" 
+                                        title="Delete" onclick="confirmDeleteTask(<?php echo $task['id']; ?>)">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -768,60 +763,66 @@ if (isset($_GET['success'])) {
     width: 10%;
 }
 
-.dropdown {
-    position: relative;
-    display: inline-
-}
-
 .btn-action {
-    background-color: transparent;
-    border: none;
-    color: var(--secondary-color);
-    cursor: pointer;
-    padding: 6px 8px;
-    border-radius: 4px;
-}
-
-.btn-action:hover {
-    background-color: rgba(0, 0, 0, 0.05);
-}
-
-.dropdown-menu {
-    display: none;
-    position: absolute;
-    right: 0;
-    background-color: white;
-    min-width: 160px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    border-radius: 4px;
-    z-index: 1;
-}
-
-.dropdown-menu.show {
-    display: block;
-}
-
-.dropdown-item {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    padding: 8px 12px;
-    color: var(--dark-color);
-    text-decoration: none;
-    gap: 8px;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    font-size: 12px;
+    border: none;
     cursor: pointer;
+    text-decoration: none;
+    color: white;
 }
 
-.dropdown-item:hover {
-    background-color: var(--light-color);
+.btn-view {
+    background-color: var(--primary-color);
 }
 
-.dropdown-item i {
-    width: 16px;
-    text-align: center;
+.btn-view:hover {
+    background-color: #031c56;
 }
 
-.text-danger {
-    color: var(--danger-color) !important;
+.btn-edit {
+    background-color: var(--warning-color);
+}
+
+.btn-edit:hover {
+    background-color: #e0b137;
+}
+
+.btn-start {
+    background-color: #4e73df;
+}
+
+.btn-start:hover {
+    background-color: #4262c3;
+}
+
+.btn-complete {
+    background-color: var(--success-color);
+}
+
+.btn-complete:hover {
+    background-color: #18b07b;
+}
+
+.btn-reopen {
+    background-color: var(--warning-color);
+}
+
+.btn-reopen:hover {
+    background-color: #e0b137;
+}
+
+.btn-delete {
+    background-color: var(--danger-color);
+}
+
+.btn-delete:hover {
+    background-color: #d44235;
 }
 
 .empty-state {
@@ -1014,38 +1015,6 @@ window.addEventListener('click', function(event) {
     if (event.target === modal) {
         modal.style.display = 'none';
     }
-});
-
-// Dropdown menus for task actions
-document.querySelectorAll('.dropdown-toggle').forEach(function(button) {
-    button.addEventListener('click', function(e) {
-        e.stopPropagation();
-        const menu = this.nextElementSibling;
-        
-        // Close all other open dropdowns
-        document.querySelectorAll('.dropdown-menu.show').forEach(function(openMenu) {
-            if (openMenu !== menu) {
-                openMenu.classList.remove('show');
-            }
-        });
-        
-        // Toggle this dropdown
-        menu.classList.toggle('show');
-    });
-});
-
-// Close dropdowns when clicking outside
-document.addEventListener('click', function() {
-    document.querySelectorAll('.dropdown-menu.show').forEach(function(menu) {
-        menu.classList.remove('show');
-    });
-});
-
-// Prevent dropdown menu clicks from closing the dropdown
-document.querySelectorAll('.dropdown-menu').forEach(function(menu) {
-    menu.addEventListener('click', function(e) {
-        e.stopPropagation();
-    });
 });
 
 // Task filtering functionality

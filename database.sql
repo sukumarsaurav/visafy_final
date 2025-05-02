@@ -248,3 +248,55 @@ CREATE TABLE visas (
     inactive_since DATE,             -- Optional date since when inactive
     FOREIGN KEY (country_id) REFERENCES countries(country_id) ON DELETE CASCADE
 );
+-- Create service types table
+CREATE TABLE service_types (
+    service_type_id INT PRIMARY KEY AUTO_INCREMENT,
+    service_name VARCHAR(100) NOT NULL,
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Create consultation modes table
+CREATE TABLE consultation_modes (
+    consultation_mode_id INT PRIMARY KEY AUTO_INCREMENT,
+    mode_name VARCHAR(100) NOT NULL,
+    description TEXT,
+    is_custom BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Create visa_services table that connects visas with service types and base pricing
+CREATE TABLE visa_services (
+    visa_service_id INT PRIMARY KEY AUTO_INCREMENT,
+    visa_id INT NOT NULL,
+    service_type_id INT NOT NULL,
+    base_price DECIMAL(10, 2) NOT NULL,
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (visa_id) REFERENCES visas(visa_id) ON DELETE CASCADE,
+    FOREIGN KEY (service_type_id) REFERENCES service_types(service_type_id) ON DELETE CASCADE,
+    -- Ensure unique combination of visa and service type
+    UNIQUE KEY (visa_id, service_type_id)
+);
+
+-- Create service_consultation_modes table to link services with available consultation modes and their additional fees
+CREATE TABLE service_consultation_modes (
+    service_consultation_id INT PRIMARY KEY AUTO_INCREMENT,
+    visa_service_id INT NOT NULL,
+    consultation_mode_id INT NOT NULL,
+    additional_fee DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    duration_minutes INT,
+    is_available BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (visa_service_id) REFERENCES visa_services(visa_service_id) ON DELETE CASCADE,
+    FOREIGN KEY (consultation_mode_id) REFERENCES consultation_modes(consultation_mode_id) ON DELETE CASCADE,
+    -- Ensure unique combination of service and consultation mode
+    UNIQUE KEY (visa_service_id, consultation_mode_id)
+);

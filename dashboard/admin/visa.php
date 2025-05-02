@@ -355,30 +355,25 @@ if (isset($_GET['success'])) {
                                                 <?php endif; ?>
                                             </td>
                                             <td class="actions-cell">
-                                                <div class="dropdown">
-                                                    <button class="btn-action dropdown-toggle">
-                                                        <i class="fas fa-ellipsis-v"></i>
+                                                <a href="visa_details.php?id=<?php echo $visa['visa_id']; ?>" class="btn-action btn-view" title="View Details">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                
+                                                <a href="edit_visa.php?id=<?php echo $visa['visa_id']; ?>" class="btn-action btn-edit" title="Edit">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                
+                                                <?php if ($visa['is_active']): ?>
+                                                    <button type="button" class="btn-action btn-deactivate" 
+                                                            title="Deactivate" onclick="toggleVisaStatus(<?php echo $visa['visa_id']; ?>, 0)">
+                                                        <i class="fas fa-ban"></i>
                                                     </button>
-                                                    <div class="dropdown-menu">
-                                                        <a href="visa_details.php?id=<?php echo $visa['visa_id']; ?>" class="dropdown-item">
-                                                            <i class="fas fa-eye"></i> View Details
-                                                        </a>
-                                                        <a href="edit_visa.php?id=<?php echo $visa['visa_id']; ?>" class="dropdown-item">
-                                                            <i class="fas fa-edit"></i> Edit
-                                                        </a>
-                                                        <?php if ($visa['is_active']): ?>
-                                                            <button type="button" class="dropdown-item" 
-                                                                    onclick="toggleVisaStatus(<?php echo $visa['visa_id']; ?>, 0)">
-                                                                <i class="fas fa-ban"></i> Deactivate
-                                                            </button>
-                                                        <?php else: ?>
-                                                            <button type="button" class="dropdown-item" 
-                                                                    onclick="toggleVisaStatus(<?php echo $visa['visa_id']; ?>, 1)">
-                                                                <i class="fas fa-check"></i> Activate
-                                                            </button>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                </div>
+                                                <?php else: ?>
+                                                    <button type="button" class="btn-action btn-activate" 
+                                                            title="Activate" onclick="toggleVisaStatus(<?php echo $visa['visa_id']; ?>, 1)">
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                <?php endif; ?>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -1139,31 +1134,6 @@ window.addEventListener('click', function(event) {
         if (event.target === modal) {
             modal.style.display = 'none';
         }
-    });
-});
-
-// Dropdown functionality for visa actions
-document.querySelectorAll('.dropdown-toggle').forEach(function(button) {
-    button.addEventListener('click', function(e) {
-        e.stopPropagation();
-        const menu = this.nextElementSibling;
-        
-        // Close all other open dropdowns
-        document.querySelectorAll('.dropdown-menu.show').forEach(function(openMenu) {
-            if (openMenu !== menu) {
-                openMenu.classList.remove('show');
-            }
-        });
-        
-        // Toggle this dropdown
-        menu.classList.toggle('show');
-    });
-});
-
-// Close dropdowns when clicking outside
-document.addEventListener('click', function() {
-    document.querySelectorAll('.dropdown-menu.show').forEach(function(menu) {
-        menu.classList.remove('show');
     });
 });
 

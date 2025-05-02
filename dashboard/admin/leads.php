@@ -231,39 +231,35 @@ if (isset($_GET['success'])) {
                                 <?php endif; ?>
                             </td>
                             <td class="actions-cell">
-                                <div class="dropdown">
-                                    <button class="btn-action dropdown-toggle">
-                                        <i class="fas fa-ellipsis-v"></i>
+                                <a href="lead_details.php?id=<?php echo $lead['id']; ?>" class="btn-action btn-view" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                
+                                <a href="send_message.php?id=<?php echo $lead['id']; ?>" class="btn-action btn-message" title="Send Message">
+                                    <i class="fas fa-envelope"></i>
+                                </a>
+                                
+                                <?php if ($lead['status'] === 'active'): ?>
+                                    <button type="button" class="btn-action btn-deactivate" 
+                                            title="Deactivate" onclick="toggleLeadStatus(<?php echo $lead['id']; ?>, 'suspended')">
+                                        <i class="fas fa-user-slash"></i>
                                     </button>
-                                    <div class="dropdown-menu">
-                                        <a href="lead_details.php?id=<?php echo $lead['id']; ?>" class="dropdown-item">
-                                            <i class="fas fa-eye"></i> View Details
-                                        </a>
-                                        <a href="send_message.php?id=<?php echo $lead['id']; ?>" class="dropdown-item">
-                                            <i class="fas fa-envelope"></i> Send Message
-                                        </a>
-                                        <?php if ($lead['status'] === 'active'): ?>
-                                            <button type="button" class="dropdown-item" 
-                                                    onclick="toggleLeadStatus(<?php echo $lead['id']; ?>, 'suspended')">
-                                                <i class="fas fa-user-slash"></i> Deactivate
-                                            </button>
-                                        <?php else: ?>
-                                            <button type="button" class="dropdown-item" 
-                                                    onclick="toggleLeadStatus(<?php echo $lead['id']; ?>, 'active')">
-                                                <i class="fas fa-user-check"></i> Activate
-                                            </button>
-                                        <?php endif; ?>
-                                        <button type="button" class="dropdown-item" 
-                                                onclick="convertToClient(<?php echo $lead['id']; ?>)">
-                                            <i class="fas fa-user-graduate"></i> Convert to Client
-                                        </button>
-                                        <div class="dropdown-divider"></div>
-                                        <button type="button" class="dropdown-item text-danger" 
-                                                onclick="confirmDeleteLead(<?php echo $lead['id']; ?>)">
-                                            <i class="fas fa-trash"></i> Delete
-                                        </button>
-                                    </div>
-                                </div>
+                                <?php else: ?>
+                                    <button type="button" class="btn-action btn-activate" 
+                                            title="Activate" onclick="toggleLeadStatus(<?php echo $lead['id']; ?>, 'active')">
+                                        <i class="fas fa-user-check"></i>
+                                    </button>
+                                <?php endif; ?>
+                                
+                                <button type="button" class="btn-action btn-convert" 
+                                        title="Convert to Client" onclick="convertToClient(<?php echo $lead['id']; ?>)">
+                                    <i class="fas fa-user-graduate"></i>
+                                </button>
+                                
+                                <button type="button" class="btn-action btn-delete" 
+                                        title="Delete" onclick="confirmDeleteLead(<?php echo $lead['id']; ?>)">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -525,66 +521,75 @@ if (isset($_GET['success'])) {
     width: 10%;
 }
 
-.dropdown {
-    position: relative;
-    display: inline-block;
-}
-
 .btn-action {
-    background-color: transparent;
-    border: none;
-    color: var(--secondary-color);
-    cursor: pointer;
-    padding: 6px 8px;
-    border-radius: 4px;
-}
-
-.btn-action:hover {
-    background-color: rgba(0, 0, 0, 0.05);
-}
-
-.dropdown-menu {
-    display: none;
-    position: absolute;
-    right: 0;
-    background-color: white;
-    min-width: 180px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    border-radius: 4px;
-    z-index: 1;
-}
-
-.dropdown-menu.show {
-    display: block;
-}
-
-.dropdown-item {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    padding: 8px 12px;
-    color: var(--dark-color);
-    text-decoration: none;
-    gap: 8px;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    font-size: 14px;
+    border: none;
     cursor: pointer;
+    text-decoration: none;
+    color: white;
+    transition: background-color 0.2s;
 }
 
-.dropdown-item:hover {
-    background-color: var(--light-color);
+.btn-view {
+    background-color: var(--primary-color);
 }
 
-.dropdown-item i {
-    width: 16px;
-    text-align: center;
+.btn-view:hover {
+    background-color: #031c56;
 }
 
-.text-danger {
-    color: var(--danger-color) !important;
+.btn-edit {
+    background-color: var(--warning-color);
 }
 
-.dropdown-divider {
-    height: 1px;
-    background-color: var(--border-color);
-    margin: 5px 0;
+.btn-edit:hover {
+    background-color: #e0b137;
+}
+
+.btn-activate {
+    background-color: var(--success-color);
+}
+
+.btn-activate:hover {
+    background-color: #18b07b;
+}
+
+.btn-deactivate {
+    background-color: var(--danger-color);
+}
+
+.btn-deactivate:hover {
+    background-color: #d44235;
+}
+
+.btn-message {
+    background-color: #4e73df;
+}
+
+.btn-message:hover {
+    background-color: #4262c3;
+}
+
+.btn-convert {
+    background-color: #36b9cc;
+}
+
+.btn-convert:hover {
+    background-color: #2c9faf;
+}
+
+.btn-delete {
+    background-color: var(--danger-color);
+}
+
+.btn-delete:hover {
+    background-color: #d44235;
 }
 
 .empty-state {
@@ -651,38 +656,6 @@ if (isset($_GET['success'])) {
 </style>
 
 <script>
-// Dropdown menus for lead actions
-document.querySelectorAll('.dropdown-toggle').forEach(function(button) {
-    button.addEventListener('click', function(e) {
-        e.stopPropagation();
-        const menu = this.nextElementSibling;
-        
-        // Close all other open dropdowns
-        document.querySelectorAll('.dropdown-menu.show').forEach(function(openMenu) {
-            if (openMenu !== menu) {
-                openMenu.classList.remove('show');
-            }
-        });
-        
-        // Toggle this dropdown
-        menu.classList.toggle('show');
-    });
-});
-
-// Close dropdowns when clicking outside
-document.addEventListener('click', function() {
-    document.querySelectorAll('.dropdown-menu.show').forEach(function(menu) {
-        menu.classList.remove('show');
-    });
-});
-
-// Prevent dropdown menu clicks from closing the dropdown
-document.querySelectorAll('.dropdown-menu').forEach(function(menu) {
-    menu.addEventListener('click', function(e) {
-        e.stopPropagation();
-    });
-});
-
 // Function to filter leads
 function filterLeads() {
     const statusFilter = document.getElementById('status-filter').value;
