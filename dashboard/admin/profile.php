@@ -6,397 +6,372 @@ $page_title = "My Profile";
 $page_specific_css = "assets/css/profile.css";
 require_once 'includes/header.php';
 
-// Get user data - Using prepared statement
-$query = "SELECT u.id, u.first_name, u.last_name, u.email, u.email_verified, 
-          u.status, u.created_at, u.profile_picture, u.auth_provider, u.user_type
-          FROM users u
-          WHERE u.id = ? AND u.deleted_at IS NULL";
+// Get the current user data
+$user_id = $_SESSION["id"];
+$query = "SELECT u.*, oauth.provider, oauth.provider_user_id 
+          FROM users u 
+          LEFT JOIN oauth_tokens oauth ON u.id = oauth.user_id AND oauth.provider = 'google'
+          WHERE u.id = ?";
 $stmt = $conn->prepare($query);
-$stmt->bind_param('i', $_SESSION["id"]);
+$stmt->bind_param('i', $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
-
-if ($result && $result->num_rows > 0) {
-    $user = $result->fetch_assoc();
-} else {
-    // Redirect if user not found
-    header("Location: index.php");
-    exit();
-}
+$user_data = $result->fetch_assoc();
 $stmt->close();
 
-// Handle profile update
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
-    $first_name = trim($_POST['first_name']);
-    $last_name = trim($_POST['last_name']);
-    $email = trim($_POST['email']);
-    $phone = isset($_POST['phone']) ? trim($_POST['phone']) : '';
-    
-    // Validate inputs
-    $errors = [];
-    if (empty($first_name)) {
-        $errors[] = "First name is required";
-    }
-    if (empty($last_name)) {
-        $errors[] = "Last name is required";
-    }
-    if (empty($email)) {
-        $errors[] = "Email is required";
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $errors[] = "Invalid email format";
-    }
-    
-    // Check if email already exists for another user
-    if ($email !== $user['email']) {
-        $check_query = "SELECT id FROM users WHERE email = ? AND id != ? AND deleted_at IS NULL";
-        $check_stmt = $conn->prepare($check_query);
-        $check_stmt->bind_param('si', $email, $_SESSION["id"]);
-        $check_stmt->execute();
-        $check_result = $check_stmt->get_result();
-        
-        if ($check_result->num_rows > 0) {
-            $errors[] = "Email already exists";
-        }
-        $check_stmt->close();
-    }
-    
-    // Handle profile picture upload
-    $profile_picture = $user['profile_picture']; // Default to current
-    
-    if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
-        $allowed_types = ['image/jpeg', 'image/png', 'image/gif'];
-        $max_size = 2 * 1024 * 1024; // 2MB
-        
-        if (!in_array($_FILES['profile_picture']['type'], $allowed_types)) {
-            $errors[] = "Only JPG, PNG, and GIF images are allowed";
-        } elseif ($_FILES['profile_picture']['size'] > $max_size) {
-            $errors[] = "Image size must be less than 2MB";
-        } else {
-            // Generate unique filename
-            $filename = uniqid() . '_' . $_FILES['profile_picture']['name'];
-            $upload_path = '../../uploads/profiles/' . $filename;
-            
-            // Create directory if it doesn't exist
-            if (!file_exists('../../uploads/profiles/')) {
-                mkdir('../../uploads/profiles/', 0777, true);
-            }
-            
-            if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_path)) {
-                // Delete old profile picture if exists
-                if (!empty($user['profile_picture']) && file_exists('../../uploads/profiles/' . $user['profile_picture'])) {
-                    unlink('../../uploads/profiles/' . $user['profile_picture']);
-                }
-                $profile_picture = $filename;
-            } else {
-                $errors[] = "Failed to upload profile picture";
-            }
-        }
-    }
-    
-    if (empty($errors)) {
-        // Update user record
-        $update_query = "UPDATE users SET first_name = ?, last_name = ?, email = ?, profile_picture = ? 
-                       WHERE id = ?";
-        $stmt = $conn->prepare($update_query);
-        $stmt->bind_param('ssssi', $first_name, $last_name, $email, $profile_picture, $_SESSION["id"]);
-        
-        if ($stmt->execute()) {
-            // Update session variables
-            $_SESSION["first_name"] = $first_name;
-            $_SESSION["last_name"] = $last_name;
-            
-            $success_message = "Profile updated successfully";
-            
-            // Refresh user data
-            $user['first_name'] = $first_name;
-            $user['last_name'] = $last_name;
-            $user['email'] = $email;
-            $user['profile_picture'] = $profile_picture;
-            
-            $stmt->close();
-        } else {
-            $error_message = "Error updating profile: " . $conn->error;
-            $stmt->close();
-        }
-    } else {
-        $error_message = implode("<br>", $errors);
-    }
-}
+// Initialize variables for form handling
+$success_message = '';
+$error_message = '';
+$validation_errors = [];
 
-// Handle password change
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
-    $current_password = $_POST['current_password'];
-    $new_password = $_POST['new_password'];
-    $confirm_password = $_POST['confirm_password'];
+// Handle form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
-    // Validate inputs
-    $errors = [];
-    if (empty($current_password)) {
-        $errors[] = "Current password is required";
-    }
-    if (empty($new_password)) {
-        $errors[] = "New password is required";
-    } elseif (strlen($new_password) < 8) {
-        $errors[] = "New password must be at least 8 characters";
-    }
-    if ($new_password !== $confirm_password) {
-        $errors[] = "New passwords do not match";
-    }
-    
-    if (empty($errors)) {
-        // Get current password from database
-        $password_query = "SELECT password FROM users WHERE id = ?";
-        $stmt = $conn->prepare($password_query);
-        $stmt->bind_param('i', $_SESSION["id"]);
-        $stmt->execute();
-        $password_result = $stmt->get_result();
-        $stored_password = $password_result->fetch_assoc()['password'];
-        $stmt->close();
+    // Profile Update
+    if (isset($_POST['update_profile'])) {
+        $first_name = trim($_POST['first_name']);
+        $last_name = trim($_POST['last_name']);
+        $email = trim($_POST['email']);
         
-        // Verify current password
-        if (password_verify($current_password, $stored_password)) {
-            // Hash new password
-            $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+        // Validate inputs
+        if (empty($first_name)) {
+            $validation_errors[] = "First name is required";
+        }
+        if (empty($last_name)) {
+            $validation_errors[] = "Last name is required";
+        }
+        if (empty($email)) {
+            $validation_errors[] = "Email is required";
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $validation_errors[] = "Invalid email format";
+        }
+        
+        // Check if email already exists (if changing email)
+        if ($email !== $user_data['email']) {
+            $email_check = "SELECT id FROM users WHERE email = ? AND id != ? AND deleted_at IS NULL";
+            $stmt = $conn->prepare($email_check);
+            $stmt->bind_param('si', $email, $user_id);
+            $stmt->execute();
+            $check_result = $stmt->get_result();
             
-            // Update password
-            $update_query = "UPDATE users SET password = ? WHERE id = ?";
+            if ($check_result->num_rows > 0) {
+                $validation_errors[] = "Email already in use by another account";
+            }
+            $stmt->close();
+        }
+        
+        // Handle profile picture upload
+        $profile_picture = $user_data['profile_picture'];
+        if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] == 0) {
+            $allowed_types = ['image/jpeg', 'image/png', 'image/gif'];
+            $max_size = 2 * 1024 * 1024; // 2MB
+            
+            if (!in_array($_FILES['profile_picture']['type'], $allowed_types)) {
+                $validation_errors[] = "Only JPG, PNG or GIF files are allowed";
+            } elseif ($_FILES['profile_picture']['size'] > $max_size) {
+                $validation_errors[] = "File size should be less than 2MB";
+            } else {
+                $upload_dir = '../../uploads/profiles/';
+                
+                // Create directory if it doesn't exist
+                if (!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
+                }
+                
+                $file_extension = pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION);
+                $filename = 'profile_' . $user_id . '_' . time() . '.' . $file_extension;
+                $target_file = $upload_dir . $filename;
+                
+                if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $target_file)) {
+                    $profile_picture = $filename;
+                } else {
+                    $validation_errors[] = "Failed to upload profile picture";
+                }
+            }
+        }
+        
+        // Update profile if no validation errors
+        if (empty($validation_errors)) {
+            $update_query = "UPDATE users SET first_name = ?, last_name = ?, email = ?, profile_picture = ? WHERE id = ?";
             $stmt = $conn->prepare($update_query);
-            $stmt->bind_param('si', $hashed_password, $_SESSION["id"]);
+            $stmt->bind_param('ssssi', $first_name, $last_name, $email, $profile_picture, $user_id);
             
             if ($stmt->execute()) {
-                $success_message = "Password changed successfully";
+                $success_message = "Profile updated successfully";
+                
+                // Update session variables
+                $_SESSION["first_name"] = $first_name;
+                $_SESSION["last_name"] = $last_name;
+                $_SESSION["email"] = $email;
+                
+                // Refresh user data
+                $result = $conn->query("SELECT * FROM users WHERE id = $user_id");
+                $user_data = $result->fetch_assoc();
+            } else {
+                $error_message = "Error updating profile: " . $conn->error;
+            }
+            $stmt->close();
+        } else {
+            $error_message = implode("<br>", $validation_errors);
+        }
+    }
+    
+    // Password Update
+    if (isset($_POST['update_password'])) {
+        $current_password = $_POST['current_password'];
+        $new_password = $_POST['new_password'];
+        $confirm_password = $_POST['confirm_password'];
+        
+        // Skip password validation for OAuth users
+        if ($user_data['auth_provider'] === 'google') {
+            $validation_errors[] = "Password cannot be changed for Google-linked accounts";
+        } else {
+            // Validate inputs
+            if (empty($current_password)) {
+                $validation_errors[] = "Current password is required";
+            }
+            if (empty($new_password)) {
+                $validation_errors[] = "New password is required";
+            } elseif (strlen($new_password) < 8) {
+                $validation_errors[] = "New password must be at least 8 characters long";
+            }
+            if ($new_password !== $confirm_password) {
+                $validation_errors[] = "New passwords do not match";
+            }
+            
+            // Verify current password
+            if (empty($validation_errors)) {
+                if (!password_verify($current_password, $user_data['password'])) {
+                    $validation_errors[] = "Current password is incorrect";
+                }
+            }
+            
+            // Update password if no validation errors
+            if (empty($validation_errors)) {
+                $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+                $update_query = "UPDATE users SET password = ? WHERE id = ?";
+                $stmt = $conn->prepare($update_query);
+                $stmt->bind_param('si', $hashed_password, $user_id);
+                
+                if ($stmt->execute()) {
+                    $success_message = "Password updated successfully";
+                } else {
+                    $error_message = "Error updating password: " . $conn->error;
+                }
                 $stmt->close();
             } else {
-                $error_message = "Error changing password: " . $conn->error;
-                $stmt->close();
+                $error_message = implode("<br>", $validation_errors);
             }
-        } else {
-            $error_message = "Current password is incorrect";
         }
-    } else {
-        $error_message = implode("<br>", $errors);
+    }
+    
+    // Account link with Google
+    if (isset($_POST['link_google'])) {
+        // This would redirect to OAuth consent screen
+        // For demo purposes, just showing what would happen
+        $success_message = "Google account linking functionality would be implemented here";
+    }
+    
+    // Account unlink from Google
+    if (isset($_POST['unlink_google'])) {
+        // Only unlink if there's a password set
+        if (empty($user_data['password']) || $user_data['password'] === '') {
+            $error_message = "You must set a password first before unlinking your Google account";
+        } else {
+            $delete_query = "DELETE FROM oauth_tokens WHERE user_id = ? AND provider = 'google'";
+            $stmt = $conn->prepare($delete_query);
+            $stmt->bind_param('i', $user_id);
+            
+            if ($stmt->execute()) {
+                $update_query = "UPDATE users SET auth_provider = 'local' WHERE id = ?";
+                $stmt_update = $conn->prepare($update_query);
+                $stmt_update->bind_param('i', $user_id);
+                $stmt_update->execute();
+                $stmt_update->close();
+                
+                $success_message = "Google account unlinked successfully";
+                
+                // Refresh user data
+                $result = $conn->query("SELECT * FROM users WHERE id = $user_id");
+                $user_data = $result->fetch_assoc();
+            } else {
+                $error_message = "Error unlinking Google account: " . $conn->error;
+            }
+            $stmt->close();
+        }
     }
 }
 
+// Get profile picture URL
+$profile_img = '../../assets/images/default-profile.jpg';
+if (!empty($user_data['profile_picture'])) {
+    $profile_path = '../../uploads/profiles/' . $user_data['profile_picture'];
+    if (file_exists($profile_path)) {
+        $profile_img = $profile_path;
+    }
+}
 ?>
 
 <div class="content">
     <div class="header-container">
         <div>
             <h1>My Profile</h1>
-            <p>View and update your profile information.</p>
+            <p>Manage your personal information and account settings</p>
         </div>
     </div>
     
-    <?php if (isset($error_message)): ?>
+    <?php if (!empty($error_message)): ?>
         <div class="alert alert-danger"><?php echo $error_message; ?></div>
     <?php endif; ?>
     
-    <?php if (isset($success_message)): ?>
+    <?php if (!empty($success_message)): ?>
         <div class="alert alert-success"><?php echo $success_message; ?></div>
     <?php endif; ?>
     
     <div class="profile-container">
         <div class="profile-sidebar">
             <div class="profile-image-container">
-                <?php if (!empty($user['profile_picture']) && file_exists('../../uploads/profiles/' . $user['profile_picture'])): ?>
-                    <img src="../../uploads/profiles/<?php echo $user['profile_picture']; ?>" alt="Profile picture" class="profile-image">
-                <?php else: ?>
-                    <div class="profile-initials">
-                        <?php echo substr($user['first_name'], 0, 1) . substr($user['last_name'], 0, 1); ?>
-                    </div>
-                <?php endif; ?>
-                <div class="profile-upload-overlay" id="uploadOverlay">
-                    <i class="fas fa-camera"></i>
-                    <span>Change Photo</span>
+                <img src="<?php echo $profile_img; ?>" alt="Profile Picture" class="profile-image">
+                <div class="change-photo-overlay">
+                    <form id="profile-picture-form" enctype="multipart/form-data">
+                        <label for="profile-picture-upload" class="change-photo-btn">
+                            <i class="fas fa-camera"></i> Change
+                        </label>
+                        <input type="file" id="profile-picture-upload" name="profile_picture" class="hidden-file-input">
+                    </form>
                 </div>
             </div>
-            
             <div class="profile-info">
-                <h2><?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?></h2>
-                <div class="profile-meta">
-                    <div class="meta-item">
-                        <i class="fas fa-envelope"></i>
-                        <span><?php echo htmlspecialchars($user['email']); ?></span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-user-shield"></i>
-                        <span><?php echo ucfirst($user['user_type']); ?></span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-calendar-alt"></i>
-                        <span>Member since <?php echo date('M Y', strtotime($user['created_at'])); ?></span>
-                    </div>
-                    <div class="meta-item">
-                        <?php if ($user['email_verified']): ?>
-                            <i class="fas fa-check-circle text-success"></i>
-                            <span class="text-success">Email Verified</span>
-                        <?php else: ?>
-                            <i class="fas fa-times-circle text-danger"></i>
-                            <span class="text-danger">Email Not Verified</span>
-                        <?php endif; ?>
-                    </div>
+                <h2><?php echo htmlspecialchars($user_data['first_name'] . ' ' . $user_data['last_name']); ?></h2>
+                <p class="role">Administrator</p>
+                <div class="account-status">
+                    <span class="status-badge <?php echo $user_data['status'] === 'active' ? 'active' : 'inactive'; ?>">
+                        <i class="fas fa-circle"></i> <?php echo ucfirst($user_data['status']); ?>
+                    </span>
                 </div>
             </div>
             
-            <div class="profile-actions">
-                <button id="editProfileBtn" class="action-btn">
-                    <i class="fas fa-user-edit"></i> Edit Profile
-                </button>
-                <button id="changePasswordBtn" class="action-btn secondary-btn">
-                    <i class="fas fa-key"></i> Change Password
-                </button>
+            <div class="profile-tabs">
+                <button class="tab-btn active" data-tab="personal-info"><i class="fas fa-user"></i> Personal Info</button>
+                <button class="tab-btn" data-tab="security"><i class="fas fa-lock"></i> Security</button>
+                <button class="tab-btn" data-tab="connected-accounts"><i class="fas fa-link"></i> Connected Accounts</button>
             </div>
         </div>
         
         <div class="profile-content">
-            <div class="section-tabs">
-                <button class="tab-btn active" data-tab="profile-details">Profile Details</button>
-                <button class="tab-btn" data-tab="account-settings">Account Settings</button>
-                <button class="tab-btn" data-tab="activity-log">Activity Log</button>
-            </div>
-            
-            <div class="tab-content">
-                <!-- Profile Details Tab -->
-                <div class="tab-pane active" id="profile-details">
-                    <form id="profile-form" action="profile.php" method="POST" enctype="multipart/form-data">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="first_name">First Name*</label>
-                                <input type="text" name="first_name" id="first_name" class="form-control" value="<?php echo htmlspecialchars($user['first_name']); ?>" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="last_name">Last Name*</label>
-                                <input type="text" name="last_name" id="last_name" class="form-control" value="<?php echo htmlspecialchars($user['last_name']); ?>" required>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="email">Email Address*</label>
-                            <input type="email" name="email" id="email" class="form-control" value="<?php echo htmlspecialchars($user['email']); ?>" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="phone">Phone Number</label>
-                            <input type="tel" name="phone" id="phone" class="form-control" value="<?php echo isset($user['phone']) ? htmlspecialchars($user['phone']) : ''; ?>">
-                        </div>
-                        <div class="form-group hidden">
-                            <label for="profile_picture">Profile Picture</label>
-                            <input type="file" name="profile_picture" id="profile_picture" class="form-control-file" accept="image/*">
-                            <small class="form-text text-muted">Max file size: 2MB. Allowed formats: JPG, PNG, GIF</small>
-                        </div>
-                        <div class="form-buttons">
-                            <button type="submit" name="update_profile" class="btn submit-btn">Save Changes</button>
-                        </div>
-                    </form>
+            <!-- Personal Info Tab -->
+            <div class="tab-content active" id="personal-info">
+                <div class="section-header">
+                    <h3>Personal Information</h3>
+                    <p>Update your personal details</p>
                 </div>
                 
-                <!-- Account Settings Tab -->
-                <div class="tab-pane" id="account-settings">
-                    <div class="settings-section">
-                        <h3>Change Password</h3>
-                        <form id="password-form" action="profile.php" method="POST">
-                            <div class="form-group">
-                                <label for="current_password">Current Password*</label>
-                                <input type="password" name="current_password" id="current_password" class="form-control" required>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="new_password">New Password*</label>
-                                    <input type="password" name="new_password" id="new_password" class="form-control" required>
-                                    <small class="form-text text-muted">Minimum 8 characters</small>
-                                </div>
-                                <div class="form-group">
-                                    <label for="confirm_password">Confirm New Password*</label>
-                                    <input type="password" name="confirm_password" id="confirm_password" class="form-control" required>
-                                </div>
-                            </div>
-                            <div class="form-buttons">
-                                <button type="submit" name="change_password" class="btn submit-btn">Change Password</button>
-                            </div>
-                        </form>
+                <form action="profile.php" method="POST" enctype="multipart/form-data">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="first_name">First Name</label>
+                            <input type="text" id="first_name" name="first_name" class="form-control" 
+                                value="<?php echo htmlspecialchars($user_data['first_name']); ?>" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="last_name">Last Name</label>
+                            <input type="text" id="last_name" name="last_name" class="form-control" 
+                                value="<?php echo htmlspecialchars($user_data['last_name']); ?>" required>
+                        </div>
                     </div>
                     
-                    <div class="settings-section">
-                        <h3>Notification Preferences</h3>
-                        <form id="notifications-form" action="profile.php" method="POST">
-                            <div class="form-group">
-                                <div class="checkbox-group">
-                                    <input type="checkbox" id="email_notifications" name="email_notifications" checked>
-                                    <label for="email_notifications">Email Notifications</label>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <div class="checkbox-group">
-                                    <input type="checkbox" id="app_notifications" name="app_notifications" checked>
-                                    <label for="app_notifications">In-App Notifications</label>
-                                </div>
-                            </div>
-                            <div class="form-buttons">
-                                <button type="submit" name="update_notifications" class="btn submit-btn">Update Preferences</button>
-                            </div>
-                        </form>
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input type="email" id="email" name="email" class="form-control" 
+                            value="<?php echo htmlspecialchars($user_data['email']); ?>" required>
                     </div>
+                    
+                    <div class="form-group">
+                        <label for="profile_picture">Profile Picture</label>
+                        <div class="file-upload-container">
+                            <input type="file" id="profile_picture" name="profile_picture" class="form-control file-upload">
+                            <div class="file-upload-text">
+                                <i class="fas fa-upload"></i> Choose a file...
+                            </div>
+                        </div>
+                        <small class="form-text">Maximum size: 2MB. Allowed types: JPG, PNG, GIF</small>
+                    </div>
+                    
+                    <div class="form-buttons">
+                        <button type="submit" name="update_profile" class="btn primary-btn">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Security Tab -->
+            <div class="tab-content" id="security">
+                <div class="section-header">
+                    <h3>Security Settings</h3>
+                    <p>Manage your account password</p>
                 </div>
                 
-                <!-- Activity Log Tab -->
-                <div class="tab-pane" id="activity-log">
-                    <div class="activity-log-container">
-                        <div class="activity-filters">
-                            <div class="filter-group">
-                                <label for="activity-filter">Filter by:</label>
-                                <select id="activity-filter" class="filter-control">
-                                    <option value="all">All Activities</option>
-                                    <option value="login">Logins</option>
-                                    <option value="profile">Profile Updates</option>
-                                    <option value="password">Password Changes</option>
-                                </select>
-                            </div>
+                <?php if ($user_data['auth_provider'] === 'google'): ?>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> You're signed in with Google. Set a password below to be able to log in directly.
+                    </div>
+                <?php endif; ?>
+                
+                <form action="profile.php" method="POST">
+                    <?php if ($user_data['auth_provider'] !== 'google' || !empty($user_data['password'])): ?>
+                    <div class="form-group">
+                        <label for="current_password">Current Password</label>
+                        <input type="password" id="current_password" name="current_password" class="form-control" required>
+                    </div>
+                    <?php endif; ?>
+                    
+                    <div class="form-group">
+                        <label for="new_password">New Password</label>
+                        <input type="password" id="new_password" name="new_password" class="form-control" required>
+                        <small class="form-text">Minimum 8 characters, include numbers and special characters for better security</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confirm_password">Confirm New Password</label>
+                        <input type="password" id="confirm_password" name="confirm_password" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-buttons">
+                        <button type="submit" name="update_password" class="btn primary-btn">Update Password</button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Connected Accounts Tab -->
+            <div class="tab-content" id="connected-accounts">
+                <div class="section-header">
+                    <h3>Connected Accounts</h3>
+                    <p>Manage connections to other services</p>
+                </div>
+                
+                <div class="connected-account-item">
+                    <div class="account-info">
+                        <div class="account-logo google">
+                            <i class="fab fa-google"></i>
                         </div>
-                        
-                        <div class="activity-list">
-                            <div class="activity-item">
-                                <div class="activity-icon login">
-                                    <i class="fas fa-sign-in-alt"></i>
-                                </div>
-                                <div class="activity-details">
-                                    <div class="activity-title">Login</div>
-                                    <div class="activity-description">You logged in from Chrome on Windows</div>
-                                    <div class="activity-time">Today, 9:41 AM</div>
-                                </div>
-                            </div>
-                            
-                            <div class="activity-item">
-                                <div class="activity-icon profile">
-                                    <i class="fas fa-user-edit"></i>
-                                </div>
-                                <div class="activity-details">
-                                    <div class="activity-title">Profile Updated</div>
-                                    <div class="activity-description">You updated your profile information</div>
-                                    <div class="activity-time">Yesterday, 3:24 PM</div>
-                                </div>
-                            </div>
-                            
-                            <div class="activity-item">
-                                <div class="activity-icon password">
-                                    <i class="fas fa-key"></i>
-                                </div>
-                                <div class="activity-details">
-                                    <div class="activity-title">Password Changed</div>
-                                    <div class="activity-description">You changed your password</div>
-                                    <div class="activity-time">Aug 15, 2023, 5:30 PM</div>
-                                </div>
-                            </div>
-                            
-                            <div class="activity-item">
-                                <div class="activity-icon login">
-                                    <i class="fas fa-sign-in-alt"></i>
-                                </div>
-                                <div class="activity-details">
-                                    <div class="activity-title">Login</div>
-                                    <div class="activity-description">You logged in from Safari on iPhone</div>
-                                    <div class="activity-time">Aug 14, 2023, 10:15 AM</div>
-                                </div>
-                            </div>
+                        <div class="account-details">
+                            <h4>Google</h4>
+                            <p>
+                                <?php if ($user_data['auth_provider'] === 'google'): ?>
+                                    Connected to <?php echo htmlspecialchars($user_data['email']); ?>
+                                <?php else: ?>
+                                    Not connected
+                                <?php endif; ?>
+                            </p>
                         </div>
+                    </div>
+                    <div class="account-actions">
+                        <form action="profile.php" method="POST">
+                            <?php if ($user_data['auth_provider'] === 'google'): ?>
+                                <button type="submit" name="unlink_google" class="btn outline-btn">Disconnect</button>
+                            <?php else: ?>
+                                <button type="submit" name="link_google" class="btn outline-btn">Connect</button>
+                            <?php endif; ?>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -437,17 +412,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
     color: var(--secondary-color);
 }
 
+.alert {
+    padding: 12px 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.alert-danger {
+    background-color: rgba(231, 74, 59, 0.1);
+    color: var(--danger-color);
+    border: 1px solid rgba(231, 74, 59, 0.2);
+}
+
+.alert-success {
+    background-color: rgba(28, 200, 138, 0.1);
+    color: var(--success-color);
+    border: 1px solid rgba(28, 200, 138, 0.2);
+}
+
+.alert-info {
+    background-color: rgba(78, 115, 223, 0.1);
+    color: #4e73df;
+    border: 1px solid rgba(78, 115, 223, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
 .profile-container {
     display: flex;
     gap: 30px;
+    background: white;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
 .profile-sidebar {
-    flex: 0 0 300px;
-    background-color: white;
-    border-radius: 5px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-    padding: 20px;
+    width: 280px;
+    border-right: 1px solid var(--border-color);
+    padding: 30px 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -455,178 +459,139 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
 
 .profile-image-container {
     position: relative;
-    width: 140px;
-    height: 140px;
+    width: 150px;
+    height: 150px;
     margin-bottom: 20px;
-    border-radius: 50%;
-    overflow: hidden;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .profile-image {
     width: 100%;
     height: 100%;
+    border-radius: 50%;
     object-fit: cover;
+    border: 3px solid var(--light-color);
 }
 
-.profile-initials {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: var(--primary-color);
-    color: white;
-    font-size: 48px;
-    font-weight: 600;
-}
-
-.profile-upload-overlay {
+.change-photo-overlay {
     position: absolute;
     bottom: 0;
-    left: 0;
     right: 0;
-    background-color: rgba(0, 0, 0, 0.6);
-    color: white;
-    padding: 8px 0;
-    text-align: center;
-    font-size: 14px;
-    cursor: pointer;
+    background: var(--primary-color);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
     display: flex;
-    flex-direction: column;
+    justify-content: center;
     align-items: center;
-    opacity: 0;
-    transition: opacity 0.2s;
+    cursor: pointer;
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-.profile-upload-overlay i {
-    font-size: 18px;
-    margin-bottom: 2px;
-}
-
-.profile-image-container:hover .profile-upload-overlay {
-    opacity: 1;
+.hidden-file-input {
+    display: none;
 }
 
 .profile-info {
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 30px;
 }
 
 .profile-info h2 {
+    margin: 0;
+    font-size: 1.4rem;
     color: var(--dark-color);
-    font-size: 1.5rem;
-    margin-bottom: 10px;
 }
 
-.profile-meta {
-    margin-top: 15px;
-    text-align: left;
-}
-
-.meta-item {
-    display: flex;
-    align-items: center;
-    margin-bottom: 8px;
+.profile-info .role {
+    margin: 5px 0;
     color: var(--secondary-color);
+    font-size: 0.9rem;
 }
 
-.meta-item i {
-    width: 20px;
-    margin-right: 10px;
-    text-align: center;
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
 }
 
-.profile-actions {
+.status-badge.active {
+    background-color: rgba(28, 200, 138, 0.1);
+    color: var(--success-color);
+}
+
+.status-badge.inactive {
+    background-color: rgba(231, 74, 59, 0.1);
+    color: var(--danger-color);
+}
+
+.status-badge i {
+    font-size: 8px;
+}
+
+.profile-tabs {
     width: 100%;
-    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 0 15px;
 }
 
-.action-btn {
-    width: 100%;
-    padding: 10px;
-    margin-bottom: 10px;
+.tab-btn {
+    text-align: left;
+    padding: 12px 15px;
+    background: none;
     border: none;
     border-radius: 4px;
+    cursor: pointer;
     font-weight: 500;
+    color: var(--dark-color);
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    cursor: pointer;
+    gap: 10px;
     transition: background-color 0.2s;
 }
 
-.action-btn i {
-    width: 16px;
-    text-align: center;
+.tab-btn:hover {
+    background-color: var(--light-color);
 }
 
-.action-btn:last-child {
-    margin-bottom: 0;
-}
-
-.action-btn {
+.tab-btn.active {
     background-color: var(--primary-color);
     color: white;
 }
 
-.action-btn:hover {
-    background-color: #031c56;
-}
-
-.secondary-btn {
-    background-color: var(--secondary-color);
-    color: white;
-}
-
-.secondary-btn:hover {
-    background-color: #717486;
-}
-
 .profile-content {
     flex: 1;
-    background-color: white;
-    border-radius: 5px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-    overflow: hidden;
-}
-
-.section-tabs {
-    display: flex;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.tab-btn {
-    padding: 15px 20px;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    color: var(--secondary-color);
-    font-weight: 500;
-    cursor: pointer;
-    transition: color 0.2s, border-color 0.2s;
-}
-
-.tab-btn:hover {
-    color: var(--primary-color);
-}
-
-.tab-btn.active {
-    color: var(--primary-color);
-    border-bottom-color: var(--primary-color);
+    padding: 30px;
 }
 
 .tab-content {
-    padding: 20px;
-}
-
-.tab-pane {
     display: none;
 }
 
-.tab-pane.active {
-    display: block !important;
+.tab-content.active {
+    display: block;
+}
+
+.section-header {
+    margin-bottom: 25px;
+}
+
+.section-header h3 {
+    margin: 0 0 5px;
+    color: var(--primary-color);
+    font-size: 1.2rem;
+}
+
+.section-header p {
+    margin: 0;
+    color: var(--secondary-color);
+    font-size: 0.9rem;
 }
 
 .form-row {
@@ -638,10 +603,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
 .form-group {
     flex: 1;
     margin-bottom: 15px;
-}
-
-.form-group:last-child {
-    margin-bottom: 0;
 }
 
 .form-group label {
@@ -665,20 +626,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
     box-shadow: 0 0 0 2px rgba(4, 33, 103, 0.1);
 }
 
-.form-control-file {
-    width: 100%;
-    padding: 10px 0;
+.form-text {
+    display: block;
+    margin-top: 5px;
+    font-size: 12px;
+    color: var(--secondary-color);
 }
 
-.form-text {
-    font-size: 12px;
-    margin-top: 5px;
+.file-upload-container {
+    position: relative;
+    overflow: hidden;
+}
+
+.file-upload {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    cursor: pointer;
+}
+
+.file-upload-text {
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    text-align: center;
+    color: var(--secondary-color);
 }
 
 .form-buttons {
     display: flex;
-    justify-content: flex-end;
-    margin-top: 20px;
+    justify-content: flex-start;
+    gap: 10px;
+    margin-top: 25px;
 }
 
 .btn {
@@ -686,325 +668,155 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
     border-radius: 4px;
     font-weight: 500;
     cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+    transition: background-color 0.2s;
+}
+
+.primary-btn {
+    background-color: var(--primary-color);
+    color: white;
     border: none;
 }
 
-.submit-btn {
-    background-color: var(--primary-color);
-    color: white;
-}
-
-.submit-btn:hover {
+.primary-btn:hover {
     background-color: #031c56;
 }
 
-.hidden {
-    display: none;
+.outline-btn {
+    background-color: white;
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
 }
 
-.checkbox-group {
+.outline-btn:hover {
+    background-color: var(--light-color);
+}
+
+.connected-account-item {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-}
-
-.checkbox-group input[type="checkbox"] {
-    margin-right: 10px;
-}
-
-.settings-section {
-    margin-bottom: 30px;
-    padding-bottom: 30px;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.settings-section:last-child {
-    margin-bottom: 0;
-    padding-bottom: 0;
-    border-bottom: none;
-}
-
-.settings-section h3 {
-    color: var(--dark-color);
+    padding: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
     margin-bottom: 15px;
 }
 
-.activity-filters {
-    margin-bottom: 20px;
-}
-
-.filter-group {
+.account-info {
     display: flex;
     align-items: center;
-    gap: 8px;
-}
-
-.filter-group label {
-    font-weight: 500;
-    color: var(--dark-color);
-}
-
-.filter-control {
-    padding: 8px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    background-color: white;
-    color: var(--dark-color);
-    min-width: 150px;
-}
-
-.activity-list {
-    display: flex;
-    flex-direction: column;
     gap: 15px;
 }
 
-.activity-item {
-    display: flex;
-    padding: 15px;
-    border-radius: 4px;
-    background-color: var(--light-color);
-    transition: transform 0.2s;
-}
-
-.activity-item:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-}
-
-.activity-icon {
+.account-logo {
     width: 40px;
     height: 40px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-right: 15px;
+    font-size: 20px;
     color: white;
-    flex-shrink: 0;
 }
 
-.activity-icon.login {
-    background-color: #4e73df;
+.account-logo.google {
+    background-color: #DB4437;
 }
 
-.activity-icon.profile {
-    background-color: var(--success-color);
+.account-details h4 {
+    margin: 0;
+    font-size: 1rem;
 }
 
-.activity-icon.password {
-    background-color: var(--warning-color);
-}
-
-.activity-details {
-    flex: 1;
-}
-
-.activity-title {
-    font-weight: 600;
-    color: var(--dark-color);
-    margin-bottom: 5px;
-}
-
-.activity-description {
+.account-details p {
+    margin: 3px 0 0;
+    font-size: 0.9rem;
     color: var(--secondary-color);
-    font-size: 14px;
-    margin-bottom: 5px;
 }
 
-.activity-time {
-    color: var(--secondary-color);
-    font-size: 12px;
-}
-
-.alert {
-    padding: 12px 15px;
-    border-radius: 4px;
-    margin-bottom: 20px;
-}
-
-.alert-danger {
-    background-color: rgba(231, 74, 59, 0.1);
-    color: var(--danger-color);
-    border: 1px solid rgba(231, 74, 59, 0.2);
-}
-
-.alert-success {
-    background-color: rgba(28, 200, 138, 0.1);
-    color: var(--success-color);
-    border: 1px solid rgba(28, 200, 138, 0.2);
-}
-
-.text-success {
-    color: var(--success-color);
-}
-
-.text-danger {
-    color: var(--danger-color);
-}
-
-@media (max-width: 992px) {
+@media (max-width: 768px) {
     .profile-container {
         flex-direction: column;
     }
     
     .profile-sidebar {
-        flex: none;
         width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 20px;
     }
-}
-
-@media (max-width: 768px) {
+    
+    .profile-tabs {
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 10px 0;
+    }
+    
     .form-row {
         flex-direction: column;
         gap: 0;
     }
-    
-    .section-tabs {
-        flex-wrap: wrap;
-    }
-    
-    .tab-btn {
-        flex: 1;
-        text-align: center;
-        padding: 10px;
-    }
 }
-
 </style>
 
 <script>
-// Upload profile picture
-document.getElementById('uploadOverlay').addEventListener('click', function() {
-    document.getElementById('profile_picture').click();
-});
-
-document.getElementById('profile_picture').addEventListener('change', function() {
-    // Preview the image before upload
-    if (this.files && this.files[0]) {
-        var reader = new FileReader();
-        reader.onload = function(e) {
-            var profileImage = document.querySelector('.profile-image');
-            var profileInitials = document.querySelector('.profile-initials');
-            
-            if (profileImage) {
-                profileImage.src = e.target.result;
-            } else if (profileInitials) {
-                // If there's no image yet, create one
-                profileInitials.style.display = 'none';
-                var img = document.createElement('img');
-                img.src = e.target.result;
-                img.className = 'profile-image';
-                document.querySelector('.profile-image-container').insertBefore(img, profileInitials);
-            }
-        };
-        reader.readAsDataURL(this.files[0]);
-    }
-});
-
 // Tab switching functionality
-document.querySelectorAll('.tab-btn').forEach(function(button) {
-    button.addEventListener('click', function() {
-        // Remove active class from all tab buttons and panes
-        document.querySelectorAll('.tab-btn').forEach(function(btn) {
-            btn.classList.remove('active');
-        });
-        document.querySelectorAll('.tab-pane').forEach(function(pane) {
-            pane.classList.remove('active');
-            pane.style.display = 'none'; // Explicitly hide all panes
-        });
-        
-        // Add active class to clicked button and corresponding pane
-        this.classList.add('active');
-        const tabId = this.getAttribute('data-tab');
-        const activePane = document.getElementById(tabId);
-        activePane.classList.add('active');
-        activePane.style.display = 'block'; // Explicitly show active pane
-    });
-});
-
-// Button shortcuts
-document.getElementById('editProfileBtn').addEventListener('click', function() {
-    // Activate the profile details tab
-    document.querySelectorAll('.tab-btn').forEach(function(btn) {
-        btn.classList.remove('active');
-    });
-    document.querySelectorAll('.tab-pane').forEach(function(pane) {
-        pane.classList.remove('active');
-    });
-    
-    document.querySelector('[data-tab="profile-details"]').classList.add('active');
-    document.getElementById('profile-details').classList.add('active');
-    
-    // Focus on first name field
-    document.getElementById('first_name').focus();
-});
-
-document.getElementById('changePasswordBtn').addEventListener('click', function() {
-    // Activate the account settings tab
-    document.querySelectorAll('.tab-btn').forEach(function(btn) {
-        btn.classList.remove('active');
-    });
-    document.querySelectorAll('.tab-pane').forEach(function(pane) {
-        pane.classList.remove('active');
-    });
-    
-    document.querySelector('[data-tab="account-settings"]').classList.add('active');
-    document.getElementById('account-settings').classList.add('active');
-    
-    // Focus on current password field
-    document.getElementById('current_password').focus();
-});
-
-// Filter activities
-document.getElementById('activity-filter').addEventListener('change', function() {
-    const filterValue = this.value;
-    const activityItems = document.querySelectorAll('.activity-item');
-    
-    if (filterValue === 'all') {
-        activityItems.forEach(function(item) {
-            item.style.display = 'flex';
-        });
-    } else {
-        activityItems.forEach(function(item) {
-            const activityType = item.querySelector('.activity-icon').classList.contains(filterValue);
-            item.style.display = activityType ? 'flex' : 'none';
-        });
-    }
-});
-
-// Password validation
-document.getElementById('confirm_password').addEventListener('input', function() {
-    const newPassword = document.getElementById('new_password').value;
-    const confirmPassword = this.value;
-    
-    if (newPassword !== confirmPassword) {
-        this.setCustomValidity('Passwords do not match');
-    } else {
-        this.setCustomValidity('');
-    }
-});
-
-document.getElementById('new_password').addEventListener('input', function() {
-    const confirmPassword = document.getElementById('confirm_password');
-    if (confirmPassword.value) {
-        if (this.value !== confirmPassword.value) {
-            confirmPassword.setCustomValidity('Passwords do not match');
-        } else {
-            confirmPassword.setCustomValidity('');
-        }
-    }
-});
-
-// Ensure one tab is active by default
 document.addEventListener('DOMContentLoaded', function() {
-    // Make sure profile-details tab is active on page load
-    document.getElementById('profile-details').style.display = 'block';
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Remove active class from all buttons and contents
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // Add active class to clicked button
+            this.classList.add('active');
+            
+            // Show corresponding content
+            const tabId = this.getAttribute('data-tab');
+            document.getElementById(tabId).classList.add('active');
+        });
+    });
+    
+    // File upload preview (profile picture)
+    const fileInput = document.getElementById('profile-picture-upload');
+    const profileImage = document.querySelector('.profile-image');
+    
+    fileInput.addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                profileImage.src = e.target.result;
+                
+                // Submit the form to update the profile picture
+                document.getElementById('profile-picture-form').submit();
+            }
+            
+            reader.readAsDataURL(this.files[0]);
+        }
+    });
+    
+    // Display filename when selecting a file
+    const fileUpload = document.getElementById('profile_picture');
+    const fileText = document.querySelector('.file-upload-text');
+    
+    fileUpload.addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+            fileText.innerHTML = '<i class="fas fa-file"></i> ' + this.files[0].name;
+        } else {
+            fileText.innerHTML = '<i class="fas fa-upload"></i> Choose a file...';
+        }
+    });
 });
 </script>
+
+<?php require_once 'includes/footer.php'; ?>
 
 <?php
 // End output buffering and send content to browser
 ob_end_flush();
 ?>
-
-<?php require_once 'includes/footer.php'; ?>
