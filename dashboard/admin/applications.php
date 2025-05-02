@@ -494,26 +494,27 @@ if (isset($_GET['success'])) {
                                 <span class="date"><?php echo isset($app['created_at']) ? date('M d, Y', strtotime($app['created_at'])) : 'Unknown'; ?></span>
                             </td>
                             <td class="actions-cell">
-                                <div class="actions-dropdown">
-                                    <button class="actions-btn"><i class="fas fa-ellipsis-v"></i></button>
-                                    <div class="actions-menu">
-                                        <a href="view_application.php?id=<?php echo $app['id']; ?>" class="action-item">
-                                            <i class="fas fa-eye"></i> View Details
-                                        </a>
-                                        <a href="#" class="action-item update-status-btn" data-id="<?php echo $app['id']; ?>" data-current-status="<?php echo isset($app['status_id']) ? $app['status_id'] : '0'; ?>">
-                                            <i class="fas fa-exchange-alt"></i> Update Status
-                                        </a>
-                                        <a href="#" class="action-item assign-btn" data-id="<?php echo $app['id']; ?>" data-current-manager="<?php echo isset($app['team_member_id']) ? $app['team_member_id'] : ''; ?>">
-                                            <i class="fas fa-user-plus"></i> Assign Case Manager
-                                        </a>
-                                        <a href="application_documents.php?id=<?php echo $app['id']; ?>" class="action-item">
-                                            <i class="fas fa-file-alt"></i> Manage Documents
-                                        </a>
-                                        <a href="application_comments.php?id=<?php echo $app['id']; ?>" class="action-item">
-                                            <i class="fas fa-comments"></i> Comments (<?php echo isset($app['comment_count']) ? $app['comment_count'] : '0'; ?>)
-                                        </a>
-                                    </div>
-                                </div>
+                                <a href="view_application.php?id=<?php echo $app['id']; ?>" class="btn-action btn-view" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                
+                                <button type="button" class="btn-action btn-status" 
+                                        title="Update Status" onclick="openStatusModal(<?php echo $app['id']; ?>, <?php echo isset($app['status_id']) ? $app['status_id'] : '0'; ?>)">
+                                    <i class="fas fa-exchange-alt"></i>
+                                </button>
+                                
+                                <button type="button" class="btn-action btn-assign" 
+                                        title="Assign Case Manager" onclick="openAssignModal(<?php echo $app['id']; ?>, '<?php echo isset($app['team_member_id']) ? $app['team_member_id'] : ''; ?>')">
+                                    <i class="fas fa-user-plus"></i>
+                                </button>
+                                
+                                <a href="application_documents.php?id=<?php echo $app['id']; ?>" class="btn-action btn-document" title="Manage Documents">
+                                    <i class="fas fa-file-alt"></i>
+                                </a>
+                                
+                                <a href="application_comments.php?id=<?php echo $app['id']; ?>" class="btn-action btn-comment" title="Comments (<?php echo isset($app['comment_count']) ? $app['comment_count'] : '0'; ?>)">
+                                    <i class="fas fa-comments"></i>
+                                </a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -1029,57 +1030,64 @@ if (isset($_GET['success'])) {
 }
 
 .actions-cell {
-    position: relative;
+    white-space: nowrap;
+    width: 1%;
 }
 
-.actions-dropdown {
-    position: relative;
-    display: inline-block;
-}
-
-.actions-btn {
-    background: none;
-    border: none;
-    font-size: 1rem;
-    color: var(--secondary-color);
-    cursor: pointer;
-    padding: 5px;
-}
-
-.actions-btn:hover {
-    color: var(--primary-color);
-}
-
-.actions-menu {
-    position: absolute;
-    right: 0;
-    top: 100%;
-    background-color: white;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    border-radius: 4px;
-    min-width: 200px;
-    z-index: 10;
-    display: none;
-}
-
-.actions-dropdown:hover .actions-menu {
-    display: block;
-}
-
-.action-item {
-    display: flex;
+.btn-action {
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 15px;
-    color: var(--dark-color);
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
     text-decoration: none;
+    color: white;
     transition: background-color 0.2s;
+    margin-right: 4px;
 }
 
-.action-item:hover {
-    background-color: var(--light-color);
-    text-decoration: none;
-    color: var(--primary-color);
+.btn-view {
+    background-color: var(--primary-color);
+}
+
+.btn-view:hover {
+    background-color: #031c56;
+}
+
+.btn-status {
+    background-color: var(--warning-color);
+}
+
+.btn-status:hover {
+    background-color: #e0b137;
+}
+
+.btn-assign {
+    background-color: #4e73df;
+}
+
+.btn-assign:hover {
+    background-color: #4262c3;
+}
+
+.btn-document {
+    background-color: #36b9cc;
+}
+
+.btn-document:hover {
+    background-color: #2c9faf;
+}
+
+.btn-comment {
+    background-color: var(--success-color);
+}
+
+.btn-comment:hover {
+    background-color: #18b07b;
 }
 
 .empty-state {
@@ -1383,35 +1391,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Open update status modal when button is clicked
-    const updateStatusBtns = document.querySelectorAll('.update-status-btn');
-    updateStatusBtns.forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            const applicationId = this.getAttribute('data-id');
-            const currentStatus = this.getAttribute('data-current-status');
-            
-            document.getElementById('status_application_id').value = applicationId;
-            document.getElementById('new_status_id').value = currentStatus;
-            document.getElementById('updateStatusModal').style.display = 'block';
-        });
-    });
+    // Function to open status update modal
+    window.openStatusModal = function(applicationId, currentStatus) {
+        document.getElementById('status_application_id').value = applicationId;
+        document.getElementById('new_status_id').value = currentStatus;
+        document.getElementById('updateStatusModal').style.display = 'block';
+    };
     
-    // Open assign modal when button is clicked
-    const assignBtns = document.querySelectorAll('.assign-btn');
-    assignBtns.forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            const applicationId = this.getAttribute('data-id');
-            const currentManager = this.getAttribute('data-current-manager');
-            
-            document.getElementById('assign_application_id').value = applicationId;
-            if (currentManager) {
-                document.getElementById('team_member_id').value = currentManager;
-            }
-            document.getElementById('assignModal').style.display = 'block';
-        });
-    });
+    // Function to open assignment modal
+    window.openAssignModal = function(applicationId, currentManager) {
+        document.getElementById('assign_application_id').value = applicationId;
+        if (currentManager) {
+            document.getElementById('team_member_id').value = currentManager;
+        }
+        document.getElementById('assignModal').style.display = 'block';
+    };
     
     // Close modals when close button is clicked
     document.querySelectorAll('[data-dismiss="modal"]').forEach(element => {
