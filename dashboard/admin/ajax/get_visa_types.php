@@ -12,7 +12,7 @@ header('Content-Type: application/json');
 
 // Check if user is logged in as admin
 if (!isset($_SESSION['id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] != 'admin') {
-    echo json_encode(['success' => false, 'error' => 'Unauthorized access']);
+    echo json_encode([]);
     exit;
 }
 
@@ -21,27 +21,27 @@ $country_id = isset($_GET['country_id']) ? intval($_GET['country_id']) : 0;
 
 // Validate country ID
 if ($country_id <= 0) {
-    echo json_encode(['success' => false, 'error' => 'Valid country ID is required']);
+    echo json_encode([]);
     exit;
 }
 
 try {
     // Get all visa types for the selected country
-    $stmt = $conn->prepare("SELECT id, name, code, description, processing_time, validity_period 
-                           FROM visa_types 
+    $stmt = $conn->prepare("SELECT visa_id, visa_type, description, validity_period, fee 
+                           FROM visas 
                            WHERE country_id = ? AND is_active = 1 
-                           ORDER BY name");
+                           ORDER BY visa_type");
     $stmt->bind_param("i", $country_id);
     $stmt->execute();
     $result = $stmt->get_result();
     
-    $visa_types = [];
+    $visas = [];
     while ($row = $result->fetch_assoc()) {
-        $visa_types[] = $row;
+        $visas[] = $row;
     }
     
-    echo json_encode(['success' => true, 'visa_types' => $visa_types]);
+    echo json_encode($visas);
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'error' => 'Error: ' . $e->getMessage()]);
+    echo json_encode([]);
 }
 ?> 

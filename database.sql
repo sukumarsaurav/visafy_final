@@ -300,3 +300,33 @@ CREATE TABLE service_consultation_modes (
     -- Ensure unique combination of service and consultation mode
     UNIQUE KEY (visa_service_id, consultation_mode_id)
 );
+
+-- Create a view to display visa services with their consultation modes
+CREATE OR REPLACE VIEW visa_services_with_modes AS
+SELECT 
+    vs.visa_service_id,
+    vs.visa_id,
+    vs.service_type_id,
+    vs.base_price,
+    vs.description,
+    vs.is_active,
+    v.visa_type,
+    c.country_name,
+    st.service_name,
+    GROUP_CONCAT(DISTINCT cm.mode_name ORDER BY cm.mode_name ASC SEPARATOR ', ') AS available_modes,
+    COUNT(DISTINCT scm.consultation_mode_id) AS mode_count
+FROM 
+    visa_services vs
+JOIN 
+    visas v ON vs.visa_id = v.visa_id
+JOIN 
+    countries c ON v.country_id = c.country_id
+JOIN 
+    service_types st ON vs.service_type_id = st.service_type_id
+LEFT JOIN 
+    service_consultation_modes scm ON vs.visa_service_id = scm.visa_service_id AND scm.is_available = 1
+LEFT JOIN 
+    consultation_modes cm ON scm.consultation_mode_id = cm.consultation_mode_id
+GROUP BY 
+    vs.visa_service_id, vs.visa_id, vs.service_type_id, vs.base_price, vs.description, vs.is_active,
+    v.visa_type, c.country_name, st.service_name;
