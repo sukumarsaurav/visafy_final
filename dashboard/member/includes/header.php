@@ -210,11 +210,7 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                     <i class="fas fa-file-alt"></i>
                     <span class="nav-item-text">Documents</span>
                 </a>
-                
-                <a href="calendar.php" class="nav-item <?php echo $current_page == 'calendar' ? 'active' : ''; ?>">
-                    <i class="fas fa-calendar-alt"></i>
-                    <span class="nav-item-text">Calendar</span>
-                </a>
+               
                 
                 <div class="sidebar-divider"></div>
                 

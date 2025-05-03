@@ -85,6 +85,7 @@ CREATE TABLE `task_assignments` (
   `completed_at` datetime DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `deleted_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `task_team_member` (`task_id`, `team_member_id`),
   KEY `team_member_id` (`team_member_id`),
@@ -330,3 +331,48 @@ LEFT JOIN
 GROUP BY 
     vs.visa_service_id, vs.visa_id, vs.service_type_id, vs.base_price, vs.description, vs.is_active,
     v.visa_type, c.country_name, st.service_name;
+
+DELIMITER //
+
+CREATE TRIGGER after_task_assignment_update
+AFTER UPDATE ON task_assignments
+FOR EACH ROW
+BEGIN
+    DECLARE total_count INT;
+    DECLARE completed_count INT;
+    DECLARE in_progress_count INT;
+    DECLARE cancelled_count INT;
+    
+    -- Count total active assignments
+    SELECT COUNT(*) INTO total_count FROM task_assignments 
+    WHERE task_id = NEW.task_id AND deleted_at IS NULL;
+    
+    -- Count completed assignments
+    SELECT COUNT(*) INTO completed_count FROM task_assignments 
+    WHERE task_id = NEW.task_id AND status = 'completed' AND deleted_at IS NULL;
+    
+    -- Count in-progress assignments
+    SELECT COUNT(*) INTO in_progress_count FROM task_assignments 
+    WHERE task_id = NEW.task_id AND status = 'in_progress' AND deleted_at IS NULL;
+    
+    -- Count cancelled assignments
+    SELECT COUNT(*) INTO cancelled_count FROM task_assignments 
+    WHERE task_id = NEW.task_id AND status = 'cancelled' AND deleted_at IS NULL;
+    
+    -- Update the main task status based on assignment statuses
+    IF total_count = completed_count THEN
+        UPDATE tasks SET status = 'completed', completed_at = NOW(), updated_at = NOW() 
+        WHERE id = NEW.task_id;
+    ELSEIF total_count = cancelled_count THEN
+        UPDATE tasks SET status = 'cancelled', updated_at = NOW() 
+        WHERE id = NEW.task_id;
+    ELSEIF in_progress_count > 0 THEN
+        UPDATE tasks SET status = 'in_progress', updated_at = NOW() 
+        WHERE id = NEW.task_id;
+    END IF;
+END //
+
+DELIMITER ;
+
+ALTER TABLE task_assignments 
+ADD COLUMN deleted_at datetime DEFAULT NULL AFTER updated_at;
