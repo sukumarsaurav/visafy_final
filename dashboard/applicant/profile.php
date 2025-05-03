@@ -182,11 +182,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_picture'])) {
             if (in_array($file_ext, $allowed)) {
                 // Generate unique filename
                 $new_filename = 'user_' . $_SESSION['id'] . '_' . time() . '.' . $file_ext;
-                $upload_path = '../uploads/profile_pictures/' . $new_filename;
+                $upload_path = '../../uploads/profiles/' . $new_filename;
                 
                 // Create directory if it doesn't exist
-                if (!file_exists('../uploads/profile_pictures/')) {
-                    mkdir('../uploads/profile_pictures/', 0777, true);
+                if (!file_exists('../../uploads/profiles/')) {
+                    mkdir('../../uploads/profiles/', 0777, true);
                 }
                 
                 if (move_uploaded_file($file_tmp, $upload_path)) {
@@ -237,7 +237,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_picture'])) {
         <div class="profile-sidebar">
             <div class="profile-image-container">
                 <?php if (!empty($user_data['profile_picture'])): ?>
-                    <img src="../uploads/profile_pictures/<?php echo htmlspecialchars($user_data['profile_picture']); ?>" alt="Profile Picture" class="profile-image">
+                    <img src="../../uploads/profiles/<?php echo htmlspecialchars($user_data['profile_picture']); ?>" alt="Profile Picture" class="profile-image">
                 <?php else: ?>
                     <div class="profile-initials">
                         <?php echo substr($user_data['first_name'], 0, 1) . substr($user_data['last_name'], 0, 1); ?>

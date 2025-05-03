@@ -953,6 +953,12 @@ $stmt->close();
     font-size: 12px;
     flex-shrink: 0;
 }
+.participant-avatar img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+}
 
 .message-container {
     display: flex;
