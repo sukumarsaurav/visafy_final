@@ -435,7 +435,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Header scroll effect
-    const header = document.querySelector('.header');
     if (header) {
         window.addEventListener('scroll', function() {
             if (window.scrollY > 50) {

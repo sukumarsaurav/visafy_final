@@ -99,5 +99,27 @@
 
     <!-- If you have footer-specific JS files -->
     <script src="<?php echo isset($base_path) ? $base_path : ''; ?>/assets/js/footer.js"></script>
+
+    <!-- Add animated text scripts -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const animatedTextWrapper = document.querySelector('.animated-text-wrapper');
+        if (animatedTextWrapper) {
+            const phrases = ['Students', 'Workers', 'Families', 'Businesses', 'Entrepreneurs'];
+            let currentPhraseIndex = 0;
+            
+            function updateAnimatedText() {
+                animatedTextWrapper.textContent = phrases[currentPhraseIndex];
+                currentPhraseIndex = (currentPhraseIndex + 1) % phrases.length;
+            }
+            
+            // Set initial text
+            updateAnimatedText();
+            
+            // Update text every 3 seconds
+            setInterval(updateAnimatedText, 3000);
+        }
+    });
+    </script>
 </body>
 </html> 

@@ -208,7 +208,12 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                     <span class="nav-item-text">My Profile</span>
                 </a>
                 
-             
+                <div class="sidebar-divider"></div>
+
+                <a href="../../index.php" class="nav-item">
+                    <i class="fas fa-globe"></i>
+                    <span class="nav-item-text">Back to Website</span>
+                </a>
                 
                 <a href="../../logout.php" class="nav-item">
                     <i class="fas fa-sign-out-alt"></i>

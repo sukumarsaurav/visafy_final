@@ -1,7 +1,31 @@
 <?php
+// Start session only if one isn't already active
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
 // Set default page title if not set
 $page_title = isset($page_title) ? $page_title : "Visayfy | Canadian Immigration Consultancy";
 
+// Check if user is logged in
+$is_logged_in = isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] === true;
+
+// Prepare profile image if user is logged in
+$profile_img = '/assets/images/default-profile.svg';
+
+if ($is_logged_in) {
+    // Check for profile image
+    $profile_image = !empty($_SESSION['profile_picture']) ? $_SESSION['profile_picture'] : '';
+
+    if (!empty($profile_image)) {
+        // Check if file exists in either location
+        if (file_exists($_SERVER['DOCUMENT_ROOT'] . '/uploads/profiles/' . $profile_image)) {
+            $profile_img = '/uploads/profiles/' . $profile_image;
+        } else if (file_exists($_SERVER['DOCUMENT_ROOT'] . '/uploads/profile/' . $profile_image)) {
+            $profile_img = '/uploads/profile/' . $profile_image;
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -31,9 +55,6 @@ $page_title = isset($page_title) ? $page_title : "Visayfy | Canadian Immigration
     <!-- Custom CSS -->
     <link rel="stylesheet" href="/assets/css/styles.css">
     <link rel="stylesheet" href="/assets/css/header.css">
-    <!-- Libraries -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.js"></script>
 
     <!-- Load utils.js before other scripts -->
     <script src="/assets/js/utils.js"></script>
@@ -88,10 +109,18 @@ $page_title = isset($page_title) ? $page_title : "Visayfy | Canadian Immigration
             <a href="/contact.php" class="drawer-item">Contact</a>
             
             <div class="drawer-cta">
-                <?php if(isset($_SESSION['user_id'])): ?>
+                <?php if($is_logged_in): ?>
                 <div class="drawer-profile">
-                    <span class="drawer-username"><?php echo isset($_SESSION['user_name']) ? $_SESSION['user_name'] : 'User'; ?></span>
+                    <span class="drawer-username"><?php echo htmlspecialchars($_SESSION["first_name"] . ' ' . $_SESSION["last_name"]); ?></span>
+                    <?php if($_SESSION["user_type"] == 'admin'): ?>
+                    <a href="/dashboard/admin/index.php" class="drawer-profile-link">Dashboard</a>
+                    <?php elseif($_SESSION["user_type"] == 'member'): ?>
+                    <a href="/dashboard/member/index.php" class="drawer-profile-link">Dashboard</a>
+                    <?php elseif($_SESSION["user_type"] == 'applicant'): ?>
+                    <a href="/dashboard/applicant/index.php" class="drawer-profile-link">Dashboard</a>
+                    <?php else: ?>
                     <a href="/dashboard.php" class="drawer-profile-link">Dashboard</a>
+                    <?php endif; ?>
                     <a href="/profile.php" class="drawer-profile-link">Profile</a>
                     <a href="/notifications.php" class="drawer-profile-link">Notifications</a>
                     <a href="/logout.php" class="drawer-profile-link">Logout</a>
@@ -149,23 +178,42 @@ $page_title = isset($page_title) ? $page_title : "Visayfy | Canadian Immigration
                 
                 <!-- Inside the header-actions div -->
                 <div class="header-actions">
-                    <?php if(isset($_SESSION['user_id'])): ?>
+                    <?php if($is_logged_in): ?>
                     <!-- User is logged in - show profile dropdown -->
                     <div class="action-buttons">
                         <div class="user-profile-dropdown">
                             <button class="profile-toggle">
-                                <span class="username"><?php echo isset($_SESSION['user_name']) ? $_SESSION['user_name'] : 'User'; ?></span>
-                                <?php if(isset($_SESSION['user_profile_image']) && !empty($_SESSION['user_profile_image'])): ?>
-                                    <img src="/assets/images/profiles/<?php echo $_SESSION['user_profile_image']; ?>" alt="Profile" class="profile-image">
-                                <?php else: ?>
-                                    <i class="fas fa-user-circle profile-placeholder"></i>
-                                <?php endif; ?>
+                                <span class="username"><?php echo htmlspecialchars($_SESSION["first_name"] . ' ' . $_SESSION["last_name"]); ?></span>
+                                <img src="<?php echo $profile_img; ?>" alt="Profile" class="profile-image" style="width: 32px; height: 32px; border-radius: 50%;">
                             </button>
                             <div class="profile-dropdown-menu">
-                                <a href="/dashboard.php">Dashboard</a>
-                                <a href="/profile.php">Profile</a>
-                                <a href="/notifications.php">Notifications</a>
-                                <a href="/logout.php">Logout</a>
+                                <?php if($_SESSION["user_type"] == 'admin'): ?>
+                                <a href="/dashboard/admin/index.php" class="dropdown-item">
+                                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                                </a>
+                                <?php elseif($_SESSION["user_type"] == 'member'): ?>
+                                <a href="/dashboard/member/index.php" class="dropdown-item">
+                                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                                </a>
+                                <?php elseif($_SESSION["user_type"] == 'applicant'): ?>
+                                <a href="/dashboard/applicant/index.php" class="dropdown-item">
+                                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                                </a>
+                                <?php else: ?>
+                                <a href="/dashboard.php" class="dropdown-item">
+                                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                                </a>
+                                <?php endif; ?>
+                                <a href="/profile.php" class="dropdown-item">
+                                    <i class="fas fa-user"></i> Profile
+                                </a>
+                                <a href="/notifications.php" class="dropdown-item">
+                                    <i class="fas fa-bell"></i> Notifications
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <a href="/logout.php" class="dropdown-item">
+                                    <i class="fas fa-sign-out-alt"></i> Logout
+                                </a>
                             </div>
                         </div>
                     </div>
