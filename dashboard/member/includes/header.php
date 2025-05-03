@@ -7,16 +7,19 @@ if (session_status() == PHP_SESSION_NONE) {
 require_once '../../config/db_connect.php';
 require_once '../../includes/functions.php';
 
-// Check if user is logged in and is an applicant
-if (!isset($_SESSION["loggedin"]) || !isset($_SESSION["user_type"]) || $_SESSION["user_type"] != 'applicant') {
+// Check if user is logged in and is a team member
+if (!isset($_SESSION["loggedin"]) || !isset($_SESSION["user_type"]) || $_SESSION["user_type"] != 'member') {
     header("Location: ../../login.php");
     exit();
 }
 
 $user_id = $_SESSION["id"];
 
-// Fetch user data
-$stmt = $conn->prepare("SELECT * FROM users WHERE id = ? AND user_type = 'applicant'");
+// Fetch user data including team member details
+$stmt = $conn->prepare("SELECT u.*, tm.role, tm.custom_role_name, tm.permissions, tm.phone
+                       FROM users u 
+                       JOIN team_members tm ON u.id = tm.user_id 
+                       WHERE u.id = ? AND u.user_type = 'member'");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -28,6 +31,9 @@ if ($result->num_rows == 0) {
 
 $user = $result->fetch_assoc();
 $stmt->close();
+
+// Parse permissions
+$permissions = !empty($user['permissions']) ? json_decode($user['permissions'], true) : [];
 
 // Check for unread notifications
 $stmt = $conn->prepare("SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0");
@@ -50,18 +56,24 @@ while ($notification = $notifications->fetch_assoc()) {
 }
 $stmt->close();
 
-// Get user's visa applications
-$stmt = $conn->prepare("SELECT COUNT(*) as count FROM applications WHERE user_id = ?");
+// Get assigned tasks count
+$stmt = $conn->prepare("SELECT COUNT(*) as count FROM task_assignments
+                       WHERE team_member_id = ? AND status NOT IN ('completed', 'cancelled')");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
-$apps_result = $stmt->get_result();
-$application_count = $apps_result->fetch_assoc()['count'];
+$tasks_result = $stmt->get_result();
+$assigned_tasks_count = $tasks_result->fetch_assoc()['count'];
 $stmt->close();
 
 // Determine if sidebar should be collapsed based on user preference or default
 $sidebar_collapsed = isset($_COOKIE['sidebar_collapsed']) && $_COOKIE['sidebar_collapsed'] === 'true';
 $sidebar_class = $sidebar_collapsed ? 'collapsed' : '';
 $main_content_class = $sidebar_collapsed ? 'expanded' : '';
+
+// Get role display name
+$role_display = ($user['role'] === 'Custom' && !empty($user['custom_role_name'])) 
+                ? $user['custom_role_name'] 
+                : $user['role'];
 
 // Prepare profile image
 $profile_img = '../../assets/images/default-profile.jpg';
@@ -86,7 +98,7 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo isset($page_title) ? $page_title : 'Applicant Dashboard'; ?> - Visafy</title>
+    <title><?php echo isset($page_title) ? $page_title : 'Team Member Dashboard'; ?> - Visafy</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
@@ -113,29 +125,35 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                     <div class="notification-icon" id="notification-toggle">
                         <i class="fas fa-bell"></i>
                         <?php if ($notification_count > 0): ?>
-                            <span class="notification-badge"><?php echo $notification_count; ?></span>
+                        <span class="notification-badge"><?php echo $notification_count; ?></span>
                         <?php endif; ?>
                     </div>
                     <div class="notification-menu" id="notification-menu">
                         <div class="notification-header">
                             <h3>Notifications</h3>
                             <?php if ($notification_count > 0): ?>
-                                <a href="notifications.php" class="mark-all-read">Mark all as read</a>
+                            <a href="notifications.php" class="mark-all-read">Mark all as read</a>
                             <?php endif; ?>
                         </div>
                         <div class="notification-list">
                             <?php if (empty($notifications_list)): ?>
-                                <div class="no-notifications">
-                                    <p>No new notifications</p>
-                                </div>
+                            <div class="notification-item">
+                                <p>No new notifications</p>
+                            </div>
                             <?php else: ?>
-                                <?php foreach ($notifications_list as $notification): ?>
-                                    <div class="notification-item <?php echo $notification['is_read'] ? 'read' : 'unread'; ?>" data-id="<?php echo $notification['id']; ?>">
-                                        <div class="title"><?php echo htmlspecialchars($notification['title']); ?></div>
-                                        <div class="message"><?php echo htmlspecialchars($notification['content']); ?></div>
-                                        <div class="time"><?php echo date('M j, g:i a', strtotime($notification['created_at'])); ?></div>
-                                    </div>
-                                <?php endforeach; ?>
+                            <?php foreach ($notifications_list as $notification): ?>
+                            <div class="notification-item <?php echo $notification['is_read'] ? 'read' : 'unread'; ?>">
+                                <div class="notification-icon-small">
+                                    <i class="fas fa-info-circle"></i>
+                                </div>
+                                <div class="notification-details">
+                                    <h4><?php echo htmlspecialchars($notification['title']); ?></h4>
+                                    <p><?php echo htmlspecialchars($notification['content']); ?></p>
+                                    <span
+                                        class="notification-time"><?php echo date('M d, Y H:i', strtotime($notification['created_at'])); ?></span>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
                             <?php endif; ?>
                         </div>
                         <div class="notification-footer">
@@ -144,8 +162,10 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                     </div>
                 </div>
                 <div class="user-dropdown">
-                    <span class="user-name"><?php echo htmlspecialchars($_SESSION["first_name"] . ' ' . $_SESSION["last_name"]); ?></span>
-                    <img src="<?php echo $profile_img; ?>" alt="Profile" class="profile-img-header" style="width: 32px; height: 32px;">
+                    <span
+                        class="user-name"><?php echo htmlspecialchars($_SESSION["first_name"] . ' ' . $_SESSION["last_name"]); ?></span>
+                    <img src="<?php echo $profile_img; ?>" alt="Profile" class="profile-img-header"
+                        style="width: 32px; height: 32px;">
                     <div class="user-dropdown-menu">
                         <a href="profile.php" class="dropdown-item">
                             <i class="fas fa-user"></i> Profile
@@ -163,43 +183,50 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
         </header>
 
         <!-- Sidebar -->
-        <aside class="sidebar <?php echo $sidebar_class; ?>" >
+        <aside class="sidebar <?php echo $sidebar_class; ?>">
+            
             <nav class="sidebar-nav">
                 <a href="index.php" class="nav-item <?php echo $current_page == 'index' ? 'active' : ''; ?>">
-                    <i class="fas fa-home"></i>
+                    <i class="fas fa-tachometer-alt"></i>
                     <span class="nav-item-text">Dashboard</span>
                 </a>
                 
                 <div class="sidebar-divider"></div>
                 
+                <a href="tasks.php" class="nav-item <?php echo $current_page == 'tasks' ? 'active' : ''; ?>">
+                    <i class="fas fa-tasks"></i>
+                    <span class="nav-item-text">My Tasks</span>
+                    <?php if ($assigned_tasks_count > 0): ?>
+                        <span class="badge"><?php echo $assigned_tasks_count; ?></span>
+                    <?php endif; ?>
+                </a>
+                
                 <a href="applications.php" class="nav-item <?php echo $current_page == 'applications' ? 'active' : ''; ?>">
-                    <i class="fas fa-passport"></i>
-                    <span class="nav-item-text">My Applications</span>
+                    <i class="fas fa-folder-open"></i>
+                    <span class="nav-item-text">Applications</span>
                 </a>
                 
                 <a href="documents.php" class="nav-item <?php echo $current_page == 'documents' ? 'active' : ''; ?>">
                     <i class="fas fa-file-alt"></i>
-                    <span class="nav-item-text">My Documents</span>
+                    <span class="nav-item-text">Documents</span>
                 </a>
                 
-                <a href="bookings.php" class="nav-item <?php echo $current_page == 'bookings' ? 'active' : ''; ?>">
+                <a href="calendar.php" class="nav-item <?php echo $current_page == 'calendar' ? 'active' : ''; ?>">
                     <i class="fas fa-calendar-alt"></i>
-                    <span class="nav-item-text">My Bookings</span>
-                </a>
-                
-                <a href="services.php" class="nav-item <?php echo $current_page == 'services' ? 'active' : ''; ?>">
-                    <i class="fas fa-concierge-bell"></i>
-                    <span class="nav-item-text">Visa Services</span>
+                    <span class="nav-item-text">Calendar</span>
                 </a>
                 
                 <div class="sidebar-divider"></div>
+                
+                <a href="clients.php" class="nav-item <?php echo $current_page == 'clients' ? 'active' : ''; ?>">
+                    <i class="fas fa-users"></i>
+                    <span class="nav-item-text">Clients</span>
+                </a>
                 
                 <a href="messages.php" class="nav-item <?php echo $current_page == 'messages' ? 'active' : ''; ?>">
                     <i class="fas fa-envelope"></i>
                     <span class="nav-item-text">Messages</span>
                 </a>
-                
-              
                 
                 <div class="sidebar-divider"></div>
                 
@@ -207,8 +234,6 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                     <i class="fas fa-user"></i>
                     <span class="nav-item-text">My Profile</span>
                 </a>
-                
-             
                 
                 <a href="../../logout.php" class="nav-item">
                     <i class="fas fa-sign-out-alt"></i>
@@ -220,10 +245,10 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                 <img src="<?php echo $profile_img; ?>" alt="Profile" class="profile-img">
                 <div class="profile-info">
                     <div class="profile-name"><?php echo htmlspecialchars($_SESSION["first_name"] . ' ' . $_SESSION["last_name"]); ?></div>
-                    <span class="role-badge">Applicant</span>
+                    <span class="role-badge"><?php echo htmlspecialchars($role_display); ?></span>
                 </div>
             </div>
         </aside>
 
         <!-- Main Content -->
-        <main class="main-content <?php echo $main_content_class; ?>" id="main-content"> 
+        <main class="main-content <?php echo $main_content_class; ?>" id="main-content">
