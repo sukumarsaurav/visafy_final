@@ -261,8 +261,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         // Prepare messages array with system message and history
                         $system_message = $conversation['chat_type'] === 'cases' 
-                            ? "You are a legal assistant specializing in Canadian immigration case law. Provide accurate information about immigration cases, precedents, and court decisions. Be precise and professional."
-                            : "You are a friendly visa and immigration consultant assistant. Provide accurate, helpful information about Canadian visa processes, IRCC procedures, and immigration requirements. Be clear and professional.";
+                            ? "You are a legal assistant specializing in immigration case law. Provide accurate information about immigration cases, precedents, and court decisions. Be precise and professional."
+                            : "You are a friendly visa and immigration consultant assistant. Provide accurate, helpful information about visa processes, IRCC procedures, and immigration requirements. Be clear and professional.";
 
                         $messages = [["role" => "system", "content" => $system_message]];
                         $messages = array_merge($messages, $history);

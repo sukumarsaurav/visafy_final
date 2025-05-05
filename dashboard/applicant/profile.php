@@ -246,7 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_picture'])) {
                 
                 <form method="post" enctype="multipart/form-data" class="picture-form">
                     <label for="profile_picture" class="upload-btn">
-                        <i class="fas fa-camera"></i> Change Picture
+                        <i class="fas fa-camera"></i> 
                     </label>
                     <input type="file" id="profile_picture" name="profile_picture" style="display: none;" onchange="this.form.submit()">
                     <input type="hidden" name="update_picture" value="1">
@@ -420,7 +420,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_picture'])) {
     width: 150px;
     height: 150px;
     border-radius: 50%;
-    background-color: var(--primary-color);
+    background-color: grey;
     color: white;
     display: flex;
     justify-content: center;

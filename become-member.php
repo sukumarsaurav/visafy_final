@@ -124,9 +124,76 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_member'])) {
 <section class="partner-hero">
     <div class="container">
         <div class="partner-hero-content">
-            <h1>Join the Visafy Partner Network</h1>
-            <p>Expand your services, increase your revenue, and help more clients achieve their immigration goals</p>
-            <button class="btn btn-primary register-btn" id="registerBtn">Become a Partner Today</button>
+            <h1>Join the Future of Immigration Services</h1>
+            <p>Experience the power of AI-driven immigration consulting with our comprehensive digital platform</p>
+            <button class="btn btn-primary register-btn" id="registerBtn">Start Your Free Trial</button>
+        </div>
+    </div>
+</section>
+
+<section class="platform-features">
+    <div class="container">
+        <div class="section-header">
+            <h2>AI-Powered Immigration Platform</h2>
+            <p>Our cutting-edge technology streamlines your workflow and enhances client service</p>
+        </div>
+        
+        <div class="features-grid">
+            <!-- AI Document Management -->
+            <div class="feature-card" data-aos="fade-up" data-aos-delay="100">
+                <div class="feature-icon">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <h3>AI Document Assistant</h3>
+                <ul class="feature-list">
+                    <li>Automated document template generation</li>
+                    <li>Smart document validation and review</li>
+                    <li>Intelligent form filling assistance</li>
+                    <li>Real-time error detection</li>
+                </ul>
+            </div>
+            
+            <!-- Application Management -->
+            <div class="feature-card" data-aos="fade-up" data-aos-delay="200">
+                <div class="feature-icon">
+                    <i class="fas fa-tasks"></i>
+                </div>
+                <h3>Smart Application Tracking</h3>
+                <ul class="feature-list">
+                    <li>Real-time status updates</li>
+                    <li>Automated timeline management</li>
+                    <li>Document checklist automation</li>
+                    <li>Progress analytics and insights</li>
+                </ul>
+            </div>
+            
+            <!-- Client Communication -->
+            <div class="feature-card" data-aos="fade-up" data-aos-delay="300">
+                <div class="feature-icon">
+                    <i class="fas fa-comments"></i>
+                </div>
+                <h3>Integrated Communication</h3>
+                <ul class="feature-list">
+                    <li>Real-time chat with clients</li>
+                    <li>Automated appointment scheduling</li>
+                    <li>Document sharing and collaboration</li>
+                    <li>Multi-language support</li>
+                </ul>
+            </div>
+            
+            <!-- Task Management -->
+            <div class="feature-card" data-aos="fade-up" data-aos-delay="400">
+                <div class="feature-icon">
+                    <i class="fas fa-calendar-check"></i>
+                </div>
+                <h3>Smart Task Management</h3>
+                <ul class="feature-list">
+                    <li>AI-powered task prioritization</li>
+                    <li>Automated deadline reminders</li>
+                    <li>Team collaboration tools</li>
+                    <li>Performance analytics</li>
+                </ul>
+            </div>
         </div>
     </div>
 </section>
@@ -134,57 +201,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_member'])) {
 <section class="benefits-section">
     <div class="container">
         <div class="section-header">
-            <h2>Why Become a Visafy Partner?</h2>
-            <p>Our partnership program is designed to help immigration professionals succeed</p>
+            <h2>Transform Your Practice</h2>
+            <p>Leverage our AI-powered platform to grow your business</p>
         </div>
         
         <div class="benefits-grid">
             <div class="benefit-card" data-aos="fade-up" data-aos-delay="100">
                 <div class="benefit-icon">
-                    <i class="fas fa-dollar-sign"></i>
+                    <i class="fas fa-clock"></i>
                 </div>
-                <h3>Increased Revenue</h3>
-                <p>Expand your service offerings and increase your earning potential with our comprehensive immigration services.</p>
+                <h3>Save Time</h3>
+                <p>Reduce administrative work by up to 60% with our AI-powered document management and automated workflows.</p>
             </div>
             
             <div class="benefit-card" data-aos="fade-up" data-aos-delay="200">
                 <div class="benefit-icon">
-                    <i class="fas fa-tools"></i>
+                    <i class="fas fa-chart-line"></i>
                 </div>
-                <h3>Professional Tools</h3>
-                <p>Access our suite of specialized tools designed for immigration professionals, including case management software.</p>
+                <h3>Grow Revenue</h3>
+                <p>Handle more cases efficiently while maintaining quality service with our intelligent task management system.</p>
             </div>
             
             <div class="benefit-card" data-aos="fade-up" data-aos-delay="300">
                 <div class="benefit-icon">
-                    <i class="fas fa-graduation-cap"></i>
+                    <i class="fas fa-smile"></i>
                 </div>
-                <h3>Training & Support</h3>
-                <p>Receive ongoing training and expert support from our team of immigration specialists.</p>
+                <h3>Enhance Client Experience</h3>
+                <p>Provide 24/7 access to application status, documents, and support through our client portal.</p>
             </div>
             
             <div class="benefit-card" data-aos="fade-up" data-aos-delay="400">
                 <div class="benefit-icon">
-                    <i class="fas fa-handshake"></i>
+                    <i class="fas fa-shield-alt"></i>
                 </div>
-                <h3>Client Referrals</h3>
-                <p>Get access to our client referral network and grow your business with qualified leads.</p>
+                <h3>Ensure Compliance</h3>
+                <p>Stay compliant with automated document validation and real-time regulatory updates.</p>
             </div>
-            
-            <div class="benefit-card" data-aos="fade-up" data-aos-delay="500">
-                <div class="benefit-icon">
-                    <i class="fas fa-certificate"></i>
-                </div>
-                <h3>Credibility</h3>
-                <p>Gain instant credibility as part of the Visafy network, a trusted name in Canadian immigration.</p>
+        </div>
+    </div>
+</section>
+
+<section class="platform-demo">
+    <div class="container">
+        <div class="demo-grid">
+            <div class="demo-content">
+                <h2>See It In Action</h2>
+                <p>Watch how our AI-powered platform streamlines your immigration practice</p>
+                <ul class="demo-features">
+                    <li><i class="fas fa-check"></i> Smart document generation and management</li>
+                    <li><i class="fas fa-check"></i> Real-time application tracking</li>
+                    <li><i class="fas fa-check"></i> Integrated client communication</li>
+                    <li><i class="fas fa-check"></i> Automated task management</li>
+                </ul>
+                <button class="btn btn-primary watch-demo-btn">Watch Demo</button>
             </div>
-            
-            <div class="benefit-card" data-aos="fade-up" data-aos-delay="600">
-                <div class="benefit-icon">
-                    <i class="fas fa-users"></i>
+            <div class="demo-preview">
+                <img src="assets/images/platform-preview.jpg" alt="Platform Preview">
+                <div class="demo-overlay">
+                    <i class="fas fa-play-circle"></i>
                 </div>
-                <h3>Community</h3>
-                <p>Join a community of like-minded professionals and benefit from shared knowledge and expertise.</p>
             </div>
         </div>
     </div>
@@ -514,6 +589,170 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_member'])) {
     font-size: 1.2rem;
     margin-bottom: 30px;
     opacity: 0.9;
+}
+
+/* Platform Features Section */
+.platform-features {
+    padding: 80px 0;
+    background-color: var(--light-color);
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 30px;
+    margin-top: 50px;
+}
+
+.feature-card {
+    background-color: white;
+    padding: 40px;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    transition: transform 0.3s ease;
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+}
+
+.feature-icon {
+    width: 60px;
+    height: 60px;
+    background-color: rgba(4, 33, 103, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.feature-icon i {
+    font-size: 24px;
+    color: var(--primary-color);
+}
+
+.feature-list {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0 0;
+}
+
+.feature-list li {
+    padding: 10px 0;
+    padding-left: 25px;
+    position: relative;
+    color: var(--dark-color);
+}
+
+.feature-list li:before {
+    content: "•";
+    color: var(--accent-color);
+    position: absolute;
+    left: 0;
+}
+
+/* Platform Demo Section */
+.platform-demo {
+    padding: 80px 0;
+    background-color: white;
+}
+
+.demo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 50px;
+    align-items: center;
+}
+
+.demo-content h2 {
+    font-size: 2.5rem;
+    color: var(--primary-color);
+    margin-bottom: 20px;
+}
+
+.demo-features {
+    list-style: none;
+    padding: 0;
+    margin: 30px 0;
+}
+
+.demo-features li {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    color: var(--dark-color);
+}
+
+.demo-features li i {
+    color: var(--accent-color);
+    margin-right: 10px;
+}
+
+.demo-preview {
+    position: relative;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.demo-preview img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.demo-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(4, 33, 103, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.demo-overlay:hover {
+    background: rgba(4, 33, 103, 0.5);
+}
+
+.demo-overlay i {
+    font-size: 60px;
+    color: white;
+}
+
+/* Responsive Design */
+@media (max-width: 992px) {
+    .features-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .demo-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .demo-content {
+        text-align: center;
+    }
+    
+    .demo-features {
+        display: inline-block;
+        text-align: left;
+    }
+}
+
+@media (max-width: 768px) {
+    .feature-card {
+        padding: 30px;
+    }
+    
+    .demo-content h2 {
+        font-size: 2rem;
+    }
 }
 
 /* Benefits Section */
