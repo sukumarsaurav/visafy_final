@@ -82,31 +82,10 @@ if ($is_logged_in) {
            
             
             <a href="/about-us.php" class="drawer-item">About Us</a>
-            
-            <div class="drawer-item drawer-dropdown">
-                <span>Services <i class="fas fa-chevron-down"></i></span>
-                <div class="drawer-submenu">
-                    <a href="/services/study-permit.php" class="drawer-submenu-item">Study Permit</a>
-                    <a href="/services/work-permit.php" class="drawer-submenu-item">Work Permit</a>
-                    <a href="/services/express-entry.php" class="drawer-submenu-item">Express Entry</a>
-                    <a href="/services/family-sponsorship.php" class="drawer-submenu-item">Family Sponsorship</a>
-                    <a href="/services/business-immigration.php" class="drawer-submenu-item">Business Immigration</a>
-                </div>
-            </div>
-            
-            <div class="drawer-item drawer-dropdown">
-                <span>Resources <i class="fas fa-chevron-down"></i></span>
-                <div class="drawer-submenu">
-                    <a href="/resources/blog.php" class="drawer-submenu-item">Blog</a>
-                    <a href="/resources/faq.php" class="drawer-submenu-item">FAQ</a>
-                    <a href="/resources/documents.php" class="drawer-submenu-item">Document Checklist</a>
-                    <a href="/resources/calculators.php" class="drawer-submenu-item">Calculators</a>
-                </div>
-            </div>
-            
+            <a href="/services.php" class="drawer-item">Services</a>
             <a href="/eligibility-test.php" class="drawer-item">Eligibility Check</a>
             <a href="/become-member.php" class="drawer-item">Become Partner</a>
-            <a href="/contact.php" class="drawer-item">Contact</a>
+            
             
             <div class="drawer-cta">
                 <?php if($is_logged_in): ?>
@@ -151,28 +130,9 @@ if ($is_logged_in) {
                 <nav class="main-nav">
                     <ul class="nav-menu">
                         <li class="nav-item"><a href="/about-us.php">About Us</a></li>
-                        <li class="nav-item dropdown">
-                            <a href="/services.php">Services <i class="fas fa-chevron-down"></i></a>
-                            <div class="dropdown-menu">
-                                <a href="/services/study-permit.php" class="dropdown-item">Study Permit</a>
-                                <a href="/services/work-permit.php" class="dropdown-item">Work Permit</a>
-                                <a href="/services/express-entry.php" class="dropdown-item">Express Entry</a>
-                                <a href="/services/family-sponsorship.php" class="dropdown-item">Family Sponsorship</a>
-                                <a href="/services/business-immigration.php" class="dropdown-item">Business Immigration</a>
-                            </div>
-                        </li>
-                        <li class="nav-item dropdown">
-                            <a href="/resources.php">Resources <i class="fas fa-chevron-down"></i></a>
-                            <div class="dropdown-menu">
-                                <a href="/resources/blog.php" class="dropdown-item">Blog</a>
-                                <a href="/resources/faq.php" class="dropdown-item">FAQ</a>
-                                <a href="/resources/documents.php" class="dropdown-item">Document Checklist</a>
-                                <a href="/resources/calculators.php" class="dropdown-item">Calculators</a>
-                            </div>
-                        </li>
+                        <li class="nav-item"><a href="/services.php">Services</a></li>  
                         <li class="nav-item"><a href="/eligibility-test.php">Eligibility Check</a></li>
                         <li class="nav-item"><a href="/become-member.php">Become Partner</a></li>
-                        <li class="nav-item"><a href="/contact.php">Contact</a></li>
                     </ul>
                 </nav>
                 
@@ -236,5 +196,3 @@ if ($is_logged_in) {
             </div>
         </div>
     </header>
-</body>
-</html>

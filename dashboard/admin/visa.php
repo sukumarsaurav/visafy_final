@@ -100,6 +100,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_country'])) {
     }
 }
 
+// Handle country edit
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_country'])) {
+    $country_id = $_POST['edit_country_id'];
+    $country_name = trim($_POST['country_name']);
+    $country_code = trim($_POST['country_code']);
+    $is_active = isset($_POST['is_active']) ? 1 : 0;
+    
+    // Validate inputs
+    $errors = [];
+    if (empty($country_name)) {
+        $errors[] = "Country name is required";
+    }
+    if (empty($country_code)) {
+        $errors[] = "Country code is required";
+    } elseif (strlen($country_code) !== 3) {
+        $errors[] = "Country code must be exactly 3 characters";
+    }
+    
+    // Check if country code already exists for other countries
+    $check_query = "SELECT country_id FROM countries WHERE country_code = ? AND country_id != ?";
+    $check_stmt = $conn->prepare($check_query);
+    $check_stmt->bind_param('si', $country_code, $country_id);
+    $check_stmt->execute();
+    $check_result = $check_stmt->get_result();
+    
+    if ($check_result->num_rows > 0) {
+        $errors[] = "Country code already exists";
+    }
+    $check_stmt->close();
+    
+    if (empty($errors)) {
+        // Update country
+        $update_query = "UPDATE countries SET country_name = ?, country_code = ?, is_active = ? WHERE country_id = ?";
+        $stmt = $conn->prepare($update_query);
+        $stmt->bind_param('ssii', $country_name, $country_code, $is_active, $country_id);
+        
+        if ($stmt->execute()) {
+            $success_message = "Country updated successfully";
+            $stmt->close();
+            header("Location: visa.php?success=5");
+            exit;
+        } else {
+            $error_message = "Error updating country: " . $conn->error;
+            $stmt->close();
+        }
+    } else {
+        $error_message = implode("<br>", $errors);
+    }
+}
+
 // Handle visa creation
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_visa'])) {
     $country_id = $_POST['country_id'];
@@ -212,6 +262,9 @@ if (isset($_GET['success'])) {
         case 3:
         case 4:
             $success_message = isset($_GET['message']) ? $_GET['message'] : "Status updated successfully";
+            break;
+        case 5:
+            $success_message = "Country updated successfully";
             break;
     }
 }
@@ -409,7 +462,7 @@ if (isset($_GET['success'])) {
             </div>
             <div class="modal-body">
                 <form action="visa.php" method="POST" id="addCountryForm">
-                    <div class="form-row">
+                    
                         <div class="form-group">
                             <label for="country_name">Country Name*</label>
                             <input type="text" name="country_name" id="country_name" class="form-control" required>
@@ -418,7 +471,7 @@ if (isset($_GET['success'])) {
                             <label for="country_code">Country Code* (3 Characters)</label>
                             <input type="text" name="country_code" id="country_code" class="form-control" maxlength="3" required>
                         </div>
-                    </div>
+                   
                     <div class="form-group">
                         <div class="checkbox-group">
                             <input type="checkbox" name="is_active" id="country_is_active" value="1" checked>
@@ -583,6 +636,43 @@ if (isset($_GET['success'])) {
                         </div>
                     </form>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Country Modal -->
+<div class="modal" id="editCountryModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit Country</h3>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form action="visa.php" method="POST" id="editCountryForm">
+                    <input type="hidden" name="edit_country_id" id="edit_country_id">
+                    
+                    <div class="form-group">
+                        <label for="edit_country_name">Country Name*</label>
+                        <input type="text" name="country_name" id="edit_country_name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_country_code">Country Code* (3 Characters)</label>
+                        <input type="text" name="country_code" id="edit_country_code" class="form-control" maxlength="3" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" name="is_active" id="edit_country_is_active" value="1">
+                            <label for="edit_country_is_active">Active</label>
+                        </div>
+                    </div>
+                    <div class="form-buttons">
+                        <button type="button" class="btn cancel-btn" data-dismiss="modal">Cancel</button>
+                        <button type="submit" name="edit_country" class="btn submit-btn">Update Country</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -862,7 +952,7 @@ if (isset($_GET['success'])) {
 }
 
 .actions-cell {
-    width: 10%;
+    width: 200px;
 }
 
 .dropdown {
@@ -1272,8 +1362,27 @@ function addVisaForCountry(countryId) {
 
 // Function to edit country
 function editCountry(countryId) {
-    // Redirect to edit country page or show edit modal
-    window.location.href = 'edit_country.php?id=' + countryId;
+    // Get country details via AJAX and populate the form
+    fetch('ajax/get_country.php?id=' + countryId)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const country = data.country;
+                document.getElementById('edit_country_id').value = country.country_id;
+                document.getElementById('edit_country_name').value = country.country_name;
+                document.getElementById('edit_country_code').value = country.country_code;
+                document.getElementById('edit_country_is_active').checked = country.is_active == 1;
+                
+                // Show the modal
+                document.getElementById('editCountryModal').style.display = 'block';
+            } else {
+                alert('Error loading country details. Please try again.');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching country details:', error);
+            alert('Error loading country details. Please try again.');
+        });
 }
 
 // Function to toggle country status

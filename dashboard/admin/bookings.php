@@ -23,8 +23,8 @@ $stmt->close();
 // Get all team members
 $query = "SELECT tm.id, tm.role, tm.custom_role_name, 
           u.id as user_id, u.first_name, u.last_name, u.email 
-          FROM team_members tm
-          JOIN users u ON tm.user_id = u.id
+          FROM team_members tm 
+          JOIN users u ON tm.user_id = u.id 
           WHERE tm.deleted_at IS NULL AND u.status = 'active'
           ORDER BY u.first_name, u.last_name";
 $stmt = $conn->prepare($query);
@@ -179,9 +179,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_consultant']))
     $consultant_id = $_POST['consultant_id'];
     
     // Start transaction
-    $conn->begin_transaction();
-    
-    try {
+        $conn->begin_transaction();
+        
+        try {
         // Update booking
         $update_query = "UPDATE bookings SET team_member_id = ? WHERE id = ?";
         $stmt = $conn->prepare($update_query);
@@ -198,9 +198,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_consultant']))
         
         $stmt = $conn->prepare($log_query);
         $stmt->bind_param('iis', $booking_id, $_SESSION['id'], $description);
-        $stmt->execute();
-        $stmt->close();
-        
+            $stmt->execute();
+            $stmt->close();
+            
         // Commit transaction
         $conn->commit();
         
@@ -222,7 +222,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_booking'])) {
     // Get the cancellation status ID
     $cancel_status_query = "SELECT id FROM booking_statuses WHERE name = 'cancelled_by_admin'";
     $stmt = $conn->prepare($cancel_status_query);
-    $stmt->execute();
+            $stmt->execute();
     $cancel_status = $stmt->get_result()->fetch_assoc();
     $cancel_status_id = $cancel_status['id'];
     $stmt->close();
@@ -236,19 +236,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_booking'])) {
         $stmt = $conn->prepare($update_query);
         $stmt->bind_param('iisi', $cancel_status_id, $_SESSION['id'], $cancellation_reason, $booking_id);
         $stmt->execute();
-        $stmt->close();
-        
-        // Add activity log
+            $stmt->close();
+            
+            // Add activity log
         $log_query = "INSERT INTO booking_activity_logs 
                      (booking_id, user_id, activity_type, description) 
                      VALUES (?, ?, 'cancelled', ?)";
         $description = "Booking cancelled by admin with reason: {$cancellation_reason}";
         
-        $stmt = $conn->prepare($log_query);
+            $stmt = $conn->prepare($log_query);
         $stmt->bind_param('iis', $booking_id, $_SESSION['id'], $description);
-        $stmt->execute();
-        $stmt->close();
-        
+            $stmt->execute();
+            $stmt->close();
+            
         // Commit transaction
         $conn->commit();
         
@@ -272,11 +272,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reschedule_booking'])
     // Get the rescheduled status ID
     $status_query = "SELECT id FROM booking_statuses WHERE name = 'rescheduled'";
     $stmt = $conn->prepare($status_query);
-    $stmt->execute();
+                $stmt->execute();
     $status = $stmt->get_result()->fetch_assoc();
     $status_id = $status['id'];
-    $stmt->close();
-    
+                $stmt->close();
+                
     // Start transaction
     $conn->begin_transaction();
     
@@ -292,8 +292,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reschedule_booking'])
                         WHERE id = ?";
         $stmt = $conn->prepare($update_query);
         $stmt->bind_param('ississi', $status_id, $new_datetime, $duration_minutes, $new_datetime, $duration_minutes, $reschedule_notes, $booking_id);
-        $stmt->execute();
-        $stmt->close();
+                $stmt->execute();
+                $stmt->close();
         
         // Add activity log
         $log_query = "INSERT INTO booking_activity_logs 
@@ -357,16 +357,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['complete_booking'])) 
         $stmt->bind_param('iis', $booking_id, $_SESSION['id'], $description);
         $stmt->execute();
         $stmt->close();
-        
-        // Commit transaction
-        $conn->commit();
-        
+            
+            // Commit transaction
+            $conn->commit();
+            
         $success_message = "Booking marked as completed";
         header("Location: bookings.php?success=5");
-        exit;
-    } catch (Exception $e) {
-        // Rollback on error
-        $conn->rollback();
+            exit;
+        } catch (Exception $e) {
+            // Rollback on error
+            $conn->rollback();
         $error_message = "Error completing booking: " . $e->getMessage();
     }
 }
@@ -442,9 +442,10 @@ if (isset($_GET['error'])) {
     <div class="tabs-container">
         <div class="tabs">
             <button class="tab-btn <?php echo $active_tab === 'bookings' ? 'active' : ''; ?>" data-tab="bookings">Bookings</button>
+            <button class="tab-btn <?php echo $active_tab === 'team-availability' ? 'active' : ''; ?>" data-tab="team-availability">Team Availability</button>
             <button class="tab-btn <?php echo $active_tab === 'business-hours' ? 'active' : ''; ?>" data-tab="business-hours">Business Hours</button>
             <button class="tab-btn <?php echo $active_tab === 'special-days' ? 'active' : ''; ?>" data-tab="special-days">Special Days</button>
-        </div>
+            </div>
         
         <!-- Bookings Tab -->
         <div class="tab-content <?php echo $active_tab === 'bookings' ? 'active' : ''; ?>" id="bookings-tab">
@@ -458,9 +459,9 @@ if (isset($_GET['error'])) {
                             <?php foreach ($booking_statuses as $status): ?>
                                 <option value="<?php echo $status['name']; ?>" <?php echo ($status_filter === $status['name']) ? 'selected' : ''; ?>>
                                     <?php echo ucfirst(str_replace('_', ' ', $status['name'])); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                     </div>
                     
                     <div class="filter-group">
@@ -470,15 +471,15 @@ if (isset($_GET['error'])) {
                             <?php foreach ($team_members as $member): ?>
                                 <option value="<?php echo $member['id']; ?>" <?php echo ($consultant_filter === $member['id']) ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
                     
                     <div class="filter-group">
                         <label for="date_from">From Date</label>
                         <input type="date" name="date_from" id="date_from" class="form-control" value="<?php echo $date_from; ?>">
-                    </div>
+                        </div>
                     
                     <div class="filter-group">
                         <label for="date_to">To Date</label>
@@ -590,6 +591,89 @@ if (isset($_GET['error'])) {
                         </tbody>
                     </table>
                 <?php endif; ?>
+            </div>
+        </div>
+        
+        <!-- Team Availability Tab -->
+        <div class="tab-content <?php echo $active_tab === 'team-availability' ? 'active' : ''; ?>" id="team-availability-tab">
+            <div class="section-header">
+                <h3>Team Member Availability</h3>
+                <p>View team members' availability and schedule appointments</p>
+            </div>
+            
+            <div class="team-members-list">
+                <?php foreach ($team_members as $member): ?>
+                    <div class="team-member-card" data-member-id="<?php echo $member['id']; ?>">
+                        <div class="team-member-info">
+                            <div class="member-avatar">
+                                <?php if (!empty($member['profile_picture']) && file_exists('../../uploads/profiles/' . $member['profile_picture'])): ?>
+                                    <img src="../../uploads/profiles/<?php echo $member['profile_picture']; ?>" alt="Profile picture">
+                                <?php else: ?>
+                                    <div class="initials">
+                                        <?php echo substr($member['first_name'], 0, 1) . substr($member['last_name'], 0, 1); ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                            <div class="member-details">
+                                <h4><?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?></h4>
+                                <p class="member-role"><?php echo $member['role'] === 'Custom' ? htmlspecialchars($member['custom_role_name']) : $member['role']; ?></p>
+                            </div>
+                        </div>
+                        <button class="btn view-availability-btn" onclick="loadMemberAvailability(<?php echo $member['id']; ?>)">
+                            <i class="fas fa-calendar-alt"></i> View Availability
+                        </button>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            
+            <div id="member-availability-container" style="display: none;">
+                <div class="back-to-list">
+                    <button class="btn" onclick="hideAvailabilityDetails()">
+                        <i class="fas fa-arrow-left"></i> Back to Team List
+                    </button>
+                </div>
+                
+                <div class="section-subheader">
+                    <h4 id="selected-member-name">Team Member Availability</h4>
+                </div>
+                
+                <div class="date-picker-container">
+                    <div class="date-navigation">
+                        <button class="btn" id="prev-week-btn">
+                            <i class="fas fa-chevron-left"></i> Previous Week
+                        </button>
+                        <span id="current-week-range">Loading...</span>
+                        <button class="btn" id="next-week-btn">
+                            <i class="fas fa-chevron-right"></i> Next Week
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="availability-loading" class="text-center p-4" style="display: none;">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p class="mt-2">Loading availability...</p>
+                </div>
+                
+                <div id="weekly-availability-grid" class="weekly-calendar">
+                    <div class="weekday-headers">
+                        <div class="time-column-header"></div>
+                        <div class="weekday-header">Sun</div>
+                        <div class="weekday-header">Mon</div>
+                        <div class="weekday-header">Tue</div>
+                        <div class="weekday-header">Wed</div>
+                        <div class="weekday-header">Thu</div>
+                        <div class="weekday-header">Fri</div>
+                        <div class="weekday-header">Sat</div>
+                    </div>
+                    <div id="availability-grid-body">
+                        <!-- Time slots will be dynamically loaded here -->
+                    </div>
+                </div>
+                
+                <div id="no-availability" class="empty-state" style="display: none;">
+                    <i class="fas fa-calendar-times"></i>
+                    <p>No availability set for this team member.</p>
+                </div>
             </div>
         </div>
         
@@ -774,18 +858,18 @@ if (isset($_GET['error'])) {
                     
                     <p>Assigning consultant for booking with client: <strong id="assign_client_name"></strong></p>
                     
-                    <div class="form-group">
+                        <div class="form-group">
                         <label for="consultant_id">Select Consultant*</label>
                         <select name="consultant_id" id="consultant_id" class="form-control" required>
                             <option value="">Select Consultant</option>
-                            <?php foreach ($team_members as $member): ?>
-                                <option value="<?php echo $member['id']; ?>">
+                                <?php foreach ($team_members as $member): ?>
+                                    <option value="<?php echo $member['id']; ?>">
                                     <?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?> 
                                     (<?php echo $member['role'] === 'Custom' ? $member['custom_role_name'] : $member['role']; ?>)
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
                     
                     <div class="form-buttons">
                         <button type="button" class="btn cancel-btn" data-dismiss="modal">Cancel</button>
@@ -793,10 +877,10 @@ if (isset($_GET['error'])) {
                     </div>
                 </form>
             </div>
-        </div>
-    </div>
-</div>
-
+                        </div>
+                    </div>
+                </div>
+                
 <!-- Cancel Booking Modal -->
 <div class="modal" id="cancelModal">
     <div class="modal-dialog">
@@ -811,10 +895,10 @@ if (isset($_GET['error'])) {
                     
                     <p>You are about to cancel booking <strong id="cancel_reference"></strong>. This action cannot be undone.</p>
                     
-                    <div class="form-group">
+                        <div class="form-group">
                         <label for="cancellation_reason">Cancellation Reason*</label>
                         <textarea name="cancellation_reason" id="cancellation_reason" class="form-control" rows="3" required></textarea>
-                    </div>
+                        </div>
                     
                     <div class="form-buttons">
                         <button type="button" class="btn cancel-btn" data-dismiss="modal">Close</button>
@@ -823,9 +907,9 @@ if (isset($_GET['error'])) {
                 </form>
             </div>
         </div>
-    </div>
-</div>
-
+                        </div>
+                    </div>
+                    
 <!-- Reschedule Booking Modal -->
 <div class="modal" id="rescheduleModal">
     <div class="modal-dialog">
@@ -843,15 +927,15 @@ if (isset($_GET['error'])) {
                         <input type="datetime-local" name="new_datetime" id="new_datetime" class="form-control" required>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="duration_minutes">Duration (minutes)*</label>
+                        <div class="form-group">
+                            <label for="duration_minutes">Duration (minutes)*</label>
                         <input type="number" name="duration_minutes" id="duration_minutes" class="form-control" min="15" step="15" required>
-                    </div>
+                        </div>
                     
-                    <div class="form-group">
+                        <div class="form-group">
                         <label for="reschedule_notes">Rescheduling Notes*</label>
                         <textarea name="reschedule_notes" id="reschedule_notes" class="form-control" rows="3" required></textarea>
-                    </div>
+                        </div>
                     
                     <div class="form-buttons">
                         <button type="button" class="btn cancel-btn" data-dismiss="modal">Cancel</button>
@@ -860,9 +944,9 @@ if (isset($_GET['error'])) {
                 </form>
             </div>
         </div>
-    </div>
-</div>
-
+                    </div>
+                </div>
+                
 <!-- Complete Booking Modal -->
 <div class="modal" id="completeModal">
     <div class="modal-dialog">
@@ -877,7 +961,7 @@ if (isset($_GET['error'])) {
                     
                     <p>You are marking booking <strong id="complete_reference"></strong> as completed.</p>
                     
-                    <div class="form-group">
+                        <div class="form-group">
                         <label for="completion_notes">Completion Notes*</label>
                         <textarea name="completion_notes" id="completion_notes" class="form-control" rows="3" required></textarea>
                     </div>
@@ -912,9 +996,9 @@ if (isset($_GET['error'])) {
                                 <option value="<?php echo $status['id']; ?>">
                                     <?php echo ucfirst(str_replace('_', ' ', $status['name'])); ?>
                                 </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
                     
                     <div class="form-group">
                         <label for="admin_notes">Admin Notes</label>
@@ -943,16 +1027,16 @@ if (isset($_GET['error'])) {
                 <form action="update_special_day.php" method="POST" id="specialDayForm">
                     <input type="hidden" name="special_day_id" id="special_day_id" value="">
                     
-                    <div class="form-group">
+                        <div class="form-group">
                         <label for="special_date">Date*</label>
                         <input type="date" name="special_date" id="special_date" class="form-control" required>
-                    </div>
+                        </div>
                     
-                    <div class="form-group">
+                        <div class="form-group">
                         <label for="description">Description*</label>
                         <input type="text" name="description" id="description" class="form-control" 
                                placeholder="e.g., Christmas Day, Company Event" required>
-                    </div>
+                        </div>
                     
                     <div class="form-group checkbox-group">
                         <input type="checkbox" name="is_closed" id="is_closed" value="1" checked>
@@ -961,22 +1045,22 @@ if (isset($_GET['error'])) {
                     
                     <div id="alternative_hours" style="display: none;">
                         <div class="form-row">
-                            <div class="form-group">
+                    <div class="form-group">
                                 <label for="alternative_open_time">Open Time*</label>
                                 <input type="time" name="alternative_open_time" id="alternative_open_time" class="form-control">
-                            </div>
-                            <div class="form-group">
+                    </div>
+                    <div class="form-group">
                                 <label for="alternative_close_time">Close Time*</label>
                                 <input type="time" name="alternative_close_time" id="alternative_close_time" class="form-control">
                             </div>
-                        </div>
                     </div>
-                    
-                    <div class="form-buttons">
+                </div>
+                
+                <div class="form-buttons">
                         <button type="button" class="btn cancel-btn" data-dismiss="modal">Cancel</button>
                         <button type="submit" name="save_special_day" class="btn submit-btn">Save</button>
-                    </div>
-                </form>
+                </div>
+            </form>
             </div>
         </div>
     </div>
@@ -1538,6 +1622,239 @@ if (isset($_GET['error'])) {
     display: flex;
     justify-content: flex-end;
 }
+
+/* Additional styles for availability tab */
+.availability-checker {
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.availability-form {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.availability-results {
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    padding: 15px;
+    margin-top: 20px;
+}
+
+.section-subheader {
+    margin-bottom: 15px;
+}
+
+.section-subheader h4 {
+    margin: 0 0 5px 0;
+    color: var(--primary-color);
+    font-size: 1.2rem;
+}
+
+.section-subheader p {
+    margin: 0;
+    color: var(--secondary-color);
+}
+
+.member-available {
+    color: var(--success-color);
+    font-weight: 500;
+}
+
+.member-unavailable {
+    color: var(--danger-color);
+    font-weight: 500;
+}
+
+.p-4 {
+    padding: 1rem;
+}
+
+.mt-2 {
+    margin-top: 0.5rem;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.schedule-btn {
+    background-color: var(--success-color);
+}
+
+.schedule-btn:hover {
+    background-color: #18b07b;
+}
+
+/* Team Members List Styles */
+.team-members-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.team-member-card {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.team-member-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.member-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    overflow: hidden;
+    background-color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.member-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.member-avatar .initials {
+    color: white;
+    font-weight: 600;
+    font-size: 18px;
+}
+
+.member-details h4 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--dark-color);
+}
+
+.member-role {
+    margin: 5px 0 0;
+    color: var(--secondary-color);
+    font-size: 0.85rem;
+}
+
+.view-availability-btn {
+    background-color: var(--light-color);
+    color: var(--primary-color);
+    border: 1px solid var(--border-color);
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background-color 0.2s;
+}
+
+.view-availability-btn:hover {
+    background-color: #f0f3f9;
+}
+
+.back-to-list {
+    margin-bottom: 20px;
+}
+
+.date-picker-container {
+    margin: 20px 0;
+}
+
+.date-navigation {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.weekly-calendar {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    margin-bottom: 30px;
+}
+
+.weekday-headers {
+    display: grid;
+    grid-template-columns: 80px repeat(7, 1fr);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.weekday-header, .time-column-header {
+    padding: 10px;
+    text-align: center;
+    font-weight: 600;
+    color: var(--primary-color);
+    background-color: var(--light-color);
+}
+
+.time-slot-row {
+    display: grid;
+    grid-template-columns: 80px repeat(7, 1fr);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.time-slot-row:last-child {
+    border-bottom: none;
+}
+
+.time-label {
+    padding: 10px;
+    text-align: right;
+    color: var(--secondary-color);
+    font-weight: 500;
+    font-size: 0.85rem;
+    background-color: var(--light-color);
+}
+
+.time-slot {
+    padding: 10px;
+    text-align: center;
+    height: 40px;
+    position: relative;
+}
+
+.time-slot.available {
+    background-color: rgba(28, 200, 138, 0.1);
+    cursor: pointer;
+}
+
+.time-slot.available:hover {
+    background-color: rgba(28, 200, 138, 0.2);
+}
+
+.time-slot.unavailable {
+    background-color: #f8f9fc;
+}
+
+.time-slot.booked {
+    background-color: rgba(231, 74, 59, 0.1);
+}
+
+.time-slot.holiday {
+    background-color: rgba(246, 194, 62, 0.1);
+}
+
+.mt-4 {
+    margin-top: 2rem;
+}
 </style>
 
 <script>
@@ -1680,8 +1997,8 @@ document.getElementById('is_closed').addEventListener('change', function() {
 function editSpecialDay(id) {
     // This function would be implemented to load special day data via AJAX and populate the form
     fetch('get_special_day.php?id=' + id)
-        .then(response => response.json())
-        .then(data => {
+            .then(response => response.json())
+            .then(data => {
             document.getElementById('special_day_id').value = data.id;
             document.getElementById('special_date').value = data.date;
             document.getElementById('description').value = data.description;
@@ -1691,14 +2008,14 @@ function editSpecialDay(id) {
                 document.getElementById('alternative_hours').style.display = 'block';
                 document.getElementById('alternative_open_time').value = data.alternative_open_time.substring(0, 5);
                 document.getElementById('alternative_close_time').value = data.alternative_close_time.substring(0, 5);
-            } else {
+                } else {
                 document.getElementById('alternative_hours').style.display = 'none';
-            }
+                }
             
             document.querySelector('#specialDayModal .modal-title').textContent = 'Edit Special Day';
             openModal('specialDayModal');
-        })
-        .catch(error => {
+            })
+            .catch(error => {
             console.error('Error fetching special day:', error);
             alert('Error loading special day data.');
         });
@@ -1709,6 +2026,320 @@ function deleteSpecialDay(id, date) {
         window.location.href = 'update_special_day.php?delete_id=' + id;
     }
 }
+
+// Variables to track current state
+let currentMemberId = null;
+let currentStartDate = null;
+
+// Function to load member availability
+function loadMemberAvailability(memberId) {
+    // Hide team members list and show availability container
+    document.querySelector('.team-members-list').style.display = 'none';
+    document.getElementById('member-availability-container').style.display = 'block';
+    
+    // Set current member ID
+    currentMemberId = memberId;
+    
+    // Get team member name
+    const memberCard = document.querySelector(`.team-member-card[data-member-id="${memberId}"]`);
+    const memberName = memberCard.querySelector('h4').textContent;
+    document.getElementById('selected-member-name').textContent = `${memberName}'s Availability`;
+    
+    // Set current week to this week
+    currentStartDate = getStartOfWeek(new Date());
+    
+    // Update week display and load availability
+    updateWeekDisplay();
+    fetchMemberAvailability();
+    
+    // Setup navigation buttons
+    document.getElementById('prev-week-btn').addEventListener('click', function() {
+        currentStartDate.setDate(currentStartDate.getDate() - 7);
+        updateWeekDisplay();
+        fetchMemberAvailability();
+    });
+    
+    document.getElementById('next-week-btn').addEventListener('click', function() {
+        currentStartDate.setDate(currentStartDate.getDate() + 7);
+        updateWeekDisplay();
+        fetchMemberAvailability();
+    });
+}
+
+// Function to hide availability details and show team list
+function hideAvailabilityDetails() {
+    document.querySelector('.team-members-list').style.display = 'grid';
+    document.getElementById('member-availability-container').style.display = 'none';
+    currentMemberId = null;
+}
+
+// Function to get the start of the week (Sunday)
+function getStartOfWeek(date) {
+    const result = new Date(date);
+    result.setDate(date.getDate() - date.getDay()); // go to Sunday
+    result.setHours(0, 0, 0, 0);
+    return result;
+}
+
+// Function to update the week display
+function updateWeekDisplay() {
+    const endDate = new Date(currentStartDate);
+    endDate.setDate(endDate.getDate() + 6);
+    
+    const formatDate = (date) => {
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+    
+    document.getElementById('current-week-range').textContent = 
+        `${formatDate(currentStartDate)} - ${formatDate(endDate)}`;
+}
+
+// Function to fetch member availability
+function fetchMemberAvailability() {
+    if (!currentMemberId) return;
+    
+    // Show loading
+    document.getElementById('availability-loading').style.display = 'block';
+    document.getElementById('weekly-availability-grid').style.display = 'none';
+    document.getElementById('no-availability').style.display = 'none';
+    
+    // Format dates for the request
+    const endDate = new Date(currentStartDate);
+    endDate.setDate(endDate.getDate() + 6);
+    
+    const formatDate = (date) => {
+        return date.toISOString().split('T')[0];
+    };
+    
+    // Make AJAX request
+    fetch(`ajax/get_team_availability.php?team_member_id=${currentMemberId}`)
+        .then(response => response.json())
+        .then(data => {
+            // Hide loading
+            document.getElementById('availability-loading').style.display = 'none';
+            
+            if (data.error) {
+                alert('Error loading availability: ' + data.error);
+                return;
+            }
+            
+            if (data.availability.length === 0) {
+                document.getElementById('no-availability').style.display = 'block';
+                return;
+            }
+            
+            // Build availability grid
+            buildAvailabilityGrid(data.availability, data.time_off);
+            document.getElementById('weekly-availability-grid').style.display = 'block';
+        })
+        .catch(error => {
+            document.getElementById('availability-loading').style.display = 'none';
+            console.error('Error fetching availability:', error);
+            alert('Error loading availability. Please try again.');
+        });
+}
+
+// Function to build the availability grid
+function buildAvailabilityGrid(availability, timeOff) {
+    const gridBody = document.getElementById('availability-grid-body');
+    gridBody.innerHTML = '';
+    
+    // Create time slots from 8 AM to 8 PM
+    const timeSlots = [];
+    for (let hour = 8; hour <= 20; hour++) {
+        timeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
+        if (hour < 20) {
+            timeSlots.push(`${hour.toString().padStart(2, '0')}:30`);
+        }
+    }
+    
+    // Create a map of days and their availability
+    const availabilityMap = {};
+    availability.forEach(slot => {
+        availabilityMap[slot.day_of_week] = {
+            start: slot.start_time,
+            end: slot.end_time
+        };
+    });
+    
+    // Create time off map
+    const timeOffMap = {};
+    timeOff.forEach(off => {
+        const startDate = new Date(off.start_datetime);
+        const endDate = new Date(off.end_datetime);
+        
+        // Iterate through days covered by time off
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+            const dateString = d.toISOString().split('T')[0];
+            if (!timeOffMap[dateString]) {
+                timeOffMap[dateString] = [];
+            }
+            
+            timeOffMap[dateString].push({
+                start: startDate.toTimeString().substring(0, 5),
+                end: endDate.toTimeString().substring(0, 5),
+                reason: off.reason
+            });
+        }
+    });
+    
+    // Build grid
+    timeSlots.forEach(timeSlot => {
+        const row = document.createElement('div');
+        row.className = 'time-slot-row';
+        
+        // Add time label
+        const timeLabel = document.createElement('div');
+        timeLabel.className = 'time-label';
+        timeLabel.textContent = timeSlot;
+        row.appendChild(timeLabel);
+        
+        // Add slots for each day
+        for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+            const slot = document.createElement('div');
+            slot.className = 'time-slot';
+            
+            // Get current date for this slot
+            const slotDate = new Date(currentStartDate);
+            slotDate.setDate(slotDate.getDate() + dayIndex);
+            const dateString = slotDate.toISOString().split('T')[0];
+            
+            // Check if it's a time off day
+            const isTimeOff = timeOffMap[dateString] && timeOffMap[dateString].some(off => {
+                return timeSlot >= off.start && timeSlot <= off.end;
+            });
+            
+            // Check if it's within availability hours
+            const isAvailable = !isTimeOff && availabilityMap[dayIndex] && 
+                             timeSlot >= availabilityMap[dayIndex].start.substring(0, 5) && 
+                             timeSlot < availabilityMap[dayIndex].end.substring(0, 5);
+            
+            if (isTimeOff) {
+                slot.className += ' holiday';
+                slot.title = 'Time off';
+            } else if (isAvailable) {
+                slot.className += ' available';
+                slot.title = 'Available';
+                
+                // Add click handler to create booking
+                slot.onclick = function() {
+                    const bookingDate = `${dateString}T${timeSlot}`;
+                    window.location.href = `create_booking.php?date=${dateString}&time=${timeSlot}&consultant=${currentMemberId}`;
+                };
+            } else {
+                slot.className += ' unavailable';
+                slot.title = 'Unavailable';
+            }
+            
+            row.appendChild(slot);
+        }
+        
+        gridBody.appendChild(row);
+    });
+}
+
+// Update the existing checkAvailability function
+function checkTeamAvailability() {
+    const date = document.getElementById('availability_date').value;
+    const time = document.getElementById('availability_time').value;
+    const duration = document.getElementById('availability_duration').value;
+    
+    if (!date || !time) {
+        alert('Please select a date and time');
+        return;
+    }
+    
+    // Show loading
+    document.getElementById('availability-check-loading').style.display = 'block';
+    document.querySelector('.availability-results').style.display = 'none';
+    document.getElementById('no-availability-results').style.display = 'none';
+    
+    // Format datetime for display
+    const displayDate = new Date(date + 'T' + time);
+    document.getElementById('availability-date-display').textContent = 
+        `${displayDate.toLocaleDateString()} at ${displayDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} for ${duration} minutes`;
+    
+    // Make AJAX request to check availability
+    fetch('ajax/check_team_availability.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            date: date,
+            time: time,
+            duration: duration
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Hide loading
+        document.getElementById('availability-check-loading').style.display = 'none';
+        
+        if (data.length === 0) {
+            // No available team members
+            document.getElementById('no-availability-results').style.display = 'block';
+            document.querySelector('.availability-results').style.display = 'none';
+        } else {
+            // Display results
+            const tbody = document.getElementById('availability-results-body');
+            tbody.innerHTML = '';
+            
+            data.forEach(member => {
+                const tr = document.createElement('tr');
+                
+                // Member name
+                const tdName = document.createElement('td');
+                tdName.textContent = member.team_member_name;
+                tr.appendChild(tdName);
+                
+                // Role
+                const tdRole = document.createElement('td');
+                tdRole.textContent = member.custom_role_name || member.role;
+                tr.appendChild(tdRole);
+                
+                // Status
+                const tdStatus = document.createElement('td');
+                if (member.is_available) {
+                    tdStatus.innerHTML = '<span class="member-available"><i class="fas fa-check-circle"></i> Available</span>';
+                } else {
+                    tdStatus.innerHTML = '<span class="member-unavailable"><i class="fas fa-times-circle"></i> Unavailable</span>';
+                }
+                tr.appendChild(tdStatus);
+                
+                // Actions
+                const tdActions = document.createElement('td');
+                tdActions.className = 'actions-cell';
+                if (member.is_available) {
+                    const scheduleBtn = document.createElement('button');
+                    scheduleBtn.type = 'button';
+                    scheduleBtn.className = 'btn-action schedule-btn';
+                    scheduleBtn.title = 'Schedule Booking';
+                    scheduleBtn.innerHTML = '<i class="fas fa-calendar-plus"></i>';
+                    scheduleBtn.onclick = function() {
+                        window.location.href = `create_booking.php?date=${date}&time=${time}&duration=${duration}&consultant=${member.team_member_id}`;
+                    };
+                    tdActions.appendChild(scheduleBtn);
+                }
+                tr.appendChild(tdActions);
+                
+                tbody.appendChild(tr);
+            });
+            
+            document.querySelector('.availability-results').style.display = 'block';
+        }
+    })
+    .catch(error => {
+        console.error('Error checking availability:', error);
+        document.getElementById('availability-check-loading').style.display = 'none';
+        alert('Error checking team availability. Please try again.');
+    });
+}
+
+// Update the existing event listener
+document.getElementById('checkAvailabilityBtn').addEventListener('click', function() {
+    checkTeamAvailability();
+});
 </script>
 
 <?php

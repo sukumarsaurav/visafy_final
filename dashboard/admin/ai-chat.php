@@ -108,7 +108,7 @@ if ($user_type == 'member') {
                 <!-- Chat Messages -->
                 <div class="chat-messages" id="chat-messages">
                     <div class="welcome-content">
-                        <img src="../../assets/images/ai-chat-bot.png" alt="AI Chat Bot" class="chat-bot-icon">
+                        <img src="../../assets/images/ai-chatbot.svg" alt="AI Chat Bot" class="chat-bot-icon">
                         <h3>Welcome to AI Assistant</h3>
                         <p>I'm your visa and immigration consultant assistant. How can I help you today?</p>
                     </div>

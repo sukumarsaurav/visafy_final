@@ -75,6 +75,23 @@ if ($team_result && $team_result->num_rows > 0) {
 }
 $team_stmt->close();
 
+// Get all registered clients for assignment
+$clients_query = "SELECT u.id as user_id, u.first_name, u.last_name, u.email, u.status, u.profile_picture
+               FROM users u
+               WHERE u.user_type = 'client' AND u.status = 'active'
+               ORDER BY u.first_name, u.last_name";
+$clients_stmt = $conn->prepare($clients_query);
+$clients_stmt->execute();
+$clients_result = $clients_stmt->get_result();
+$clients = [];
+
+if ($clients_result && $clients_result->num_rows > 0) {
+    while ($row = $clients_result->fetch_assoc()) {
+        $clients[] = $row;
+    }
+}
+$clients_stmt->close();
+
 // Handle task creation
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_task'])) {
     $name = isset($_POST['task_name']) ? trim($_POST['task_name']) : '';
@@ -82,6 +99,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_task'])) {
     $priority = isset($_POST['priority']) ? $_POST['priority'] : 'normal';
     $due_date = isset($_POST['due_date']) && !empty($_POST['due_date']) ? $_POST['due_date'] : null;
     $assignees = isset($_POST['assignees']) ? $_POST['assignees'] : [];
+    $client_assignees = isset($_POST['client_assignees']) ? $_POST['client_assignees'] : [];
+    $self_assign = isset($_POST['self_assign']) ? true : false;
     
     // Validate inputs
     $errors = [];
@@ -89,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_task'])) {
         $errors[] = "Task name is required";
     }
     
-    // Check if user is logged in - using $_SESSION["id"] instead of $_SESSION['user_id']
+    // Check if user is logged in
     if (!isset($_SESSION["id"]) || empty($_SESSION["id"])) {
         $errors[] = "You need to be logged in to create a task";
     }
@@ -99,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_task'])) {
         $conn->begin_transaction();
         
         try {
-            // Get admin ID from session - using $_SESSION["id"] instead of $_SESSION['user_id']
+            // Get admin ID from session
             $admin_id = $_SESSION["id"];
             
             // Insert task record
@@ -112,7 +131,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_task'])) {
             $task_id = $conn->insert_id;
             $stmt->close();
             
-            // Insert task assignments
+            // Handle self-assignment if checked
+            if ($self_assign) {
+                $assignees[] = $admin_id;
+            }
+            
+            // Insert team member task assignments
             if (!empty($assignees)) {
                 $assignment_insert = "INSERT INTO task_assignments (task_id, team_member_id) VALUES (?, ?)";
                 $stmt = $conn->prepare($assignment_insert);
@@ -121,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_task'])) {
                     $stmt->bind_param('ii', $task_id, $assignee_id);
                     $stmt->execute();
                     
-                    // Create activity log for assignment - use $_SESSION["id"] here too
+                    // Create activity log for assignment
                     $log_insert = "INSERT INTO task_activity_logs (task_id, user_id, team_member_id, activity_type, description) 
                                  VALUES (?, ?, ?, 'assigned', 'Task assigned to team member')";
                     $log_stmt = $conn->prepare($log_insert);
@@ -129,7 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_task'])) {
                     $log_stmt->execute();
                     $log_stmt->close();
                     
-                    // Create notification for assignee - use $_SESSION["id"] here too
+                    // Create notification for assignee
                     $notif_insert = "INSERT INTO notifications (user_id, related_user_id, notification_type, title, content, related_to_type, related_to_id, is_actionable, action_url) 
                                    VALUES (?, ?, 'task_assigned', 'New Task Assignment', ?, 'task', ?, 1, ?)";
                     $notif_content = "You have been assigned to task: " . $name;
@@ -143,7 +167,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_task'])) {
                 $stmt->close();
             }
             
-            // Create activity log for task creation - use $_SESSION["id"] here too
+            // Insert client task assignments
+            if (!empty($client_assignees)) {
+                $assignment_insert = "INSERT INTO task_assignments (task_id, team_member_id) VALUES (?, ?)";
+                $stmt = $conn->prepare($assignment_insert);
+                
+                foreach ($client_assignees as $client_id) {
+                    $stmt->bind_param('ii', $task_id, $client_id);
+                    $stmt->execute();
+                    
+                    // Create activity log for client assignment
+                    $log_insert = "INSERT INTO task_activity_logs (task_id, user_id, team_member_id, activity_type, description) 
+                                 VALUES (?, ?, ?, 'assigned', 'Task assigned to client')";
+                    $log_stmt = $conn->prepare($log_insert);
+                    $log_stmt->bind_param('iii', $task_id, $_SESSION["id"], $client_id);
+                    $log_stmt->execute();
+                    $log_stmt->close();
+                    
+                    // Create notification for client
+                    $notif_insert = "INSERT INTO notifications (user_id, related_user_id, notification_type, title, content, related_to_type, related_to_id, is_actionable, action_url) 
+                                   VALUES (?, ?, 'task_assigned', 'New Task Assignment', ?, 'task', ?, 1, ?)";
+                    $notif_content = "You have been assigned a new task: " . $name;
+                    $action_url = "/dashboard/client/tasks.php?task_id=" . $task_id;
+                    
+                    $notif_stmt = $conn->prepare($notif_insert);
+                    $notif_stmt->bind_param('iisss', $client_id, $_SESSION["id"], $notif_content, $task_id, $action_url);
+                    $notif_stmt->execute();
+                    $notif_stmt->close();
+                }
+                $stmt->close();
+            }
+            
+            // Create activity log for task creation
             $log_insert = "INSERT INTO task_activity_logs (task_id, user_id, activity_type, description) 
                          VALUES (?, ?, 'created', 'Task created')";
             $log_stmt = $conn->prepare($log_insert);
@@ -458,18 +513,60 @@ if (isset($_GET['success'])) {
                             <input type="date" name="due_date" id="due_date" class="form-control">
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label for="assignees">Assign To</label>
-                        <select name="assignees[]" id="assignees" class="form-control" multiple>
-                            <?php foreach ($team_members as $member): ?>
-                                <option value="<?php echo $member['user_id']; ?>">
-                                    <?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name'] . ' (' . 
-                                        ($member['role'] === 'Custom' ? $member['custom_role_name'] : $member['role']) . ')'); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <small class="form-text text-muted">Hold Ctrl (or Cmd on Mac) to select multiple team members</small>
+                    
+                    <div class="form-group self-assign-option">
+                        <label class="checkbox-container">
+                            <input type="checkbox" name="self_assign" id="self_assign" value="1">
+                            <span class="checkmark"></span>
+                            Assign to myself
+                        </label>
                     </div>
+                    
+                    <div class="form-tabs">
+                        <div class="tab-buttons">
+                            <button type="button" class="tab-btn active" data-tab="team-tab">Team Members</button>
+                            <button type="button" class="tab-btn" data-tab="client-tab">Clients</button>
+                        </div>
+                        
+                        <div class="tab-content" id="team-tab">
+                            <div class="assignee-grid">
+                                <?php foreach ($team_members as $member): ?>
+                                    <label class="assignee-check-container">
+                                        <input type="checkbox" name="assignees[]" value="<?php echo $member['user_id']; ?>">
+                                        <span class="checkmark"></span>
+                                        <div class="assignee-info">
+                                            <div class="assignee-name">
+                                                <?php echo htmlspecialchars($member['first_name'] . ' ' . $member['last_name']); ?>
+                                            </div>
+                                            <div class="assignee-role">
+                                                <?php echo $member['role'] === 'Custom' ? $member['custom_role_name'] : $member['role']; ?>
+                                            </div>
+                                        </div>
+                                    </label>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-content" id="client-tab" style="display: none;">
+                            <div class="assignee-grid">
+                                <?php foreach ($clients as $client): ?>
+                                    <label class="assignee-check-container">
+                                        <input type="checkbox" name="client_assignees[]" value="<?php echo $client['user_id']; ?>">
+                                        <span class="checkmark"></span>
+                                        <div class="assignee-info">
+                                            <div class="assignee-name">
+                                                <?php echo htmlspecialchars($client['first_name'] . ' ' . $client['last_name']); ?>
+                                            </div>
+                                            <div class="assignee-role">
+                                                Client
+                                            </div>
+                                        </div>
+                                    </label>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="form-buttons">
                         <button type="button" class="btn cancel-btn" data-dismiss="modal">Cancel</button>
                         <button type="submit" name="create_task" class="btn submit-btn">Create Task</button>
@@ -993,6 +1090,143 @@ textarea.form-control {
         overflow-x: auto;
     }
 }
+
+/* Checkbox Styling */
+.checkbox-container,
+.assignee-check-container {
+    display: flex;
+    align-items: center;
+    position: relative;
+    padding-left: 30px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    font-size: 14px;
+    user-select: none;
+}
+
+.checkbox-container input,
+.assignee-check-container input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.checkmark {
+    position: absolute;
+    left: 0;
+    height: 20px;
+    width: 20px;
+    background-color: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+}
+
+.checkbox-container:hover input ~ .checkmark,
+.assignee-check-container:hover input ~ .checkmark {
+    background-color: #f0f0f0;
+}
+
+.checkbox-container input:checked ~ .checkmark,
+.assignee-check-container input:checked ~ .checkmark {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.checkmark:after {
+    content: "";
+    position: absolute;
+    display: none;
+}
+
+.checkbox-container input:checked ~ .checkmark:after,
+.assignee-check-container input:checked ~ .checkmark:after {
+    display: block;
+    left: 7px;
+    top: 3px;
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+/* Self assign option styling */
+.self-assign-option {
+    margin: 15px 0;
+    padding: 12px;
+    background-color: rgba(4, 33, 103, 0.05);
+    border-radius: 4px;
+    border-left: 3px solid var(--primary-color);
+}
+
+/* Tab Styling */
+.form-tabs {
+    margin-top: 20px;
+}
+
+.tab-buttons {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 15px;
+}
+
+.tab-btn {
+    padding: 8px 15px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--secondary-color);
+}
+
+.tab-btn.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+.tab-content {
+    padding: 10px 0;
+}
+
+/* Assignee Grid Styling */
+.assignee-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+    max-height: 250px;
+    overflow-y: auto;
+    padding: 5px;
+}
+
+.assignee-check-container {
+    padding: 8px 8px 8px 35px;
+    border-radius: 4px;
+    background-color: var(--light-color);
+    margin-bottom: 0;
+    transition: background-color 0.2s;
+}
+
+.assignee-check-container:hover {
+    background-color: rgba(4, 33, 103, 0.05);
+}
+
+.assignee-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.assignee-name {
+    font-weight: 500;
+    font-size: 13px;
+}
+
+.assignee-role {
+    color: var(--secondary-color);
+    font-size: 11px;
+}
 </style>
 
 <script>
@@ -1114,6 +1348,38 @@ function confirmDeleteTask(taskId) {
         document.getElementById('deleteTaskForm').submit();
     }
 }
+
+// Tab switching functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    
+    tabButtons.forEach(function(button) {
+        button.addEventListener('click', function() {
+            // Remove active class from all buttons
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            
+            // Add active class to clicked button
+            this.classList.add('active');
+            
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.style.display = 'none';
+            });
+            
+            // Show the selected tab content
+            const tabId = this.getAttribute('data-tab');
+            document.getElementById(tabId).style.display = 'block';
+        });
+    });
+    
+    // Self-assign checkbox behavior
+    const selfAssignCheckbox = document.getElementById('self_assign');
+    if (selfAssignCheckbox) {
+        selfAssignCheckbox.addEventListener('change', function() {
+            // You could add logic here if needed, such as disabling other options
+        });
+    }
+});
 </script>
 
 <?php

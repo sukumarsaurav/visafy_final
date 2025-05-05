@@ -233,6 +233,13 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                 
                 <div class="sidebar-divider"></div>
                 
+                <a href="availability.php" class="nav-item <?php echo $current_page == 'availability' ? 'active' : ''; ?>">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span class="nav-item-text">My Availability</span>
+                </a>
+                
+                <div class="sidebar-divider"></div>
+                
                 <a href="../../index.php" class="nav-item">
                     <i class="fas fa-globe"></i>
                     <span class="nav-item-text">Back to Website</span>

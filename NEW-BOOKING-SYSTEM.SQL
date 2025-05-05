@@ -75,6 +75,23 @@ CREATE TABLE `team_member_availability` (
   CONSTRAINT `availability_team_member_id_fk` FOREIGN KEY (`team_member_id`) REFERENCES `team_members` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- Create a table for team member time off (Added missing table)
+CREATE TABLE `team_member_time_off` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `team_member_id` int(11) NOT NULL,
+  `start_datetime` datetime NOT NULL,
+  `end_datetime` datetime NOT NULL,
+  `reason` varchar(255) DEFAULT NULL,
+  `status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  `approved_by` int(11) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `team_member_id` (`team_member_id`),
+  KEY `approved_by` (`approved_by`),
+  CONSTRAINT `time_off_team_member_id_fk` FOREIGN KEY (`team_member_id`) REFERENCES `team_members` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `time_off_approved_by_fk` FOREIGN KEY (`approved_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Create the main bookings table
 CREATE TABLE `bookings` (
@@ -244,6 +261,7 @@ CREATE TABLE `booking_activity_logs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Stored procedure to check team member availability
+-- Updated to consistently handle day_of_week conversion
 DELIMITER //
 CREATE PROCEDURE check_team_member_availability(
     IN p_team_member_id INT,
@@ -258,8 +276,13 @@ BEGIN
     DECLARE v_is_special_day BOOLEAN DEFAULT FALSE;
     DECLARE v_is_available_time BOOLEAN DEFAULT FALSE;
     
-    SET v_day_of_week = WEEKDAY(p_start_datetime) + 1; -- MySQL WEEKDAY: 0 = Monday, 6 = Sunday
-    IF v_day_of_week = 7 THEN SET v_day_of_week = 0; END IF; -- Convert to 0 = Sunday format
+    -- Convert MySQL WEEKDAY (0 = Monday, 6 = Sunday) to our format (0 = Sunday, 1 = Monday)
+    SET v_day_of_week = WEEKDAY(p_start_datetime);
+    IF v_day_of_week = 6 THEN 
+        SET v_day_of_week = 0; -- Sunday
+    ELSE 
+        SET v_day_of_week = v_day_of_week + 1; -- Other days
+    END IF;
     
     -- Check if it's a working day for the company
     SELECT COUNT(*) INTO v_count FROM business_hours 
@@ -391,6 +414,9 @@ BEGIN
     IF NEW.reference_number IS NULL OR NEW.reference_number = '' THEN
         SET NEW.reference_number = generate_booking_reference();
     END IF;
+    
+    -- Added: Set end_datetime based on duration_minutes during INSERT
+    SET NEW.end_datetime = DATE_ADD(NEW.booking_datetime, INTERVAL NEW.duration_minutes MINUTE);
 END //
 DELIMITER ;
 

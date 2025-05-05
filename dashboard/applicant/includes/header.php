@@ -92,7 +92,7 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
     <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
     <link rel="stylesheet" href="../assets/css/style.css">
     <?php if (isset($page_specific_css)): ?>
-        <link rel="stylesheet" href="<?php echo $page_specific_css; ?>">
+    <link rel="stylesheet" href="<?php echo $page_specific_css; ?>">
     <?php endif; ?>
 </head>
 
@@ -113,29 +113,31 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                     <div class="notification-icon" id="notification-toggle">
                         <i class="fas fa-bell"></i>
                         <?php if ($notification_count > 0): ?>
-                            <span class="notification-badge"><?php echo $notification_count; ?></span>
+                        <span class="notification-badge"><?php echo $notification_count; ?></span>
                         <?php endif; ?>
                     </div>
                     <div class="notification-menu" id="notification-menu">
                         <div class="notification-header">
                             <h3>Notifications</h3>
                             <?php if ($notification_count > 0): ?>
-                                <a href="notifications.php" class="mark-all-read">Mark all as read</a>
+                            <a href="notifications.php" class="mark-all-read">Mark all as read</a>
                             <?php endif; ?>
                         </div>
                         <div class="notification-list">
                             <?php if (empty($notifications_list)): ?>
-                                <div class="no-notifications">
-                                    <p>No new notifications</p>
-                                </div>
+                            <div class="no-notifications">
+                                <p>No new notifications</p>
+                            </div>
                             <?php else: ?>
-                                <?php foreach ($notifications_list as $notification): ?>
-                                    <div class="notification-item <?php echo $notification['is_read'] ? 'read' : 'unread'; ?>" data-id="<?php echo $notification['id']; ?>">
-                                        <div class="title"><?php echo htmlspecialchars($notification['title']); ?></div>
-                                        <div class="message"><?php echo htmlspecialchars($notification['content']); ?></div>
-                                        <div class="time"><?php echo date('M j, g:i a', strtotime($notification['created_at'])); ?></div>
-                                    </div>
-                                <?php endforeach; ?>
+                            <?php foreach ($notifications_list as $notification): ?>
+                            <div class="notification-item <?php echo $notification['is_read'] ? 'read' : 'unread'; ?>"
+                                data-id="<?php echo $notification['id']; ?>">
+                                <div class="title"><?php echo htmlspecialchars($notification['title']); ?></div>
+                                <div class="message"><?php echo htmlspecialchars($notification['content']); ?></div>
+                                <div class="time">
+                                    <?php echo date('M j, g:i a', strtotime($notification['created_at'])); ?></div>
+                            </div>
+                            <?php endforeach; ?>
                             <?php endif; ?>
                         </div>
                         <div class="notification-footer">
@@ -144,9 +146,14 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                     </div>
                 </div>
                 <div class="user-dropdown">
-                    <span class="user-name"><?php echo htmlspecialchars($_SESSION["first_name"] . ' ' . $_SESSION["last_name"]); ?></span>
-                    <img src="<?php echo $profile_img; ?>" alt="Profile" class="profile-img-header" style="width: 32px; height: 32px;">
+                    <span
+                        class="user-name"><?php echo htmlspecialchars($_SESSION["first_name"] . ' ' . $_SESSION["last_name"]); ?></span>
+                    <img src="<?php echo $profile_img; ?>" alt="Profile" class="profile-img-header"
+                        style="width: 32px; height: 32px;">
                     <div class="user-dropdown-menu">
+                        <a href="../../index.php" class="dropdown-item">
+                            <i class="fas fa-globe"></i>Back to Website
+                        </a>
                         <a href="profile.php" class="dropdown-item">
                             <i class="fas fa-user"></i> Profile
                         </a>
@@ -163,72 +170,71 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
         </header>
 
         <!-- Sidebar -->
-        <aside class="sidebar <?php echo $sidebar_class; ?>" >
+        <aside class="sidebar <?php echo $sidebar_class; ?>">
             <nav class="sidebar-nav">
                 <a href="index.php" class="nav-item <?php echo $current_page == 'index' ? 'active' : ''; ?>">
                     <i class="fas fa-home"></i>
                     <span class="nav-item-text">Dashboard</span>
                 </a>
-                
+
                 <div class="sidebar-divider"></div>
-                
-                <a href="applications.php" class="nav-item <?php echo $current_page == 'applications' ? 'active' : ''; ?>">
+
+                <a href="applications.php"
+                    class="nav-item <?php echo $current_page == 'applications' ? 'active' : ''; ?>">
                     <i class="fas fa-passport"></i>
                     <span class="nav-item-text">My Applications</span>
                 </a>
-                
+
                 <a href="documents.php" class="nav-item <?php echo $current_page == 'documents' ? 'active' : ''; ?>">
                     <i class="fas fa-file-alt"></i>
                     <span class="nav-item-text">My Documents</span>
                 </a>
-                
+
                 <a href="bookings.php" class="nav-item <?php echo $current_page == 'bookings' ? 'active' : ''; ?>">
                     <i class="fas fa-calendar-alt"></i>
                     <span class="nav-item-text">My Bookings</span>
                 </a>
-                
+
                 <a href="services.php" class="nav-item <?php echo $current_page == 'services' ? 'active' : ''; ?>">
                     <i class="fas fa-concierge-bell"></i>
                     <span class="nav-item-text">Visa Services</span>
                 </a>
-                
+
                 <div class="sidebar-divider"></div>
-                
+
                 <a href="messages.php" class="nav-item <?php echo $current_page == 'messages' ? 'active' : ''; ?>">
                     <i class="fas fa-envelope"></i>
                     <span class="nav-item-text">Messages</span>
                 </a>
-                
-              
-                
+
+
+
                 <div class="sidebar-divider"></div>
-                
+
                 <a href="profile.php" class="nav-item <?php echo $current_page == 'profile' ? 'active' : ''; ?>">
                     <i class="fas fa-user"></i>
                     <span class="nav-item-text">My Profile</span>
                 </a>
-                
+
                 <div class="sidebar-divider"></div>
 
-                <a href="../../index.php" class="nav-item">
-                    <i class="fas fa-globe"></i>
-                    <span class="nav-item-text">Back to Website</span>
-                </a>
-                
+
+
                 <a href="../../logout.php" class="nav-item">
                     <i class="fas fa-sign-out-alt"></i>
                     <span class="nav-item-text">Logout</span>
                 </a>
             </nav>
-            
+
             <div class="user-profile sidebar-footer">
                 <img src="<?php echo $profile_img; ?>" alt="Profile" class="profile-img">
                 <div class="profile-info">
-                    <div class="profile-name"><?php echo htmlspecialchars($_SESSION["first_name"] . ' ' . $_SESSION["last_name"]); ?></div>
+                    <div class="profile-name">
+                        <?php echo htmlspecialchars($_SESSION["first_name"] . ' ' . $_SESSION["last_name"]); ?></div>
                     <span class="role-badge">Applicant</span>
                 </div>
             </div>
         </aside>
 
         <!-- Main Content -->
-        <main class="main-content <?php echo $main_content_class; ?>" id="main-content"> 
+        <main class="main-content <?php echo $main_content_class; ?>" id="main-content">

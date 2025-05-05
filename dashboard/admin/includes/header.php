@@ -91,7 +91,7 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
     <link rel="stylesheet" href="assets/css/visa.css">
     <link rel="stylesheet" href="assets/css/profile.css">
     <?php if (isset($page_specific_css)): ?>
-        <link rel="stylesheet" href="<?php echo $page_specific_css; ?>">
+    <link rel="stylesheet" href="<?php echo $page_specific_css; ?>">
     <?php endif; ?>
 </head>
 
@@ -108,7 +108,7 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                 </a>
             </div>
             <div class="header-right">
-            <div class="notification-dropdown">
+                <div class="notification-dropdown">
                     <div class="notification-icon" id="notification-toggle">
                         <i class="fas fa-bell"></i>
                         <?php if ($notification_count > 0): ?>
@@ -154,6 +154,10 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                     <img src="<?php echo $profile_img; ?>" alt="Profile" class="profile-img-header"
                         style="width: 32px; height: 32px;">
                     <div class="user-dropdown-menu">
+                        <a href="../../index.php" class="dropdown-item">
+                            <i class="fas fa-globe"></i>
+                            Back to Website
+                        </a>
                         <a href="profile.php" class="dropdown-item">
                             <i class="fas fa-user"></i> Profile
                         </a>
@@ -171,13 +175,13 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
 
         <!-- Sidebar -->
         <aside class="sidebar <?php echo $sidebar_class; ?>">
-            
+
             <nav class="sidebar-nav">
                 <a href="index.php" class="nav-item <?php echo $current_page == 'index' ? 'active' : ''; ?>">
                     <i class="fas fa-tachometer-alt"></i>
                     <span class="nav-item-text">Dashboard</span>
                 </a>
-                
+
                 <!-- Visafy AI Section -->
                 <div class="sidebar-divider"></div>
                 <a href="ai-chat.php" class="nav-item <?php echo $current_page == 'ai-chat' ? 'active' : ''; ?>">
@@ -188,14 +192,11 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                     <i class="fas fa-file-alt"></i>
                     <span class="nav-item-text">Visa</span>
                 </a>
-                
+
                 <div class="sidebar-divider"></div>
                 <!-- End Visafy AI Section -->
 
-                <a href="profile.php" class="nav-item <?php echo $current_page == 'profile' ? 'active' : ''; ?>">
-                    <i class="fas fa-user"></i>
-                    <span class="nav-item-text">Profile</span>
-                </a>
+              
                 <a href="services.php" class="nav-item <?php echo $current_page == 'services' ? 'active' : ''; ?>">
                     <i class="fas fa-briefcase"></i>
                     <span class="nav-item-text">Services</span>
@@ -210,10 +211,11 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                     <span class="nav-item-text">Leads</span>
                 </a>
                 <a href="clients.php" class="nav-item <?php echo $current_page == 'clients' ? 'active' : ''; ?>">
-                <i class="fa-solid fa-user-check"></i>
+                    <i class="fa-solid fa-user-check"></i>
                     <span class="nav-item-text">Clients</span>
                 </a>
-                <a href="applications.php" class="nav-item <?php echo $current_page == 'applications' ? 'active' : ''; ?>">
+                <a href="applications.php"
+                    class="nav-item <?php echo $current_page == 'applications' ? 'active' : ''; ?>">
                     <i class="fas fa-folder-open"></i>
                     <span class="nav-item-text">Applications</span>
                 </a>
@@ -221,7 +223,7 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                     <i class="fas fa-file-alt"></i>
                     <span class="nav-item-text">Documents</span>
                 </a>
-                
+
                 <div class="sidebar-divider"></div>
                 <div class="sidebar-section-title">Team Management</div>
                 <a href="team.php" class="nav-item <?php echo $current_page == 'members' ? 'active' : ''; ?>">
@@ -232,24 +234,27 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                     <i class="fas fa-tasks"></i>
                     <span class="nav-item-text">Tasks</span>
                 </a>
-                
+
                 <div class="sidebar-divider"></div>
                 <a href="messages.php" class="nav-item <?php echo $current_page == 'messages' ? 'active' : ''; ?>">
                     <i class="fas fa-envelope"></i>
                     <span class="nav-item-text">Messages</span>
                 </a>
-             
-                
+
+
                 <div class="sidebar-divider"></div>
-             
-                <a href="../../index.php" class="nav-item">
-                    <i class="fas fa-globe"></i>
-                    <span class="nav-item-text">Back to Website</span>
-                </a>
+
+
 
                 <a href="../../logout.php" class="nav-item">
                     <i class="fas fa-sign-out-alt"></i>
                     <span class="nav-item-text">Logout</span>
+                </a>
+
+                <a href="eligibility-checker.php"
+                    class="nav-item <?php echo $current_page == 'eligibility-checker' ? 'active' : ''; ?>">
+                    <i class="fas fa-check-square"></i>
+                    <span class="nav-item-text">Eligibility Checker</span>
                 </a>
             </nav>
             <div class="user-profile sidebar-footer">
