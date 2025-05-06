@@ -28,7 +28,7 @@ try {
     <div class="container">
         <div class="hero-content text-center">
             <h1 class="hero-title">
-                <i class="fas fa-clipboard-check"></i> Free Visa Eligibility Check
+                 Free Visa Eligibility Check
             </h1>
             <p class="hero-subtitle">Answer a few simple questions to check your visa eligibility and get instant results</p>
         </div>
@@ -107,26 +107,63 @@ try {
 </section>
 
 <style>
-/* Hero Section Styles */
+/* Service Cards Styling */
 .hero {
-    padding: 60px 0;
-    text-align: center;
+    padding: 80px 0;
+    background-color:rgb(255, 255, 255);
+    color: var(--color-light);
+    overflow: hidden;
+    position: relative;
+}
+
+.hero-grid {
+    display: grid;
+    grid-template-columns: 4fr 3fr;
+    align-items: center;
+    gap: 50px;
+}
+
+.hero-content {
+    text-align: left;
+    max-width: 700px;
 }
 
 .hero-title {
-    font-size: 2.5rem;
+    font-size: 3.5rem;
     color: #042167;
-    margin-bottom: 20px;
     font-weight: 700;
+    margin-bottom: 20px;
+    line-height: 1.2;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 .hero-subtitle {
     font-size: 1.2rem;
-    color: #666;
-    max-width: 600px;
-    margin: 0 auto;
+    margin-bottom: 30px;
+    line-height: 1.6;
+    opacity: 0.9;
+    color: #042167;
 }
 
+.hero-buttons {
+    display: flex;
+    gap: 20px;
+}
+
+.hero-image-container {
+    position: relative;
+    height: 500px;
+}
+
+.floating-image {
+    position: relative;
+    animation: float 6s ease-in-out infinite;
+}
+
+.floating-image img {
+    max-width: 100%;
+    height: auto;
+}
 /* Test Section Styles */
 .eligibility-test {
     padding: 40px 0 80px;

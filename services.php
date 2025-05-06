@@ -130,6 +130,87 @@ include('includes/header.php');
 
 <style>
 /* Service Cards Styling */
+.hero {
+    padding: 80px 0;
+    background-color:rgb(255, 255, 255);
+    color: var(--color-light);
+    overflow: hidden;
+    position: relative;
+}
+
+.hero-grid {
+    display: grid;
+    grid-template-columns: 4fr 3fr;
+    align-items: center;
+    gap: 50px;
+}
+
+.hero-content {
+    text-align: left;
+    max-width: 700px;
+}
+
+.hero-title {
+    font-size: 3.5rem;
+    color: #042167;
+    font-weight: 700;
+    margin-bottom: 20px;
+    line-height: 1.2;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.hero-subtitle {
+    font-size: 1.2rem;
+    margin-bottom: 30px;
+    line-height: 1.6;
+    opacity: 0.9;
+    color: #042167;
+}
+
+.hero-buttons {
+    display: flex;
+    gap: 20px;
+}
+
+.hero-image-container {
+    position: relative;
+    height: 500px;
+}
+
+.floating-image {
+    position: relative;
+    animation: float 6s ease-in-out infinite;
+}
+
+.floating-image img {
+    max-width: 100%;
+    height: auto;
+}
+.btn-primary {
+    padding: 12px 30px;
+    background-color: #eaaa34;
+    color: #fff;
+    border: 2px solid #eaaa34;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background-color: transparent;
+    color: #eaaa34;
+}
+
+.btn-secondary {
+    background-color: transparent;
+    color: #eaaa34;
+    border: 2px solid #eaaa34;
+    transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+    background-color: #eaaa34;
+    color: #fff;
+}
+
 .services-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

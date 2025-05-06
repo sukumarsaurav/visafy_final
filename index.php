@@ -14,7 +14,7 @@ include('includes/header.php');
                 </h1>
                 <p class="hero-subtitle">Your trusted partner for immigration services</p>
                 <div class="hero-buttons">
-                    <a href="assessment-tools.php" class="btn btn-primary">Check Eligibility</a>
+                    <a href="eligibility-test.php" class="btn btn-primary">Check Eligibility</a>
                     <a href="contact.php" class="btn btn-secondary">Get Consultation</a>
                 </div>
             </div>
@@ -79,51 +79,7 @@ include('includes/header.php');
     </div>
 </section>
 
-<!-- Why Choose Us Section -->
-<section class="section why-us">
-    <div class="container">
-        <h2 class="section-title" data-aos="fade-up">Why Choose Visafy</h2>
-        <p class="section-subtitle" data-aos="fade-up" data-aos-delay="100">Here's what sets us apart from other immigration consultancies</p>
-        
-        <div class="features-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 30px;">
-            <!-- Feature 1 -->
-            <div class="feature-card" data-aos="fade-up" data-aos-delay="200" style="text-align: center; padding: 30px; background-color: #fff; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">
-                <div class="feature-icon" style="font-size: 3rem; color: #eaaa34; margin-bottom: 20px;">
-                    <i class="fas fa-award"></i>
-                </div>
-                <h3 style="color: #042167; margin-bottom: 15px;">Licensed Consultants</h3>
-                <p>Our team consists of ICCRC licensed consultants with extensive experience in Canadian immigration.</p>
-            </div>
-            
-            <!-- Feature 2 -->
-            <div class="feature-card" data-aos="fade-up" data-aos-delay="300" style="text-align: center; padding: 30px; background-color: #fff; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">
-                <div class="feature-icon" style="font-size: 3rem; color: #eaaa34; margin-bottom: 20px;">
-                    <i class="fas fa-check-circle"></i>
-                </div>
-                <h3 style="color: #042167; margin-bottom: 15px;">High Success Rate</h3>
-                <p>We pride ourselves on our high application success rate through meticulous preparation and attention to detail.</p>
-            </div>
-            
-            <!-- Feature 3 -->
-            <div class="feature-card" data-aos="fade-up" data-aos-delay="400" style="text-align: center; padding: 30px; background-color: #fff; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">
-                <div class="feature-icon" style="font-size: 3rem; color: #eaaa34; margin-bottom: 20px;">
-                    <i class="fas fa-user-friends"></i>
-                </div>
-                <h3 style="color: #042167; margin-bottom: 15px;">Personalized Approach</h3>
-                <p>We develop customized immigration strategies tailored to your unique situation and goals.</p>
-            </div>
-            
-            <!-- Feature 4 -->
-            <div class="feature-card" data-aos="fade-up" data-aos-delay="500" style="text-align: center; padding: 30px; background-color: #fff; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">
-                <div class="feature-icon" style="font-size: 3rem; color: #eaaa34; margin-bottom: 20px;">
-                    <i class="fas fa-clock"></i>
-                </div>
-                <h3 style="color: #042167; margin-bottom: 15px;">End-to-End Support</h3>
-                <p>From initial assessment to settlement guidance, we support you throughout your entire immigration journey.</p>
-            </div>
-        </div>
-    </div>
-</section>
+
 
 <!-- Platform Benefits Section -->
 <section class="section platform-benefits" style="padding: 80px 0; background-color: #f0f4f9;">
@@ -323,7 +279,51 @@ include('includes/header.php');
         </div>
     </div>
 </section>
-
+<!-- Why Choose Us Section -->
+<section class="section why-us">
+    <div class="container">
+        <h2 class="section-title" data-aos="fade-up">Why Choose Visafy</h2>
+        <p class="section-subtitle" data-aos="fade-up" data-aos-delay="100">Here's what sets us apart from other immigration consultancies</p>
+        
+        <div class="features-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 30px;">
+            <!-- Feature 1 -->
+            <div class="feature-card" data-aos="fade-up" data-aos-delay="200" style="text-align: center; padding: 30px; background-color: #fff; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">
+                <div class="feature-icon" style="font-size: 3rem; color: #eaaa34; margin-bottom: 20px;">
+                    <i class="fas fa-award"></i>
+                </div>
+                <h3 style="color: #042167; margin-bottom: 15px;">Licensed Consultants</h3>
+                <p>Our team consists of ICCRC licensed consultants with extensive experience in Canadian immigration.</p>
+            </div>
+            
+            <!-- Feature 2 -->
+            <div class="feature-card" data-aos="fade-up" data-aos-delay="300" style="text-align: center; padding: 30px; background-color: #fff; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">
+                <div class="feature-icon" style="font-size: 3rem; color: #eaaa34; margin-bottom: 20px;">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h3 style="color: #042167; margin-bottom: 15px;">High Success Rate</h3>
+                <p>We pride ourselves on our high application success rate through meticulous preparation and attention to detail.</p>
+            </div>
+            
+            <!-- Feature 3 -->
+            <div class="feature-card" data-aos="fade-up" data-aos-delay="400" style="text-align: center; padding: 30px; background-color: #fff; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">
+                <div class="feature-icon" style="font-size: 3rem; color: #eaaa34; margin-bottom: 20px;">
+                    <i class="fas fa-user-friends"></i>
+                </div>
+                <h3 style="color: #042167; margin-bottom: 15px;">Personalized Approach</h3>
+                <p>We develop customized immigration strategies tailored to your unique situation and goals.</p>
+            </div>
+            
+            <!-- Feature 4 -->
+            <div class="feature-card" data-aos="fade-up" data-aos-delay="500" style="text-align: center; padding: 30px; background-color: #fff; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">
+                <div class="feature-icon" style="font-size: 3rem; color: #eaaa34; margin-bottom: 20px;">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <h3 style="color: #042167; margin-bottom: 15px;">End-to-End Support</h3>
+                <p>From initial assessment to settlement guidance, we support you throughout your entire immigration journey.</p>
+            </div>
+        </div>
+    </div>
+</section>
 <!-- Add JavaScript for tab functionality -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {

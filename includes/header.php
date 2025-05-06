@@ -53,8 +53,9 @@ if ($is_logged_in) {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.js"></script>
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="/assets/css/styles.css">
+ 
     <link rel="stylesheet" href="/assets/css/header.css">
+    <link rel="stylesheet" href="/assets/css/styles.css">
 
     <!-- Load utils.js before other scripts -->
     <script src="/assets/js/utils.js"></script>
