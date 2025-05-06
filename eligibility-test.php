@@ -1,313 +1,538 @@
 <?php
-$page_title = "Eligibility Checker | Visafy Immigration Consultancy";
+$page_title = "Visa Eligibility Test | Visafy";
 include('includes/header.php');
+
+// Include database connection
+require_once 'config/db_connect.php';
+
+// Get the first question to start the test
+try {
+    $stmt = $conn->prepare("
+        SELECT q.*, c.name as category_name 
+        FROM decision_tree_questions q 
+        LEFT JOIN decision_tree_categories c ON q.category_id = c.id 
+        WHERE q.is_active = 1 
+        ORDER BY q.id ASC 
+        LIMIT 1
+    ");
+    $stmt->execute();
+    $first_question = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+} catch (Exception $e) {
+    $error_message = "Error loading initial question: " . $e->getMessage();
+}
 ?>
 
-<div class="main-container">
-    <div class="content-wrapper">
-        <div class="content-inner">
-            <div class="eligibility-card">
+<!-- Hero Section -->
+<section class="hero" style="background-color: #f8f9fc;">
+    <div class="container">
+        <div class="hero-content text-center">
+            <h1 class="hero-title">
+                <i class="fas fa-clipboard-check"></i> Free Visa Eligibility Check
+            </h1>
+            <p class="hero-subtitle">Answer a few simple questions to check your visa eligibility and get instant results</p>
+        </div>
+    </div>
+</section>
+
+<!-- Eligibility Test Section -->
+<section class="section eligibility-test">
+    <div class="container">
+        <div class="test-container">
+            <div class="card">
                 <div class="card-header">
-                    <h3>Immigration Eligibility Checker</h3>
+                    <h5>Quick Eligibility Assessment</h5>
                 </div>
-                <div class="card-content">
-                    <!-- Primary Category Selection -->
-                    <div id="primary-category" class="eligibility-section">
-                        <h4>Step 1: Select your primary immigration category</h4>
-                        <div class="form-input">
-                            <select id="primaryCategory" class="select-input">
-                                <option value="">-- Select Category --</option>
-                                <option value="study">Study</option>
-                                <option value="work">Work</option>
-                                <option value="permanent">Permanent Residence</option>
-                                <option value="invest">Invest/Business</option>
-                                <option value="visitor">Visitor</option>
-                            </select>
+                <div class="card-body">
+                    <?php if (isset($error_message)): ?>
+                        <div class="alert alert-danger">
+                            <?php echo htmlspecialchars($error_message); ?>
                         </div>
-                    </div>
+                    <?php elseif ($first_question): ?>
+                        <div id="question-section">
+                            <div class="question-container">
+                                <h3 id="question-text"><?php echo htmlspecialchars($first_question['question_text']); ?></h3>
+                                <?php if (isset($first_question['description']) && $first_question['description']): ?>
+                                    <p class="question-description"><?php echo htmlspecialchars($first_question['description']); ?></p>
+                                <?php endif; ?>
+                            </div>
+                            
+                            <div id="options-container" class="options-container">
+                                <div class="loader">
+                                    <i class="fas fa-circle-notch fa-spin"></i> Loading options...
+                                </div>
+                            </div>
+                        </div>
 
-                    <!-- Dynamic Question Container -->
-                    <div id="question-container" class="eligibility-section mt-4" style="display: none;">
-                        <div id="question-header" class="mb-3"></div>
-                        <div id="question-content"></div>
-                        <div id="navigation-buttons" class="mt-4">
-                            <button id="prev-button" class="btn-secondary" style="display: none;">Previous</button>
-                            <button id="next-button" class="btn-primary" style="display: none;">Next</button>
+                        <div id="result-section" class="result-section" style="display: none;">
+                            <div class="result-container">
+                                <div id="result-icon"></div>
+                                <h3 id="result-title"></h3>
+                                <p id="result-message"></p>
+                                <div class="cta-container">
+                                    <p class="cta-text">Want to proceed with your visa application?</p>
+                                    <div class="cta-buttons">
+                                        <a href="register.php" class="btn btn-primary">
+                                            <i class="fas fa-user-plus"></i> Create Free Account
+                                        </a>
+                                        <a href="consultation.php" class="btn btn-secondary">
+                                            <i class="fas fa-comments"></i> Book Consultation
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="result-actions">
+                                <button id="restart-test" class="btn btn-outline">
+                                    <i class="fas fa-redo"></i> Take Test Again
+                                </button>
+                                <a href="services.php" class="btn btn-link">
+                                    <i class="fas fa-arrow-right"></i> Explore Our Services
+                                </a>
+                            </div>
                         </div>
-                    </div>
-
-                    <!-- Results Container -->
-                    <div id="result-container" class="eligibility-section mt-4" style="display: none;">
-                        <div class="alert" id="result-alert">
-                            <h4 id="result-title"></h4>
-                            <p id="result-message"></p>
-                            <div id="result-links"></div>
+                    <?php else: ?>
+                        <div class="empty-state">
+                            <i class="fas fa-exclamation-circle"></i>
+                            <p>Our eligibility test is currently being updated. Please check back later or contact us directly.</p>
+                            <div class="empty-state-actions">
+                                <a href="contact.php" class="btn btn-primary">Contact Us</a>
+                                <a href="index.php" class="btn btn-secondary">Back to Home</a>
+                            </div>
                         </div>
-                        <button id="restart-button" class="btn-primary mt-3">Start New Assessment</button>
-                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
     </div>
-</div>
+</section>
 
-<!-- SDS Country List Modal -->
-<div class="modal" id="sdsCountriesModal">
-    <div class="modal-wrapper">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">SDS Eligible Countries</h5>
-                <button type="button" class="close-btn" data-dismiss="modal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p>The Student Direct Stream (SDS) is available to legal residents of:</p>
-                <ul class="country-list">
-                    <li>Antigua and Barbuda</li>
-                    <li>Brazil</li>
-                    <li>China</li>
-                    <li>Colombia</li>
-                    <li>Costa Rica</li>
-                    <li>India</li>
-                    <li>Morocco</li>
-                    <li>Pakistan</li>
-                    <li>Peru</li>
-                    <li>Philippines</li>
-                    <li>Senegal</li>
-                    <li>Saint Vincent and the Grenadines</li>
-                    <li>Trinidad and Tobago</li>
-                    <li>Vietnam</li>
-                </ul>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn-secondary" data-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Custom CSS -->
 <style>
-.main-container {
-    margin: 3rem auto;
-    padding: 0 1rem;
+/* Hero Section Styles */
+.hero {
+    padding: 60px 0;
+    text-align: center;
 }
 
-.content-wrapper {
+.hero-title {
+    font-size: 2.5rem;
+    color: #042167;
+    margin-bottom: 20px;
+    font-weight: 700;
+}
+
+.hero-subtitle {
+    font-size: 1.2rem;
+    color: #666;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* Test Section Styles */
+.eligibility-test {
+    padding: 40px 0 80px;
+}
+
+.test-container {
     max-width: 800px;
     margin: 0 auto;
 }
 
-.content-inner {
+.card {
     background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.eligibility-card {
-    width: 100%;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
 }
 
 .card-header {
-    background-color: var(--color-primary);
-    color: var(--color-light);
-    padding: 1rem;
-    border-radius: 8px 8px 0 0;
+    padding: 20px 30px;
+    border-bottom: 1px solid #e3e6f0;
+    background-color: #fff;
+    border-radius: 10px 10px 0 0;
 }
 
-.card-header h3 {
+.card-header h5 {
     margin: 0;
+    color: #042167;
+    font-size: 1.2rem;
+    font-weight: 600;
 }
 
-.card-content {
-    padding: 1.5rem;
+.card-body {
+    padding: 30px;
 }
 
-.eligibility-section {
-    margin-bottom: 1.5rem;
+.question-container {
+    text-align: center;
+    margin-bottom: 30px;
 }
 
-.form-input {
-    margin-top: 1rem;
+.question-container h3 {
+    color: #042167;
+    font-size: 1.4rem;
+    margin-bottom: 15px;
 }
 
-.select-input {
-    width: 100%;
-    padding: 0.5rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+.question-description {
+    color: #666;
+    margin-bottom: 20px;
 }
 
-.btn-primary {
-    background-color: var(--color-secondary);
-    color: white;
-    border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    cursor: pointer;
+.options-container {
+    display: grid;
+    gap: 15px;
 }
 
-.btn-primary:hover {
-    background-color: var(--color-primary);
-}
-
-.btn-secondary {
-    background-color: var(--color-gray);
-    color: white;
-    border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-.btn-secondary:hover {
-    background-color: var(--color-dark);
-}
-
-#navigation-buttons {
-    display: flex;
-    gap: 1rem;
-    justify-content: flex-end;
-    margin-top: 1rem;
-}
-
-.answer-option {
-    margin: 0.5rem 0;
-    padding: 0.75rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+.option-button {
+    padding: 15px 20px;
+    background: #fff;
+    border: 2px solid #e3e6f0;
+    border-radius: 8px;
+    text-align: left;
+    font-size: 1rem;
+    color: #042167;
     cursor: pointer;
     transition: all 0.3s ease;
 }
 
-.answer-option:hover {
-    background-color: #f8f9fa;
+.option-button:hover {
+    border-color: #eaaa34;
+    background-color: rgba(234, 170, 52, 0.05);
 }
 
-.answer-option.selected {
-    background-color: var(--color-gold);
-    border-color: var(--color-secondary);
+.result-section {
+    text-align: center;
 }
 
-.alert {
-    padding: 1rem;
-    border-radius: 4px;
-    margin-bottom: 1rem;
+.result-container {
+    margin-bottom: 30px;
 }
 
-.alert-eligible {
-    background-color: #d4edda;
-    border-color: var(--color-secondary);
-    color: #155724;
+.result-container i {
+    font-size: 48px;
+    margin-bottom: 20px;
 }
 
-.alert-not-eligible {
-    background-color: #f8d7da;
-    border-color: #f5c6cb;
-    color: #721c24;
+.result-container.eligible i {
+    color: #1cc88a;
 }
 
-.alert-info {
-    background-color: #d1ecf1;
-    border-color: #bee5eb;
-    color: #0c5460;
+.result-container.not-eligible i {
+    color: #e74a3b;
 }
 
-.modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.5);
-    z-index: 1000;
-}
-
-.modal-wrapper {
-    max-width: 500px;
-    margin: 3rem auto;
-}
-
-.modal-content {
-    background: white;
+.cta-container {
+    margin-top: 30px;
+    padding: 20px;
+    background-color: #f8f9fc;
     border-radius: 8px;
-    overflow: hidden;
 }
 
-.modal-header {
-    background-color: var(--color-primary);
-    color: var(--color-light);
-    padding: 1rem;
+.cta-text {
+    font-size: 1.1rem;
+    color: #042167;
+    margin-bottom: 20px;
+}
+
+.cta-buttons {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
+    gap: 15px;
+}
+
+.btn {
+    padding: 12px 25px;
+    border-radius: 5px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: inline-flex;
     align-items: center;
+    gap: 8px;
 }
 
-.modal-title {
-    margin: 0;
+.btn-primary {
+    background-color: #eaaa34;
+    color: #fff;
+    border: none;
 }
 
-.close-btn {
+.btn-primary:hover {
+    background-color: #d99b2b;
+}
+
+.btn-secondary {
+    background-color: #042167;
+    color: #fff;
+    border: none;
+}
+
+.btn-secondary:hover {
+    background-color: #031c56;
+}
+
+.btn-outline {
+    background-color: transparent;
+    border: 2px solid #042167;
+    color: #042167;
+}
+
+.btn-outline:hover {
+    background-color: #042167;
+    color: #fff;
+}
+
+.btn-link {
     background: none;
     border: none;
-    color: var(--color-light);
-    font-size: 1.5rem;
-    cursor: pointer;
+    color: #042167;
+    text-decoration: none;
 }
 
-.modal-body {
-    padding: 1rem;
+.btn-link:hover {
+    text-decoration: underline;
 }
 
-.modal-footer {
-    padding: 1rem;
-    border-top: 1px solid #ddd;
+.loader {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+}
+
+.loader i {
+    margin-right: 8px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.empty-state i {
+    font-size: 48px;
+    color: #666;
+    margin-bottom: 20px;
+}
+
+.empty-state-actions {
+    margin-top: 20px;
     display: flex;
-    justify-content: flex-end;
-}
-
-.country-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.country-list li {
-    padding: 0.25rem 0;
+    justify-content: center;
+    gap: 15px;
 }
 
 @media (max-width: 768px) {
-    .main-container {
-        margin: 1rem auto;
+    .hero-title {
+        font-size: 2rem;
     }
     
-    .modal-wrapper {
-        margin: 1rem;
-        max-width: calc(100% - 2rem);
+    .card-body {
+        padding: 20px;
+    }
+    
+    .cta-buttons {
+        flex-direction: column;
+    }
+    
+    .empty-state-actions {
+        flex-direction: column;
+    }
+    
+    .btn {
+        width: 100%;
     }
 }
 </style>
 
-<!-- Ensure jQuery and Bootstrap are loaded before eligibility.js -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.min.js"></script>
-
-<!-- Add initialization script to ensure modal is hidden -->
 <script>
-    $(document).ready(function() {
-        // Force hide any modal that might be visible
-        $('.modal').modal('hide');
-        // Remove any lingering backdrop
-        $('.modal-backdrop').remove();
-        $('body').removeClass('modal-open').css('padding-right', '');
+document.addEventListener('DOMContentLoaded', function() {
+    const questionSection = document.getElementById('question-section');
+    const resultSection = document.getElementById('result-section');
+    const questionText = document.getElementById('question-text');
+    const optionsContainer = document.getElementById('options-container');
+    const resultIcon = document.getElementById('result-icon');
+    const resultTitle = document.getElementById('result-title');
+    const resultMessage = document.getElementById('result-message');
+    const restartButton = document.getElementById('restart-test');
+    
+    let currentQuestionId = <?php echo $first_question ? $first_question['id'] : 'null'; ?>;
+    let assessmentId = null;
+    
+    // Debug logging
+    console.log('Initial question ID:', currentQuestionId);
+    
+    // Function to load question options
+    async function loadOptions(questionId) {
+        try {
+            console.log('Loading options for question:', questionId);
+            optionsContainer.innerHTML = '<div class="loader"><i class="fas fa-circle-notch fa-spin"></i> Loading options...</div>';
+            
+            const response = await fetch(`ajax/get_options.php?question_id=${questionId}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const options = await response.json();
+            console.log('Loaded options:', options);
+            
+            if (Array.isArray(options) && options.length > 0) {
+                optionsContainer.innerHTML = options.map(option => `
+                    <button class="option-button" data-id="${option.id}" 
+                            data-is-endpoint="${option.is_endpoint}" 
+                            data-next-question="${option.next_question_id || ''}" 
+                            data-endpoint-eligible="${option.endpoint_eligible || false}"
+                            data-endpoint-result="${option.endpoint_result || ''}">
+                        ${option.option_text}
+                    </button>
+                `).join('');
+                
+                // Add click handlers to options
+                document.querySelectorAll('.option-button').forEach(button => {
+                    button.addEventListener('click', handleOptionClick);
+                });
+            } else {
+                throw new Error('No options returned from server');
+            }
+            
+        } catch (error) {
+            console.error('Error loading options:', error);
+            optionsContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    Error loading options. Please try again.<br>
+                    <small>${error.message}</small>
+                </div>`;
+        }
+    }
+    
+    // Function to handle option selection
+    async function handleOptionClick(event) {
+        try {
+            const button = event.currentTarget;
+            const optionId = button.dataset.id;
+            const isEndpoint = button.dataset.isEndpoint === 'true';
+            const nextQuestionId = button.dataset.nextQuestion;
+            const endpointEligible = button.dataset.endpointEligible === 'true';
+            const endpointResult = button.dataset.endpointResult;
+            
+            console.log('Option clicked:', {
+                optionId,
+                isEndpoint,
+                nextQuestionId,
+                endpointEligible,
+                endpointResult
+            });
+            
+            // Start assessment if not already started
+            if (!assessmentId) {
+                const response = await fetch('ajax/start_assessment.php', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                if (data.success) {
+                    assessmentId = data.assessment_id;
+                    console.log('Assessment started:', assessmentId);
+                }
+            }
+            
+            // Save the answer
+            const saveResponse = await fetch('ajax/save_answer.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    assessment_id: assessmentId,
+                    question_id: currentQuestionId,
+                    option_id: optionId
+                })
+            });
+            
+            const saveResult = await saveResponse.json();
+            console.log('Save answer result:', saveResult);
+            
+            if (isEndpoint) {
+                showResult(endpointEligible, endpointResult);
+            } else if (nextQuestionId) {
+                await loadQuestion(nextQuestionId);
+            }
+            
+        } catch (error) {
+            console.error('Error processing answer:', error);
+            optionsContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    Error processing your answer. Please try again.<br>
+                    <small>${error.message}</small>
+                </div>`;
+        }
+    }
+    
+    // Function to load question
+    async function loadQuestion(questionId) {
+        try {
+            console.log('Loading question:', questionId);
+            const response = await fetch(`ajax/get_question.php?id=${questionId}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const question = await response.json();
+            console.log('Loaded question:', question);
+            
+            if (question.success) {
+                currentQuestionId = question.id;
+                questionText.textContent = question.question_text;
+                
+                const descriptionElement = document.querySelector('.question-description');
+                if (descriptionElement) {
+                    if (question.description) {
+                        descriptionElement.textContent = question.description;
+                        descriptionElement.style.display = 'block';
+                    } else {
+                        descriptionElement.style.display = 'none';
+                    }
+                }
+                
+                await loadOptions(questionId);
+            } else {
+                throw new Error(question.message || 'Failed to load question');
+            }
+            
+        } catch (error) {
+            console.error('Error loading question:', error);
+            questionSection.innerHTML = `
+                <div class="alert alert-danger">
+                    Error loading question. Please try again.<br>
+                    <small>${error.message}</small>
+                </div>`;
+        }
+    }
+    
+    // Function to show result
+    function showResult(isEligible, message) {
+        questionSection.style.display = 'none';
+        resultSection.style.display = 'block';
+        
+        resultIcon.innerHTML = isEligible ? 
+            '<i class="fas fa-check-circle"></i>' : 
+            '<i class="fas fa-times-circle"></i>';
+        
+        resultTitle.textContent = isEligible ? 
+            'You may be eligible!' : 
+            'You may not be eligible';
+        
+        resultMessage.textContent = message;
+        
+        resultSection.querySelector('.result-container').className = 
+            'result-container ' + (isEligible ? 'eligible' : 'not-eligible');
+    }
+    
+    // Handle restart button
+    restartButton.addEventListener('click', function() {
+        location.reload();
     });
+    
+    // Load initial options if we have a question
+    if (currentQuestionId) {
+        console.log('Loading initial options...');
+        loadOptions(currentQuestionId);
+    }
+});
 </script>
 
-<!-- Include custom eligibility JavaScript -->
-<script src="assets/js/eligibility.js"></script>
-
-<?php
-// Include footer
-include_once("includes/footer.php");
-?>
+<?php include('includes/footer.php'); ?>

@@ -787,6 +787,88 @@ textarea.form-control {
         height: 28px;
     }
 }
+
+/* Add these styles to your existing CSS */
+.question-details-row {
+    background-color: #f8f9fc;
+}
+
+.expanded-details {
+    padding: 20px;
+    border-top: 2px solid var(--primary-color);
+}
+
+.details-grid {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 20px;
+}
+
+.details-section {
+    background: white;
+    padding: 15px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.details-section h4 {
+    margin: 0 0 15px 0;
+    color: var(--primary-color);
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.details-content p {
+    margin: 8px 0;
+    font-size: 14px;
+}
+
+.details-content p strong {
+    color: var(--dark-color);
+}
+
+.options-section {
+    background: white;
+    padding: 15px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.options-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.options-header h4 {
+    margin: 0;
+    color: var(--primary-color);
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.options-table-container {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.expanded-details .options-table {
+    margin: 0;
+    border: 1px solid var(--border-color);
+}
+
+.expanded-details .options-table th,
+.expanded-details .options-table td {
+    padding: 8px 12px;
+    font-size: 13px;
+}
+
+@media (max-width: 768px) {
+    .details-grid {
+        grid-template-columns: 1fr;
+    }
+}
 </style>
 
 <script>
@@ -1060,85 +1142,173 @@ document.addEventListener('DOMContentLoaded', function() {
     // ---------------
     const viewQuestionButtons = document.querySelectorAll('.view-question');
     viewQuestionButtons.forEach(button => {
-        button.addEventListener('click', function() {
+        button.addEventListener('click', async function() {
             const questionId = this.getAttribute('data-id');
-            console.log('Viewing question ID:', questionId);
-            const detailsContent = document.getElementById('question-details-content');
+            const questionRow = this.closest('tr');
+            
+            // Check if details are already shown
+            const existingDetails = document.getElementById(`question-details-${questionId}`);
+            if (existingDetails) {
+                existingDetails.remove();
+                return;
+            }
+            
+            // Remove any other open details
+            document.querySelectorAll('.question-details-row').forEach(row => row.remove());
             
             // Show loading indicator
-            detailsContent.innerHTML = '<div class="loader">Loading question details...</div>';
+            const detailsRow = document.createElement('tr');
+            detailsRow.className = 'question-details-row';
+            detailsRow.id = `question-details-${questionId}`;
+            const detailsCell = document.createElement('td');
+            detailsCell.colSpan = 6; // Adjust based on your table columns
+            detailsCell.innerHTML = '<div class="loader">Loading details...</div>';
+            detailsRow.appendChild(detailsCell);
+            questionRow.parentNode.insertBefore(detailsRow, questionRow.nextSibling);
             
-            // Store the question ID for the "View Options" button
-            document.getElementById('viewQuestionOptions').setAttribute('data-id', questionId);
-            
-            // Fetch question data
-            fetch(`ajax/get_question.php?id=${questionId}`)
-                .then(response => {
-                    console.log('Response status:', response.status);
-                    return response.json();
-                })
-                .then(data => {
-                    console.log('Response data:', data);
-                    if (data.success) {
-                        // Create content for question details
-                        let html = `
-                            <div class="question-details-item">
-                                <h4>Question ID:</h4>
-                                <p>${data.id}</p>
-                            </div>
-                            <div class="question-details-item">
-                                <h4>Question Text:</h4>
-                                <p>${data.question_text}</p>
-                            </div>`;
-                            
-                        if (data.description) {
-                            html += `
-                                <div class="question-details-item">
-                                    <h4>Description:</h4>
-                                    <p>${data.description}</p>
-                                </div>`;
+            try {
+                // Fetch both question and options data
+                const [questionResponse, optionsResponse] = await Promise.all([
+                    fetch(`ajax/get_question.php?id=${questionId}`).then(async response => {
+                        if (!response.ok) {
+                            const text = await response.text();
+                            console.error('Question Response:', text);
+                            throw new Error(`HTTP error! status: ${response.status}`);
                         }
-                        
-                        html += `
-                            <div class="question-details-item">
-                                <h4>Category:</h4>
-                                <p>${data.category_name || 'Uncategorized'}</p>
-                            </div>
-                            <div class="question-details-item">
-                                <h4>Status:</h4>
-                                <p>${data.is_active == 1 ? '<span class="status-badge completed">Active</span>' : '<span class="status-badge cancelled">Inactive</span>'}</p>
-                            </div>
-                            <div class="question-details-item">
-                                <h4>Created By:</h4>
-                                <p>${data.created_by_name || 'Unknown'}</p>
-                            </div>`;
-                            
-                        if (data.created_at) {
-                            html += `
-                                <div class="question-details-item">
-                                    <h4>Created On:</h4>
-                                    <p>${formatDate(data.created_at)}</p>
-                                </div>`;
+                        return response.json();
+                    }),
+                    fetch(`ajax/get_options.php?question_id=${questionId}`).then(async response => {
+                        if (!response.ok) {
+                            const text = await response.text();
+                            console.error('Options Response:', text);
+                            throw new Error(`HTTP error! status: ${response.status}`);
                         }
-                        
-                        html += `
-                            <div class="question-details-item">
-                                <h4>Options Count:</h4>
-                                <p>${data.options_count || 0}</p>
-                            </div>`;
-                            
-                        detailsContent.innerHTML = html;
+                        return response.json();
+                    })
+                ]);
+                
+                const questionData = questionResponse;
+                const optionsData = optionsResponse;
+                
+                if (questionData.success) {
+                    // Create the expanded details content
+                    let detailsHtml = `
+                        <div class="expanded-details">
+                            <div class="details-grid">
+                                <div class="details-section">
+                                    <h4>Question Details</h4>
+                                    <div class="details-content">
+                                        <p><strong>Description:</strong> ${questionData.description || 'No description provided'}</p>
+                                        <p><strong>Category:</strong> ${questionData.category_name || 'Uncategorized'}</p>
+                                        <p><strong>Created By:</strong> ${questionData.created_by_name || 'Unknown'}</p>
+                                        <p><strong>Created On:</strong> ${formatDate(questionData.created_at)}</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="options-section">
+                                    <div class="options-header">
+                                        <h4>Options</h4>
+                                        <button class="btn primary-btn add-option" data-id="${questionId}">
+                                            <i class="fas fa-plus"></i> Add Option
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="options-table-container">
+                                        <table class="options-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Option Text</th>
+                                                    <th>Next Question</th>
+                                                    <th>Is Endpoint</th>
+                                                    <th>Eligible</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>`;
+                
+                    if (optionsData && optionsData.length > 0) {
+                        optionsData.forEach(option => {
+                            detailsHtml += `
+                                <tr>
+                                    <td>${option.option_text}</td>
+                                    <td>${option.is_endpoint ? 
+                                        '<span class="status-badge pending">Endpoint</span>' : 
+                                        (option.next_question_text || 'N/A')}</td>
+                                    <td>
+                                        ${option.is_endpoint ? 
+                                            '<span class="status-badge completed">Yes</span>' : 
+                                            '<span class="status-badge cancelled">No</span>'}
+                                    </td>
+                                    <td>
+                                        ${option.is_endpoint ? 
+                                            (option.endpoint_eligible ? 
+                                                '<span class="status-badge completed">Yes</span>' : 
+                                                '<span class="status-badge cancelled">No</span>') : 
+                                            'N/A'}
+                                    </td>
+                                    <td class="actions-cell">
+                                        <button class="btn-action btn-edit edit-option" title="Edit" data-id="${option.id}">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn-action btn-delete delete-option" title="Delete" data-id="${option.id}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>`;
+                        });
                     } else {
-                        detailsContent.innerHTML = `<div class="alert alert-danger">Error: ${data.message}</div>`;
+                        detailsHtml += `
+                            <tr>
+                                <td colspan="5" class="text-center">No options found for this question.</td>
+                            </tr>`;
                     }
-                })
-                .catch(error => {
-                    console.error('Error fetching question details:', error);
-                    detailsContent.innerHTML = '<div class="alert alert-danger">An error occurred while fetching question details. Check the console for details.</div>';
-                });
-            
-            // Show modal
-            viewQuestionModal.style.display = 'block';
+                    
+                    detailsHtml += `
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`;
+                    
+                    detailsCell.innerHTML = detailsHtml;
+                    
+                    // Add event listeners for the new buttons
+                    detailsCell.querySelectorAll('.edit-option').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const optionId = this.getAttribute('data-id');
+                            // Your existing edit option logic
+                            optionModal.style.display = 'block';
+                        });
+                    });
+                    
+                    detailsCell.querySelectorAll('.delete-option').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const optionId = this.getAttribute('data-id');
+                            // Your existing delete option logic
+                        });
+                    });
+                    
+                    detailsCell.querySelectorAll('.add-option').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const qId = this.getAttribute('data-id');
+                            // Your existing add option logic
+                            optionModal.style.display = 'block';
+                        });
+                    });
+                    
+                } else {
+                    detailsCell.innerHTML = `<div class="alert alert-danger">Error: ${questionData.message || 'Unknown error occurred'}</div>`;
+                }
+                
+            } catch (error) {
+                console.error('Error fetching details:', error);
+                detailsCell.innerHTML = `
+                    <div class="alert alert-danger">
+                        <p>An error occurred while fetching details.</p>
+                        <p><small>${error.message}</small></p>
+                    </div>`;
+            }
         });
     });
 
