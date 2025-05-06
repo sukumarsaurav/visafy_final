@@ -95,6 +95,10 @@ $stmt->close();
     </div>
 </div>
 
+<!-- Vis.js CSS and JavaScript -->
+<link href="https://unpkg.com/vis-network/dist/dist/vis-network.min.css" rel="stylesheet" type="text/css" />
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
 <style>
 :root {
     --primary-color: #042167;
@@ -249,13 +253,13 @@ $stmt->close();
 
 .tree-card-body {
     padding: 20px;
+    overflow: hidden; /* Prevent scrollbars from appearing unnecessarily */
 }
 
 #decision-tree-container {
-    height: 500px;
-    width: 100%;
+    height: 600px;
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    background-color: #fafafa;
 }
 
 .btn {
@@ -286,45 +290,128 @@ $stmt->close();
         grid-template-columns: 1fr;
     }
 }
+
+/* Add a loading indicator */
+.loading-overlay {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.loading-spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
 </style>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/vis-network.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('decision-tree-container');
+    
+    // Add loading overlay
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.className = 'loading-overlay';
+    loadingOverlay.innerHTML = '<div class="loading-spinner"></div>';
+    container.parentNode.appendChild(loadingOverlay);
+    
+    // Show loading
+    loadingOverlay.style.display = 'flex';
+    
+    // Network visualization options
+    const options = {
+        layout: {
+            hierarchical: {
+                direction: 'UD',
+                sortMethod: 'directed',
+                levelSeparation: 150,
+                nodeSpacing: 200,
+                treeSpacing: 200
+            }
+        },
+        nodes: {
+            shape: 'box',
+            font: {
+                size: 14,
+                face: 'Arial'
+            },
+            margin: 10,
+            shadow: true,
+            borderWidth: 2
+        },
+        edges: {
+            smooth: {
+                type: 'cubicBezier',
+                forceDirection: 'vertical'
+            },
+            width: 2
+        },
+        physics: {
+            enabled: false
+        },
+        interaction: {
+            dragNodes: true,
+            dragView: true,
+            zoomView: true,
+            hover: true
+        }
+    };
+
     // Fetch tree data
     fetch('ajax/get_decision_tree.php')
         .then(response => response.json())
         .then(data => {
-            const container = document.getElementById('decision-tree-container');
-            const options = {
-                layout: {
-                    hierarchical: {
-                        direction: 'UD',
-                        sortMethod: 'directed',
-                        levelSeparation: 100,
-                        nodeSpacing: 150
-                    }
-                },
-                nodes: {
-                    shape: 'box',
-                    font: {
-                        size: 14
-                    },
-                    margin: 10
-                },
-                edges: {
-                    arrows: 'to',
-                    smooth: {
-                        type: 'cubicBezier',
-                        forceDirection: 'vertical'
-                    }
-                },
-                physics: false
-            };
+            if (data.error) {
+                throw new Error(data.message || 'Error loading decision tree data');
+            }
             
-            new vis.Network(container, data, options);
+            // Create the network with proper data structure
+            const network = new vis.Network(container, {
+                nodes: new vis.DataSet(data.nodes),
+                edges: new vis.DataSet(data.edges)
+            }, options);
+            
+            // Add event listeners
+            network.on('click', function(params) {
+                if (params.nodes.length > 0) {
+                    const nodeId = params.nodes[0];
+                    console.log('Clicked node:', nodeId);
+                }
+            });
+            
+            // Center the network once it's stabilized
+            network.once('stabilized', function() {
+                network.fit();
+            });
+            
+            // Hide loading overlay when done
+            loadingOverlay.style.display = 'none';
         })
-        .catch(error => console.error('Error fetching tree data:', error));
+        .catch(error => {
+            console.error('Error fetching tree data:', error);
+            container.innerHTML = `
+                <div style="text-align: center; padding: 20px; color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px;">
+                    <h4>Error Loading Decision Tree</h4>
+                    <p>${error.message || 'Failed to load the decision tree visualization. Please try again later.'}</p>
+                </div>
+            `;
+            loadingOverlay.style.display = 'none';
+        });
 });
 </script>
 

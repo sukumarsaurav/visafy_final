@@ -1,11 +1,11 @@
 <?php
 // Only start session if one isn't already active
+require_once '../../../config/db_connect.php';
+
+// Start session if not already started
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
-
-require_once '../../../config/db_connect.php';
-require_once '../../../includes/functions.php';
 
 // Check if user is logged in as admin
 if (!isset($_SESSION["loggedin"]) || !isset($_SESSION["user_type"]) || $_SESSION["user_type"] != 'admin') {

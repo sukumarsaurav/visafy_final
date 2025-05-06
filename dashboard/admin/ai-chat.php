@@ -173,7 +173,30 @@ function updateUsageCounter() {
     }
 }
 
+// Function to show typing indicator
+function showTypingIndicator() {
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'typing-indicator';
+    typingDiv.id = 'typing-indicator';
+    typingDiv.innerHTML = '<span></span><span></span><span></span>';
+    
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.appendChild(typingDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// Function to remove typing indicator
+function removeTypingIndicator() {
+    const typingIndicator = document.getElementById('typing-indicator');
+    if (typingIndicator) {
+        typingIndicator.remove();
+    }
+}
+
 function appendMessage(content, isUser = false, isError = false) {
+    // Remove typing indicator if present
+    removeTypingIndicator();
+    
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${isUser ? 'user-message' : 'ai-message'} ${isError ? 'error-message' : ''}`;
     
@@ -377,6 +400,9 @@ function sendMessage(message) {
     
     appendMessage(message, true);
     
+    // Show typing indicator
+    showTypingIndicator();
+    
     fetch('ajax/chat_handler.php', {
         method: 'POST',
         headers: {
@@ -386,6 +412,9 @@ function sendMessage(message) {
     })
     .then(response => response.json())
     .then(data => {
+        // Remove typing indicator before adding response
+        removeTypingIndicator();
+        
         if (data.success) {
             appendMessage(data.message);
             if (userType !== 'admin') {
@@ -412,6 +441,8 @@ function sendMessage(message) {
         }
     })
     .catch(error => {
+        // Remove typing indicator on error
+        removeTypingIndicator();
         appendMessage('Error: Failed to send message', false, true);
     })
     .finally(() => {
@@ -705,6 +736,50 @@ if (!document.querySelector('.conversation-item')) {
     text-align: center;
     padding: 20px;
     color: #718096;
+}
+
+/* Typing animation */
+.typing-indicator {
+    background-color: #f0f2f5;
+    border-radius: 18px;
+    border-bottom-left-radius: 4px;
+    padding: 12px 18px;
+    margin-bottom: 15px;
+    margin-right: auto;
+    max-width: 10%;
+    display: flex;
+    align-items: center;
+}
+
+.typing-indicator span {
+    height: 8px;
+    width: 8px;
+    margin: 0 2px;
+    background-color: #3498db;
+    border-radius: 50%;
+    display: inline-block;
+    opacity: 0.4;
+}
+
+.typing-indicator span:nth-child(1) {
+    animation: typing 1.2s infinite ease-in-out;
+    animation-delay: 0s;
+}
+
+.typing-indicator span:nth-child(2) {
+    animation: typing 1.2s infinite ease-in-out;
+    animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+    animation: typing 1.2s infinite ease-in-out;
+    animation-delay: 0.4s;
+}
+
+@keyframes typing {
+    0% { transform: translateY(0); opacity: 0.4; }
+    50% { transform: translateY(-5px); opacity: 1; }
+    100% { transform: translateY(0); opacity: 0.4; }
 }
 
 /* Mobile responsiveness */

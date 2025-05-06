@@ -205,6 +205,11 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                     <i class="fas fa-calendar-alt"></i>
                     <span class="nav-item-text">Bookings-Schedule</span>
                 </a>
+                <a href="eligibility-checker.php"
+                    class="nav-item <?php echo $current_page == 'eligibility-checker' ? 'active' : ''; ?>">
+                    <i class="fas fa-check-square"></i>
+                    <span class="nav-item-text">Eligibility Checker</span>
+                </a>
                 <div class="sidebar-divider"></div>
                 <a href="leads.php" class="nav-item <?php echo $current_page == 'leads' ? 'active' : ''; ?>">
                     <i class="fas fa-users"></i>
@@ -251,11 +256,7 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                     <span class="nav-item-text">Logout</span>
                 </a>
 
-                <a href="eligibility-checker.php"
-                    class="nav-item <?php echo $current_page == 'eligibility-checker' ? 'active' : ''; ?>">
-                    <i class="fas fa-check-square"></i>
-                    <span class="nav-item-text">Eligibility Checker</span>
-                </a>
+               
             </nav>
             <div class="user-profile sidebar-footer">
                 <img src="<?php echo $profile_img; ?>" alt="Profile" class="profile-img">

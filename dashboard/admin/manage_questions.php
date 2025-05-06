@@ -1141,6 +1141,18 @@ document.addEventListener('DOMContentLoaded', function() {
             viewQuestionModal.style.display = 'block';
         });
     });
+
+    // Add this after the existing event listeners in your script
+    document.getElementById('viewQuestionOptions').addEventListener('click', function() {
+        const questionId = this.getAttribute('data-id');
+        if (questionId) {
+            // Close the view modal
+            document.getElementById('viewQuestionModal').style.display = 'none';
+            
+            // Redirect to the manage questions page with the edit parameter
+            window.location.href = `manage_questions.php?edit=${questionId}`;
+        }
+    });
 });
 
 // Add this helper function at the top of your script

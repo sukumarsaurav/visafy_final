@@ -85,9 +85,10 @@ if ($total_reviews > 0) {
     $avg_rating = round($rating_sum / $total_reviews, 1);
 }
 
-// Get profile image
+// Get profile image - use the same approach as in book-service.php
 $profile_img = '/assets/images/default-profile.svg';
 if (!empty($team_member['profile_picture'])) {
+    // Check both possible profile picture locations
     if (file_exists($_SERVER['DOCUMENT_ROOT'] . '/uploads/profiles/' . $team_member['profile_picture'])) {
         $profile_img = '/uploads/profiles/' . $team_member['profile_picture'];
     } else if (file_exists($_SERVER['DOCUMENT_ROOT'] . '/uploads/profile/' . $team_member['profile_picture'])) {
@@ -100,154 +101,95 @@ $page_title = htmlspecialchars($team_member['first_name'] . ' ' . $team_member['
 include 'includes/header.php';
 ?>
 
-<div class="profile-container">
-    <div class="header-container">
-        <div>
-            <h1>Immigration Assistant Profile</h1>
-            <p>Learn more about our team member and the services they offer</p>
-        </div>
-        <div class="action-buttons">
-            <a href="book-service.php" class="btn secondary-btn">
-                <i class="fas fa-arrow-left"></i> Back to Team Members
-            </a>
+<div class="consultant-profile">
+    <div class="profile-header">
+        <div class="profile-photo-container">
+            <div class="profile-photo">
+                <img src="<?php echo $profile_img; ?>" alt="<?php echo htmlspecialchars($team_member['first_name'] . ' ' . $team_member['last_name']); ?>">
+            </div>
         </div>
     </div>
 
     <div class="profile-content">
-        <div class="profile-main">
-            <div class="profile-card">
-                <div class="profile-header">
-                    <div class="profile-image">
-                        <img src="<?php echo $profile_img; ?>" alt="<?php echo htmlspecialchars($team_member['first_name'] . ' ' . $team_member['last_name']); ?>">
-                    </div>
-                    <div class="profile-info">
-                        <h2><?php echo htmlspecialchars($team_member['first_name'] . ' ' . $team_member['last_name']); ?></h2>
-                        <span class="profile-role">Immigration Assistant</span>
-                        
-                        <div class="profile-rating">
-                            <div class="stars">
-                                <?php for ($i = 1; $i <= 5; $i++): ?>
-                                    <?php if ($i <= floor($avg_rating)): ?>
-                                        <i class="fas fa-star"></i>
-                                    <?php elseif ($i - 0.5 <= $avg_rating): ?>
-                                        <i class="fas fa-star-half-alt"></i>
-                                    <?php else: ?>
-                                        <i class="far fa-star"></i>
-                                    <?php endif; ?>
-                                <?php endfor; ?>
-                            </div>
-                            <span class="rating-text"><?php echo $avg_rating; ?> (<?php echo $total_reviews; ?> reviews)</span>
-                        </div>
-                        
-                        <div class="profile-contact">
-                            <div class="contact-item">
-                                <i class="fas fa-envelope"></i>
-                                <span><?php echo htmlspecialchars($team_member['email']); ?></span>
-                            </div>
-                            
-                            <?php if (!empty($team_member['phone'])): ?>
-                            <div class="contact-item">
-                                <i class="fas fa-phone"></i>
-                                <span><?php echo htmlspecialchars($team_member['phone']); ?></span>
-                            </div>
-                            <?php endif; ?>
-                            
-                            <div class="contact-item">
-                                <i class="fas fa-briefcase"></i>
-                                <span>Experience: <?php echo rand(2, 10); ?> years</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="profile-body">
-                    <div class="profile-section">
-                        <h3>About</h3>
-                        <p>
-                            <?php echo htmlspecialchars($team_member['first_name']); ?> is a dedicated Immigration Assistant with extensive experience helping clients navigate the complexities of the Canadian immigration system. Specializing in various visa types, <?php echo htmlspecialchars($team_member['first_name']); ?> provides personalized consultation services to ensure a smooth application process.
-                        </p>
-                    </div>
-                    
-                    <div class="profile-section">
-                        <h3>Expertise</h3>
-                        <div class="expertise-tags">
-                            <span>Immigration Consultation</span>
-                            <span>Visa Applications</span>
-                            <span>Document Verification</span>
-                            <span>Status Inquiries</span>
-                            <span>Application Review</span>
-                        </div>
-                    </div>
-                    
-                    <div class="profile-section">
-                        <h3>Languages</h3>
-                        <div class="language-list">
-                            <div class="language-item">
-                                <span>English</span>
-                                <div class="proficiency">
-                                    <div class="proficiency-bar full"></div>
-                                    <div class="proficiency-bar full"></div>
-                                    <div class="proficiency-bar full"></div>
-                                    <div class="proficiency-bar full"></div>
-                                    <div class="proficiency-bar full"></div>
-                                </div>
-                            </div>
-                            <div class="language-item">
-                                <span>French</span>
-                                <div class="proficiency">
-                                    <div class="proficiency-bar full"></div>
-                                    <div class="proficiency-bar full"></div>
-                                    <div class="proficiency-bar full"></div>
-                                    <div class="proficiency-bar empty"></div>
-                                    <div class="proficiency-bar empty"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="profile-footer">
-                    <div class="book-action">
-                        <?php if ($is_logged_in): ?>
-                            <a href="dashboard/admin/create_booking.php?consultant=<?php echo $team_member['id']; ?>" class="btn primary-btn">
-                                <i class="fas fa-calendar-check"></i> Book a Consultation
-                            </a>
+        <div class="profile-info">
+            <h1 class="consultant-name"><?php echo htmlspecialchars($team_member['first_name'] . ' ' . $team_member['last_name']); ?></h1>
+            <p class="consultant-title">Immigration Specialist</p>
+            <div class="rating">
+                <div class="stars">
+                    <?php for ($i = 1; $i <= 5; $i++): ?>
+                        <?php if ($i <= floor($avg_rating)): ?>
+                            <i class="fas fa-star"></i>
+                        <?php elseif ($i - 0.5 <= $avg_rating): ?>
+                            <i class="fas fa-star-half-alt"></i>
                         <?php else: ?>
-                            <div class="login-required">
-                                <p>Please login or register to book a consultation</p>
-                                <div class="login-buttons">
-                                    <a href="login.php?redirect=team-member-profile.php?id=<?php echo $team_member['id']; ?>" class="btn secondary-btn">
-                                        <i class="fas fa-sign-in-alt"></i> Login
-                                    </a>
-                                    <a href="register.php?redirect=team-member-profile.php?id=<?php echo $team_member['id']; ?>" class="btn primary-btn">
-                                        <i class="fas fa-user-plus"></i> Register
-                                    </a>
-                                </div>
-                            </div>
+                            <i class="far fa-star"></i>
                         <?php endif; ?>
+                    <?php endfor; ?>
+                </div>
+                <span class="review-count">(<?php echo $total_reviews; ?> reviews)</span>
+            </div>
+        </div>
+
+        <div class="profile-tabs">
+            <div class="tab-navigation">
+                <div class="tab active" data-tab="about">About</div>
+                <div class="tab" data-tab="services">Services</div>
+                <div class="tab" data-tab="reviews">Reviews</div>
+                <div class="tab" data-tab="faq">FAQ</div>
+            </div>
+
+            <div class="tab-content active" id="about-tab">
+                <div class="contact-information">
+                    <h2>Contact Information</h2>
+                    <div class="contact-details">
+                        <div class="contact-item">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <span>Toronto, Canada</span>
+                        </div>
+                        <div class="contact-item">
+                            <i class="fas fa-envelope"></i>
+                            <span><?php echo htmlspecialchars($team_member['email']); ?></span>
+                        </div>
+                        <div class="contact-item">
+                            <i class="fas fa-phone"></i>
+                            <span>+1 (555) 123-4567</span>
+                        </div>
+                    </div>
+                    
+                    <div class="countries-section">
+                        <h3>Countries:</h3>
+                        <div class="countries">
+                            <span class="country">USA</span>
+                            <span class="country">Canada</span>
+                        </div>
+                    </div>
+                    
+                    <div class="languages-section">
+                        <h3>Languages:</h3>
+                        <div class="languages">
+                            <span class="language">English</span>
+                            <span class="language">Spanish</span>
+                        </div>
                     </div>
                 </div>
             </div>
-            
-            <div class="services-card">
-                <h3>Services Offered</h3>
-                
+
+            <div class="tab-content" id="services-tab">
+                <h2>Services Offered</h2>
                 <?php if (empty($services)): ?>
-                    <div class="empty-state">
-                        <p>No services available at the moment</p>
-                    </div>
+                    <p class="no-content">No services available at the moment.</p>
                 <?php else: ?>
                     <div class="services-list">
                         <?php foreach ($services as $service): ?>
                             <div class="service-item">
                                 <div class="service-info">
-                                    <h4><?php echo htmlspecialchars($service['service_name']); ?></h4>
+                                    <h3><?php echo htmlspecialchars($service['service_name']); ?></h3>
                                     <p><?php echo htmlspecialchars($service['visa_type']); ?> Visa (<?php echo htmlspecialchars($service['country_name']); ?>)</p>
                                 </div>
                                 <div class="service-price">
                                     <span>$<?php echo number_format($service['base_price'], 2); ?></span>
                                     <?php if ($is_logged_in): ?>
-                                        <a href="dashboard/admin/create_booking.php?consultant=<?php echo $team_member['id']; ?>&service=<?php echo $service['visa_service_id']; ?>" class="btn small-btn">Book</a>
+                                        <a href="dashboard/admin/create_booking.php?consultant=<?php echo $team_member['id']; ?>&service=<?php echo $service['visa_service_id']; ?>" class="btn-primary">Book</a>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -255,30 +197,25 @@ include 'includes/header.php';
                     </div>
                 <?php endif; ?>
             </div>
-            
-            <div class="reviews-card">
-                <h3>Client Reviews</h3>
-                
+
+            <div class="tab-content" id="reviews-tab">
+                <h2>Client Reviews</h2>
                 <?php if (empty($reviews)): ?>
-                    <div class="empty-state">
-                        <p>No reviews available yet</p>
-                    </div>
+                    <p class="no-content">No reviews available yet.</p>
                 <?php else: ?>
                     <div class="reviews-list">
                         <?php foreach ($reviews as $review): ?>
                             <div class="review-item">
                                 <div class="review-header">
-                                    <div class="review-author">
-                                        <strong><?php echo htmlspecialchars($review['client_name']); ?></strong>
-                                        <span class="review-date"><?php echo date('M d, Y', strtotime($review['created_at'])); ?></span>
-                                    </div>
+                                    <div class="review-author"><?php echo htmlspecialchars($review['client_name']); ?></div>
                                     <div class="review-rating">
                                         <?php for ($i = 1; $i <= 5; $i++): ?>
                                             <i class="fas fa-star <?php echo ($i <= $review['rating']) ? 'filled' : ''; ?>"></i>
                                         <?php endfor; ?>
                                     </div>
+                                    <div class="review-date"><?php echo date('M j, Y', strtotime($review['created_at'])); ?></div>
                                 </div>
-                                <div class="review-body">
+                                <div class="review-content">
                                     <p><?php echo htmlspecialchars($review['feedback']); ?></p>
                                 </div>
                             </div>
@@ -286,72 +223,29 @@ include 'includes/header.php';
                     </div>
                 <?php endif; ?>
             </div>
-        </div>
-        
-        <div class="profile-sidebar">
-            <div class="availability-card">
-                <h3>Availability</h3>
-                <div class="availability-days">
-                    <div class="day-item">
-                        <span>Monday</span>
-                        <span class="time">9:00 AM - 5:00 PM</span>
-                    </div>
-                    <div class="day-item">
-                        <span>Tuesday</span>
-                        <span class="time">9:00 AM - 5:00 PM</span>
-                    </div>
-                    <div class="day-item">
-                        <span>Wednesday</span>
-                        <span class="time">9:00 AM - 5:00 PM</span>
-                    </div>
-                    <div class="day-item">
-                        <span>Thursday</span>
-                        <span class="time">9:00 AM - 5:00 PM</span>
-                    </div>
-                    <div class="day-item">
-                        <span>Friday</span>
-                        <span class="time">9:00 AM - 5:00 PM</span>
-                    </div>
-                    <div class="day-item unavailable">
-                        <span>Saturday</span>
-                        <span class="time">Unavailable</span>
-                    </div>
-                    <div class="day-item unavailable">
-                        <span>Sunday</span>
-                        <span class="time">Unavailable</span>
-                    </div>
-                </div>
-                
-                <div class="availability-note">
-                    <i class="fas fa-info-circle"></i>
-                    <p>Schedule a consultation by booking an appointment.</p>
-                </div>
-                
-                <?php if ($is_logged_in): ?>
-                    <a href="dashboard/admin/create_booking.php?consultant=<?php echo $team_member['id']; ?>" class="btn primary-btn full-width">
-                        Check Available Slots
-                    </a>
-                <?php endif; ?>
-            </div>
-            
-            <div class="faq-card">
-                <h3>Frequently Asked Questions</h3>
+
+            <div class="tab-content" id="faq-tab">
+                <h2>Frequently Asked Questions</h2>
                 <div class="faq-list">
                     <div class="faq-item">
-                        <h4>How do I book a consultation?</h4>
-                        <p>You can book a consultation by logging in to your account and selecting an available time slot.</p>
+                        <h3 class="faq-question">What is the consultation process like?</h3>
+                        <div class="faq-answer">
+                            <p>The initial consultation is a 60-minute session where we discuss your immigration goals, assess your eligibility for various programs, and develop a personalized immigration strategy. You can book a consultation online, and we can meet in person or via video call.</p>
+                        </div>
                     </div>
+                    
                     <div class="faq-item">
-                        <h4>What should I prepare for my consultation?</h4>
-                        <p>Please have your identification documents, any existing visa applications, and specific questions ready for your consultation.</p>
+                        <h3 class="faq-question">How long does the immigration process typically take?</h3>
+                        <div class="faq-answer">
+                            <p>The timeline varies depending on the type of application and the country. Work visa applications can take 2-6 months, while family sponsorship and permanent residency applications may take 6-18 months. During our consultation, I can provide a more accurate timeline based on your specific situation.</p>
+                        </div>
                     </div>
+                    
                     <div class="faq-item">
-                        <h4>Can I reschedule my appointment?</h4>
-                        <p>Yes, you can reschedule your appointment up to 24 hours before the scheduled time through your dashboard.</p>
-                    </div>
-                    <div class="faq-item">
-                        <h4>What payment methods are accepted?</h4>
-                        <p>We accept credit cards, PayPal, and bank transfers for consultation payments.</p>
+                        <h3 class="faq-question">What documents will I need for my application?</h3>
+                        <div class="faq-answer">
+                            <p>Document requirements vary by application type, but typically include identification documents, educational credentials, work experience proof, and financial documents. During our consultation, I will provide a detailed checklist specific to your case.</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -363,347 +257,257 @@ include 'includes/header.php';
 :root {
     --primary-color: #042167;
     --secondary-color: #858796;
-    --success-color: #1cc88a;
-    --danger-color: #e74a3b;
-    --light-color: #f8f9fc;
-    --dark-color: #5a5c69;
+    --accent-color: #eaaa34;
+    --light-color: #f8f9fa;
+    --dark-color: #343a40;
     --border-color: #e3e6f0;
+    --shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    --border-radius: 10px;
 }
 
-.profile-container {
-    max-width: 1200px;
+.consultant-profile {
     margin: 0 auto;
-    padding: 40px 20px;
-}
-
-.header-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
-}
-
-.header-container h1 {
-    color: var(--primary-color);
-    font-size: 1.8rem;
-    margin: 0;
-}
-
-.header-container p {
-    color: var(--secondary-color);
-    margin: 5px 0 0;
-}
-
-.action-buttons {
-    display: flex;
-    gap: 10px;
-}
-
-.btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 15px;
-    border-radius: 4px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    text-decoration: none;
-    transition: all 0.2s;
-}
-
-.primary-btn {
-    background-color: var(--primary-color);
-    color: white;
-    border: none;
-}
-
-.primary-btn:hover {
-    background-color: #031c56;
-    color: white;
-}
-
-.secondary-btn {
-    background-color: var(--secondary-color);
-    color: white;
-    border: none;
-}
-
-.secondary-btn:hover {
-    background-color: #76788a;
-    color: white;
-}
-
-.small-btn {
-    padding: 5px 10px;
-    font-size: 12px;
-}
-
-.full-width {
-    width: 100%;
-    justify-content: center;
-}
-
-.profile-content {
-    display: flex;
-    gap: 30px;
-}
-
-.profile-main {
-    flex: 3;
-    display: flex;
-    flex-direction: column;
-    gap: 30px;
-}
-
-.profile-sidebar {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 30px;
-}
-
-.profile-card, .services-card, .reviews-card, .availability-card, .faq-card {
     background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    border-radius: var(--border-radius);
     overflow: hidden;
+    box-shadow: var(--shadow);
 }
 
 .profile-header {
-    display: flex;
-    padding: 30px;
     background-color: var(--light-color);
-    border-bottom: 1px solid var(--border-color);
+    height: 200px;
+    position: relative;
+    background-image: linear-gradient(rgba(4, 33, 103, 0.7), rgba(4, 33, 103, 0.7)), url('/assets/images/header-bg.jpg');
+    background-size: cover;
+    background-position: center;
 }
 
-.profile-image {
-    width: 150px;
-    height: 150px;
-    border-radius: 8px;
+.profile-photo-container {
+    position: absolute;
+    bottom: -100px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    width: 200px;
+    height: 200px;
+}
+
+.profile-photo {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
     overflow: hidden;
-    margin-right: 30px;
-    flex-shrink: 0;
+    border: 5px solid white;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    background-color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.profile-image img {
+.profile-photo img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center;
+}
+
+.profile-content {
+    padding: 120px 40px 40px;
 }
 
 .profile-info {
-    display: flex;
-    flex-direction: column;
+    text-align: center;
+    margin-bottom: 40px;
 }
 
-.profile-info h2 {
-    margin: 0 0 5px;
+.consultant-name {
+    font-size: 2.5rem;
     color: var(--primary-color);
-    font-size: 1.5rem;
+    margin-bottom: 5px;
 }
 
-.profile-role {
-    display: inline-block;
-    background-color: rgba(4, 33, 103, 0.1);
-    color: var(--primary-color);
-    font-size: 0.85rem;
-    font-weight: 600;
-    padding: 5px 10px;
-    border-radius: 12px;
+.consultant-title {
+    font-size: 1.1rem;
+    color: var(--secondary-color);
     margin-bottom: 15px;
 }
 
-.profile-rating {
+.rating {
     display: flex;
+    justify-content: center;
     align-items: center;
-    margin-bottom: 15px;
+    gap: 10px;
 }
 
 .stars {
-    display: flex;
-    gap: 2px;
-    margin-right: 10px;
-}
-
-.stars i {
     color: #ffc107;
 }
 
-.rating-text {
-    color: var(--dark-color);
-    font-size: 0.9rem;
+.review-count {
+    color: var(--secondary-color);
 }
 
-.profile-contact {
+.profile-tabs {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.tab-navigation {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    justify-content: center;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 30px;
+}
+
+.tab {
+    padding: 15px 30px;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--secondary-color);
+    position: relative;
+}
+
+.tab.active {
+    color: var(--primary-color);
+}
+
+.tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background-color: var(--primary-color);
+}
+
+.tab-content {
+    display: none;
+    padding: 20px 0;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.tab-content h2 {
+    color: var(--primary-color);
+    font-size: 1.8rem;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.contact-information {
+    max-width: 600px;
+    margin: 0 auto;
+    background-color: var(--light-color);
+    padding: 30px;
+    border-radius: var(--border-radius);
+}
+
+.contact-details {
+    margin-bottom: 30px;
 }
 
 .contact-item {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 15px;
+    margin-bottom: 15px;
 }
 
 .contact-item i {
+    width: 20px;
     color: var(--primary-color);
-    width: 16px;
 }
 
-.profile-body {
-    padding: 30px;
+.countries-section, .languages-section {
+    margin-top: 25px;
 }
 
-.profile-section {
-    margin-bottom: 25px;
-}
-
-.profile-section:last-child {
-    margin-bottom: 0;
-}
-
-.profile-section h3 {
+.countries-section h3, .languages-section h3 {
+    font-size: 1.1rem;
     color: var(--primary-color);
-    font-size: 1.2rem;
-    margin: 0 0 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 10px;
 }
 
-.expertise-tags {
+.countries, .languages {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
 }
 
-.expertise-tags span {
-    background-color: var(--light-color);
-    color: var(--dark-color);
-    padding: 5px 12px;
-    border-radius: 50px;
+.country, .language {
+    background-color: white;
+    padding: 5px 15px;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
     font-size: 0.9rem;
 }
 
-.language-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.language-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.proficiency {
-    display: flex;
-    gap: 3px;
-}
-
-.proficiency-bar {
-    width: 20px;
-    height: 8px;
-    border-radius: 4px;
-}
-
-.proficiency-bar.full {
-    background-color: var(--primary-color);
-}
-
-.proficiency-bar.empty {
-    background-color: var(--border-color);
-}
-
-.profile-footer {
-    padding: 20px 30px;
-    border-top: 1px solid var(--border-color);
-    background-color: var(--light-color);
-}
-
-.book-action {
-    display: flex;
-    justify-content: center;
-}
-
-.login-required {
-    text-align: center;
-}
-
-.login-required p {
-    color: var(--secondary-color);
-    margin-bottom: 15px;
-}
-
-.login-buttons {
-    display: flex;
-    justify-content: center;
-    gap: 15px;
-}
-
-.services-card, .reviews-card {
-    padding: 20px;
-}
-
-.services-card h3, .reviews-card h3, .availability-card h3, .faq-card h3 {
-    color: var(--primary-color);
-    font-size: 1.2rem;
-    margin: 0 0 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.services-list, .reviews-list {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+.services-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 20px;
 }
 
 .service-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px;
-    border: 1px solid var(--border-color);
-    border-radius: 5px;
-    transition: all 0.2s;
+    padding: 20px;
+    background-color: var(--light-color);
+    border-radius: var(--border-radius);
 }
 
-.service-item:hover {
-    border-color: var(--primary-color);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.service-info h4 {
+.service-info h3 {
     margin: 0 0 5px;
-    color: var(--dark-color);
-    font-size: 1rem;
+    color: var(--primary-color);
 }
 
 .service-info p {
     margin: 0;
     color: var(--secondary-color);
-    font-size: 0.9rem;
 }
 
 .service-price {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 8px;
+    gap: 10px;
 }
 
 .service-price span {
+    font-size: 1.2rem;
     font-weight: 600;
     color: var(--primary-color);
 }
 
-.review-item {
-    padding: 15px;
-    border: 1px solid var(--border-color);
+.btn-primary {
+    display: inline-block;
+    padding: 8px 15px;
+    background-color: var(--primary-color);
+    color: white;
     border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.3s;
+}
+
+.btn-primary:hover {
+    background-color: #031c56;
+}
+
+.reviews-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.review-item {
+    padding: 20px;
+    background-color: var(--light-color);
+    border-radius: var(--border-radius);
 }
 
 .review-header {
@@ -713,141 +517,144 @@ include 'includes/header.php';
 }
 
 .review-author {
-    display: flex;
-    flex-direction: column;
+    font-weight: 500;
+}
+
+.review-rating {
+    color: #ffc107;
 }
 
 .review-date {
     color: var(--secondary-color);
-    font-size: 0.8rem;
+    font-size: 0.9rem;
 }
 
-.review-rating i {
-    color: #e0e0e0;
-}
-
-.review-rating i.filled {
-    color: #ffc107;
-}
-
-.review-body p {
+.review-content p {
     margin: 0;
     color: var(--dark-color);
-    font-size: 0.95rem;
-}
-
-.availability-card, .faq-card {
-    padding: 20px;
-}
-
-.availability-days {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.day-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.day-item:last-child {
-    border-bottom: none;
-}
-
-.day-item.unavailable .time {
-    color: var(--danger-color);
-}
-
-.availability-note {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 15px 0;
-    padding: 10px;
-    background-color: rgba(4, 33, 103, 0.05);
-    border-radius: 5px;
-}
-
-.availability-note i {
-    color: var(--primary-color);
-}
-
-.availability-note p {
-    margin: 0;
-    font-size: 0.9rem;
 }
 
 .faq-list {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+    max-width: 800px;
+    margin: 0 auto;
 }
 
-.faq-item h4 {
-    margin: 0 0 8px;
+.faq-item {
+    margin-bottom: 25px;
+    padding-bottom: 25px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.faq-item:last-child {
+    border-bottom: none;
+}
+
+.faq-question {
+    font-size: 1.2rem;
     color: var(--primary-color);
-    font-size: 1rem;
+    margin-bottom: 15px;
 }
 
-.faq-item p {
-    margin: 0;
+.faq-answer p {
     color: var(--dark-color);
-    font-size: 0.9rem;
+    line-height: 1.6;
 }
 
-.empty-state {
+.no-content {
     text-align: center;
-    padding: 20px;
     color: var(--secondary-color);
-}
-
-@media (max-width: 992px) {
-    .profile-content {
-        flex-direction: column;
-    }
-    
-    .profile-sidebar {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-    }
+    font-style: italic;
+    padding: 30px;
 }
 
 @media (max-width: 768px) {
-    .header-container {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 15px;
-    }
-    
     .profile-header {
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
+        height: 250px;
     }
     
-    .profile-image {
-        margin-right: 0;
-        margin-bottom: 20px;
+    .profile-photo {
+        width: 160px;
+        height: 160px;
     }
     
-    .profile-contact {
-        align-items: center;
+    .profile-photo-container {
+        bottom: -80px;
     }
-}
-
-@media (max-width: 576px) {
-    .profile-sidebar {
+    
+    .profile-content {
+        padding: 100px 20px 30px;
+    }
+    
+    .consultant-name {
+        font-size: 2rem;
+    }
+    
+    .tab-navigation {
+        flex-wrap: wrap;
+    }
+    
+    .tab {
+        padding: 10px 15px;
+    }
+    
+    .services-list {
         grid-template-columns: 1fr;
     }
     
-    .login-buttons {
+    .contact-information {
+        padding: 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    .review-header {
         flex-direction: column;
+        gap: 5px;
     }
 }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            // Remove active class from all tabs
+            tabs.forEach(t => t.classList.remove('active'));
+            
+            // Add active class to clicked tab
+            this.classList.add('active');
+            
+            // Hide all tab contents
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Show the selected tab content
+            const tabName = this.getAttribute('data-tab');
+            document.getElementById(tabName + '-tab').classList.add('active');
+        });
+    });
+    
+    // FAQ toggle functionality
+    const faqQuestions = document.querySelectorAll('.faq-question');
+    
+    faqQuestions.forEach(question => {
+        question.addEventListener('click', function() {
+            const answer = this.nextElementSibling;
+            
+            if (answer.style.maxHeight) {
+                answer.style.maxHeight = null;
+                this.classList.remove('active');
+            } else {
+                answer.style.maxHeight = answer.scrollHeight + "px";
+                this.classList.add('active');
+            }
+        });
+    });
+});
+</script>
 
 <?php include 'includes/footer.php'; ?>
