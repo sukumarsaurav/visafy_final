@@ -58,12 +58,28 @@ try {
 
 // Get upcoming bookings
 try {
-    $stmt = $conn->prepare("SELECT b.id, b.booking_datetime, b.end_datetime, b.status, 
-                           b.service_id, s.service_name, s.description
+    $stmt = $conn->prepare("SELECT b.id, b.reference_number, b.booking_datetime, b.end_datetime, 
+                           bs.name as status_name, bs.color as status_color,
+                           vs.visa_service_id, v.visa_type, c.country_name, st.service_name, 
+                           cm.mode_name as consultation_mode,
+                           b.meeting_link, b.location, 
+                           CONCAT(u.first_name, ' ', u.last_name) as consultant_name,
+                           tm.role as consultant_role
                            FROM bookings b
-                           JOIN visa_services s ON b.service_id = s.id
-                           WHERE b.user_id = ? AND b.booking_datetime >= NOW()
-                           ORDER BY b.booking_datetime
+                           JOIN booking_statuses bs ON b.status_id = bs.id
+                           JOIN visa_services vs ON b.visa_service_id = vs.visa_service_id
+                           JOIN service_consultation_modes scm ON b.service_consultation_id = scm.service_consultation_id
+                           JOIN consultation_modes cm ON scm.consultation_mode_id = cm.consultation_mode_id
+                           JOIN visas v ON vs.visa_id = v.visa_id
+                           JOIN countries c ON v.country_id = c.country_id
+                           JOIN service_types st ON vs.service_type_id = st.service_type_id
+                           LEFT JOIN team_members tm ON b.team_member_id = tm.id
+                           LEFT JOIN users u ON tm.user_id = u.id
+                           WHERE b.user_id = ? 
+                           AND b.booking_datetime >= NOW()
+                           AND b.deleted_at IS NULL
+                           AND bs.name != 'cancelled'
+                           ORDER BY b.booking_datetime ASC
                            LIMIT 3");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
@@ -232,12 +248,21 @@ try {
                                     </div>
                                 </div>
                                 <div class="booking-details">
-                                    <h3><?php echo htmlspecialchars($booking['service_name']); ?></h3>
-                                    <p><?php echo htmlspecialchars(substr($booking['description'], 0, 100) . (strlen($booking['description']) > 100 ? '...' : '')); ?></p>
+                                    <h3><?php echo htmlspecialchars($booking['visa_type'] . ' - ' . $booking['country_name']); ?></h3>
+                                    <p class="consultation-mode">
+                                        <i class="fas fa-video"></i> 
+                                        <?php echo htmlspecialchars($booking['consultation_mode']); ?>
+                                    </p>
+                                    <p class="service-name">
+                                        <?php echo htmlspecialchars($booking['service_name']); ?>
+                                    </p>
+                                    <div class="status-badge" style="background-color: <?php echo $booking['status_color']; ?>10; color: <?php echo $booking['status_color']; ?>;">
+                                        <?php echo htmlspecialchars($booking['status_name']); ?>
+                                    </div>
                                 </div>
                                 <div class="booking-actions">
-                                    <a href="booking_details.php?id=<?php echo $booking['id']; ?>" class="btn-view">View Details</a>
-                                    <?php if ($booking['status'] != 'cancelled'): ?>
+                                    <a href="view_booking.php?id=<?php echo $booking['id']; ?>" class="btn-view">View Details</a>
+                                    <?php if ($booking['status_name'] != 'cancelled'): ?>
                                         <a href="reschedule_booking.php?id=<?php echo $booking['id']; ?>" class="btn-link">Reschedule</a>
                                     <?php endif; ?>
                                 </div>
@@ -649,13 +674,56 @@ try {
     font-size: 14px;
 }
 
+.booking-details .consultation-mode {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--primary-color);
+    font-weight: 500;
+    margin: 5px 0;
+}
+
+.booking-details .description {
+    color: var(--secondary-color);
+    font-size: 14px;
+    margin: 8px 0;
+}
+
+.booking-details .status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    margin-top: 8px;
+}
+
 .booking-actions {
-    padding: 15px;
     display: flex;
     flex-direction: column;
-    justify-content: center;
     gap: 8px;
+    padding: 15px;
     border-left: 1px solid var(--border-color);
+}
+
+.booking-actions .btn-view {
+    background-color: var(--primary-color);
+    color: white;
+    text-align: center;
+}
+
+.booking-actions .btn-view:hover {
+    background-color: #031c56;
+}
+
+.booking-actions .btn-link {
+    text-align: center;
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.booking-actions .btn-link:hover {
+    text-decoration: underline;
 }
 
 /* Quick Links Section */

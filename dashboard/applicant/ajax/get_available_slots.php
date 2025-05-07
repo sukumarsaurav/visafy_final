@@ -19,10 +19,10 @@ if (!isset($_SESSION["loggedin"]) || !isset($_SESSION["user_type"]) || $_SESSION
     exit;
 }
 
-// Validate inputs
+// Validate required parameters
 if (!isset($_GET['service_id']) || !is_numeric($_GET['service_id']) ||
     !isset($_GET['consultation_mode_id']) || !is_numeric($_GET['consultation_mode_id']) ||
-    !isset($_GET['date']) || !validateDate($_GET['date'])) {
+    !isset($_GET['date']) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'])) {
     
     echo json_encode([
         'success' => false,
@@ -33,150 +33,155 @@ if (!isset($_GET['service_id']) || !is_numeric($_GET['service_id']) ||
 
 $serviceId = intval($_GET['service_id']);
 $consultationModeId = intval($_GET['consultation_mode_id']);
-$bookingDate = $_GET['date'];
-
-// Check if date is in the future
-$currentDate = date('Y-m-d');
-if ($bookingDate <= $currentDate) {
-    echo json_encode([
-        'success' => false,
-        'message' => 'Please select a future date'
-    ]);
-    exit;
-}
-
-// Get day of week (0 = Sunday, 6 = Saturday)
-$dayOfWeek = date('w', strtotime($bookingDate));
+$selectedDate = $_GET['date'];
 
 try {
-    // Get business hours for the day
-    $query = "SELECT opening_time as open_time, closing_time as close_time, is_closed as is_open 
-              FROM business_hours 
-              WHERE day_of_week = ?";
+    // Get duration from service_consultation_modes
+    $query = "SELECT duration_minutes FROM service_consultation_modes 
+              WHERE visa_service_id = ? AND consultation_mode_id = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("ii", $serviceId, $consultationModeId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows === 0) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Service and consultation mode combination not found'
+        ]);
+        exit;
+    }
+    
+    $duration = $result->fetch_assoc()['duration_minutes'];
+    if (!$duration) {
+        $duration = 60; // Default duration of 60 minutes
+    }
+    $stmt->close();
+    
+    // Check if business is open on the selected day
+    $dayOfWeek = date('w', strtotime($selectedDate)); // 0 (Sunday) to 6 (Saturday)
+    
+    $query = "SELECT is_open, open_time, close_time FROM business_hours WHERE day_of_week = ?";
     $stmt = $conn->prepare($query);
     $stmt->bind_param("i", $dayOfWeek);
     $stmt->execute();
-    $businessHoursResult = $stmt->get_result();
+    $result = $stmt->get_result();
     
-    if ($businessHoursResult->num_rows === 0) {
-        echo json_encode([
-            'success' => true,
-            'slots' => []
-        ]);
-        exit;
+    // If no business hours are defined or the business is closed on this day
+    if ($result->num_rows === 0) {
+        // Default business hours if none are defined
+        $hours = [
+            'is_open' => 1,
+            'open_time' => '09:00:00',
+            'close_time' => '17:00:00'
+        ];
+    } else {
+        $hours = $result->fetch_assoc();
+        
+        if (!$hours['is_open']) {
+            echo json_encode([
+                'success' => true,
+                'slots' => [] // Business closed on this day
+            ]);
+            exit;
+        }
     }
+    $stmt->close();
     
-    $businessHours = $businessHoursResult->fetch_assoc();
+    // Check if it's a special day (holiday or different hours)
+    $query = "SELECT is_closed, alternative_open_time, alternative_close_time 
+              FROM special_days WHERE date = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("s", $selectedDate);
+    $stmt->execute();
+    $result = $stmt->get_result();
     
-    // Check if business is closed for the day (is_open = 0 means closed)
-    if (!$businessHours['is_open']) {
-        echo json_encode([
-            'success' => true,
-            'slots' => []
-        ]);
-        exit;
+    if ($result->num_rows > 0) {
+        $specialDay = $result->fetch_assoc();
+        if ($specialDay['is_closed']) {
+            echo json_encode([
+                'success' => true,
+                'slots' => [] // Closed for holiday
+            ]);
+            exit;
+        }
+        
+        // Use alternative hours if specified
+        if ($specialDay['alternative_open_time'] && $specialDay['alternative_close_time']) {
+            $hours['open_time'] = $specialDay['alternative_open_time'];
+            $hours['close_time'] = $specialDay['alternative_close_time'];
+        }
     }
+    $stmt->close();
     
-    // Check for holiday
-    $holidayQuery = "SELECT id FROM special_days WHERE date = ? AND is_closed = 1";
-    $holidayStmt = $conn->prepare($holidayQuery);
-    $holidayStmt->bind_param("s", $bookingDate);
-    $holidayStmt->execute();
-    $holidayResult = $holidayStmt->get_result();
+    // Check if there are any team members with availability set
+    $query = "SELECT COUNT(*) as count FROM team_member_availability";
+    $result = $conn->query($query);
+    $hasTeamAvailability = ($result && $result->fetch_assoc()['count'] > 0);
     
-    if ($holidayResult->num_rows > 0) {
-        echo json_encode([
-            'success' => true,
-            'slots' => []
-        ]);
-        exit;
-    }
+    // Get already booked slots
+    $query = "SELECT booking_datetime, end_datetime 
+              FROM bookings 
+              WHERE DATE(booking_datetime) = ? 
+              AND deleted_at IS NULL 
+              AND status_id IN (SELECT id FROM booking_statuses WHERE name IN ('pending', 'confirmed'))";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("s", $selectedDate);
+    $stmt->execute();
+    $result = $stmt->get_result();
     
-    // Get consultation mode duration
-    $durationQuery = "SELECT duration_minutes FROM consultation_modes WHERE id = ?";
-    $durationStmt = $conn->prepare($durationQuery);
-    $durationStmt->bind_param("i", $consultationModeId);
-    $durationStmt->execute();
-    $durationResult = $durationStmt->get_result();
-    
-    if ($durationResult->num_rows === 0) {
-        echo json_encode([
-            'success' => false,
-            'message' => 'Invalid consultation mode'
-        ]);
-        exit;
-    }
-    
-    $consultationMode = $durationResult->fetch_assoc();
-    $slotDuration = $consultationMode['duration_minutes'];
-    
-    // Get existing bookings for the day
-    $bookingsQuery = "SELECT booking_time, 
-                      ADDTIME(booking_time, SEC_TO_TIME(cm.duration_minutes * 60)) as end_time
-                      FROM bookings b
-                      JOIN consultation_modes cm ON b.consultation_mode_id = cm.id
-                      WHERE b.booking_date = ? 
-                      AND b.status NOT IN ('cancelled', 'rejected')";
-    $bookingsStmt = $conn->prepare($bookingsQuery);
-    $bookingsStmt->bind_param("s", $bookingDate);
-    $bookingsStmt->execute();
-    $bookingsResult = $bookingsStmt->get_result();
-    
-    $existingBookings = [];
-    while ($booking = $bookingsResult->fetch_assoc()) {
-        $existingBookings[] = [
-            'start' => $booking['booking_time'],
-            'end' => $booking['end_time']
+    $bookedSlots = [];
+    while ($row = $result->fetch_assoc()) {
+        $bookedSlots[] = [
+            'start' => strtotime($row['booking_datetime']),
+            'end' => strtotime($row['end_datetime'])
         ];
     }
+    $stmt->close();
     
-    // Generate available time slots
-    $openingTime = strtotime($businessHours['open_time']);
-    $closingTime = strtotime($businessHours['close_time']);
-    $slotDurationSeconds = $slotDuration * 60;
+    // Generate available time slots based on business hours
+    // In a real-world system, this would be based on team member availability
+    $startTime = strtotime($selectedDate . ' ' . $hours['open_time']);
+    $endTime = strtotime($selectedDate . ' ' . $hours['close_time']);
+    $slotDuration = $duration * 60; // Convert minutes to seconds
     
     $availableSlots = [];
     
-    // Generate slots at 30-minute intervals
-    $slotInterval = 30 * 60; // 30 minutes in seconds
-    for ($time = $openingTime; $time < $closingTime - $slotDurationSeconds; $time += $slotInterval) {
-        $startTime = date('H:i:s', $time);
-        $endTime = date('H:i:s', $time + $slotDurationSeconds);
-        
-        // Check if this slot overlaps with any existing bookings
+    for ($time = $startTime; $time <= $endTime - $slotDuration; $time += 30 * 60) { // 30-minute intervals
+        $slotEnd = $time + $slotDuration;
         $isAvailable = true;
-        foreach ($existingBookings as $booking) {
-            if (
-                ($startTime >= $booking['start'] && $startTime < $booking['end']) ||  // Start time falls within existing booking
-                ($endTime > $booking['start'] && $endTime <= $booking['end']) ||     // End time falls within existing booking
-                ($startTime <= $booking['start'] && $endTime >= $booking['end'])     // Slot encompasses existing booking
-            ) {
+        
+        // Check if slot overlaps with any booked slot
+        foreach ($bookedSlots as $booked) {
+            if (($time >= $booked['start'] && $time < $booked['end']) || 
+                ($slotEnd > $booked['start'] && $slotEnd <= $booked['end']) ||
+                ($time <= $booked['start'] && $slotEnd >= $booked['end'])) {
                 $isAvailable = false;
                 break;
             }
         }
         
+        // Don't include past times for today
+        if (date('Y-m-d') == $selectedDate && $time < time()) {
+            $isAvailable = false;
+        }
+        
         if ($isAvailable) {
-            $availableSlots[] = $startTime;
+            $availableSlots[] = date('H:i', $time);
         }
     }
     
     echo json_encode([
         'success' => true,
-        'slots' => $availableSlots
+        'slots' => $availableSlots,
+        'using_team_availability' => $hasTeamAvailability
     ]);
     
 } catch (Exception $e) {
     error_log("Error fetching available time slots: " . $e->getMessage());
     echo json_encode([
         'success' => false,
-        'message' => 'An error occurred while fetching available time slots'
+        'message' => 'An error occurred while fetching available time slots: ' . $e->getMessage()
     ]);
-}
-
-// Helper function to validate date format
-function validateDate($date, $format = 'Y-m-d') {
-    $d = DateTime::createFromFormat($format, $date);
-    return $d && $d->format($format) === $date;
 }
 ?>

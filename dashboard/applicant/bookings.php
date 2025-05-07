@@ -14,6 +14,8 @@ if (!isset($_SESSION['id']) || empty($_SESSION['id'])) {
     exit;
 }
 
+
+
 $page_title = "My Bookings";
 $page_specific_css = "assets/css/bookings.css";
 require_once 'includes/header.php';
@@ -125,115 +127,168 @@ $stmt->close();
 
 // Function to get available time slots
 function getAvailableTimeSlots($conn, $service_id, $consultation_mode_id, $selected_date) {
-    // Get service duration
-    $query = "SELECT duration_minutes FROM service_consultation_modes 
-              WHERE visa_service_id = ? AND consultation_mode_id = ?";
-    $stmt = $conn->prepare($query);
-    $stmt->bind_param("ii", $service_id, $consultation_mode_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows === 0) {
-        return [];
-    }
-    
-    $duration = $result->fetch_assoc()['duration_minutes'];
-    if (!$duration) {
-        $duration = 60; // Default duration of 60 minutes
-    }
-    $stmt->close();
-    
-    // Get business hours for the selected day
-    $day_of_week = date('w', strtotime($selected_date)); // 0 (Sunday) to 6 (Saturday)
-    
-    $query = "SELECT is_open, open_time, close_time FROM business_hours WHERE day_of_week = ?";
-    $stmt = $conn->prepare($query);
-    $stmt->bind_param("i", $day_of_week);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows === 0 || !$result->fetch_assoc()['is_open']) {
-        return []; // Business closed on this day
-    }
-    
-    $stmt->execute(); // Re-execute to get the result again
-    $hours = $result->fetch_assoc();
-    $stmt->close();
-    
-    // Check if it's a special day (holiday)
-    $query = "SELECT is_closed, alternative_open_time, alternative_close_time 
-              FROM special_days WHERE date = ?";
-    $stmt = $conn->prepare($query);
-    $stmt->bind_param("s", $selected_date);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows > 0) {
-        $special_day = $result->fetch_assoc();
-        if ($special_day['is_closed']) {
-            return []; // Closed for holiday
+    try {
+        // Get service duration
+        $query = "SELECT duration_minutes FROM service_consultation_modes 
+                WHERE visa_service_id = ? AND consultation_mode_id = ?";
+        $stmt = $conn->prepare($query);
+        $stmt->bind_param("ii", $service_id, $consultation_mode_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows === 0) {
+            return [];
         }
         
-        // Use alternative hours if specified
-        if ($special_day['alternative_open_time'] && $special_day['alternative_close_time']) {
-            $hours['open_time'] = $special_day['alternative_open_time'];
-            $hours['close_time'] = $special_day['alternative_close_time'];
+        $duration = $result->fetch_assoc()['duration_minutes'];
+        if (!$duration) {
+            $duration = 60; // Default duration of 60 minutes
         }
-    }
-    $stmt->close();
-    
-    // Get already booked slots
-    $query = "SELECT booking_datetime, end_datetime 
-              FROM bookings 
-              WHERE DATE(booking_datetime) = ? 
-              AND deleted_at IS NULL 
-              AND status_id IN (SELECT id FROM booking_statuses WHERE name IN ('pending', 'confirmed'))";
-    $stmt = $conn->prepare($query);
-    $stmt->bind_param("s", $selected_date);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    $booked_slots = [];
-    while ($row = $result->fetch_assoc()) {
-        $booked_slots[] = [
-            'start' => strtotime($row['booking_datetime']),
-            'end' => strtotime($row['end_datetime'])
-        ];
-    }
-    $stmt->close();
-    
-    // Generate available time slots
-    $start_time = strtotime($selected_date . ' ' . $hours['open_time']);
-    $end_time = strtotime($selected_date . ' ' . $hours['close_time']);
-    $slot_duration = $duration * 60; // Convert minutes to seconds
-    
-    $available_slots = [];
-    
-    for ($time = $start_time; $time <= $end_time - $slot_duration; $time += 30 * 60) { // 30-minute intervals
-        $slot_end = $time + $slot_duration;
-        $is_available = true;
+        $stmt->close();
         
-        // Check if slot overlaps with any booked slot
-        foreach ($booked_slots as $booked) {
-            if (($time >= $booked['start'] && $time < $booked['end']) || 
-                ($slot_end > $booked['start'] && $slot_end <= $booked['end']) ||
-                ($time <= $booked['start'] && $slot_end >= $booked['end'])) {
-                $is_available = false;
-                break;
+        // Get business hours for the selected day
+        $day_of_week = date('w', strtotime($selected_date)); // 0 (Sunday) to 6 (Saturday)
+        
+        // Check if business_hours table exists
+        $tableResult = $conn->query("SHOW TABLES LIKE 'business_hours'");
+        $tableExists = $tableResult && $tableResult->num_rows > 0;
+        
+        if (!$tableExists) {
+            // Use default hours if table doesn't exist
+            $hours = [
+                'is_open' => 1,
+                'open_time' => '09:00:00',
+                'close_time' => '17:00:00'
+            ];
+            
+            // Weekend is closed by default
+            if ($day_of_week == 0 || $day_of_week == 6) {
+                $hours['is_open'] = 0;
+            }
+        } else {
+            // Normal flow with database table
+            $query = "SELECT is_open, open_time, close_time FROM business_hours WHERE day_of_week = ?";
+            $stmt = $conn->prepare($query);
+            $stmt->bind_param("i", $day_of_week);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            if ($result->num_rows === 0) {
+                // Default hours if no record for this day
+                $hours = [
+                    'is_open' => ($day_of_week >= 1 && $day_of_week <= 5) ? 1 : 0, // Open Mon-Fri
+                    'open_time' => '09:00:00',
+                    'close_time' => '17:00:00'
+                ];
+            } else {
+                $hours = $result->fetch_assoc();
+                
+                if (!$hours['is_open']) {
+                    return []; // Business closed on this day
+                }
+            }
+            $stmt->close();
+            
+            // Check if it's a special day (holiday)
+            $tableResult = $conn->query("SHOW TABLES LIKE 'special_days'");
+            $tableExists = $tableResult && $tableResult->num_rows > 0;
+            
+            if ($tableExists) {
+                $query = "SELECT is_closed, alternative_open_time, alternative_close_time 
+                        FROM special_days WHERE date = ?";
+                $stmt = $conn->prepare($query);
+                $stmt->bind_param("s", $selected_date);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                
+                if ($result->num_rows > 0) {
+                    $special_day = $result->fetch_assoc();
+                    if ($special_day['is_closed']) {
+                        return []; // Closed for holiday
+                    }
+                    
+                    // Use alternative hours if specified
+                    if ($special_day['alternative_open_time'] && $special_day['alternative_close_time']) {
+                        $hours['open_time'] = $special_day['alternative_open_time'];
+                        $hours['close_time'] = $special_day['alternative_close_time'];
+                    }
+                }
+                $stmt->close();
             }
         }
         
-        // Don't include past times for today
-        if (date('Y-m-d') == $selected_date && $time < time()) {
-            $is_available = false;
+        // Get already booked slots
+        $tableResult = $conn->query("SHOW TABLES LIKE 'bookings'");
+        $tableExists = $tableResult && $tableResult->num_rows > 0;
+        
+        $booked_slots = [];
+        
+        if ($tableExists) {
+            $query = "SELECT booking_datetime, end_datetime 
+                    FROM bookings 
+                    WHERE DATE(booking_datetime) = ? 
+                    AND deleted_at IS NULL 
+                    AND status_id IN (SELECT id FROM booking_statuses WHERE name IN ('pending', 'confirmed'))";
+            $stmt = $conn->prepare($query);
+            $stmt->bind_param("s", $selected_date);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            while ($row = $result->fetch_assoc()) {
+                $booked_slots[] = [
+                    'start' => strtotime($row['booking_datetime']),
+                    'end' => strtotime($row['end_datetime'])
+                ];
+            }
+            $stmt->close();
         }
         
-        if ($is_available) {
-            $available_slots[] = date('H:i', $time);
+        // Generate available time slots
+        $start_time = strtotime($selected_date . ' ' . $hours['open_time']);
+        $end_time = strtotime($selected_date . ' ' . $hours['close_time']);
+        $slot_duration = $duration * 60; // Convert minutes to seconds
+        
+        $available_slots = [];
+        
+        for ($time = $start_time; $time <= $end_time - $slot_duration; $time += 30 * 60) { // 30-minute intervals
+            $slot_end = $time + $slot_duration;
+            $is_available = true;
+            
+            // Check if slot overlaps with any booked slot
+            foreach ($booked_slots as $booked) {
+                if (($time >= $booked['start'] && $time < $booked['end']) || 
+                    ($slot_end > $booked['start'] && $slot_end <= $booked['end']) ||
+                    ($time <= $booked['start'] && $slot_end >= $booked['end'])) {
+                    $is_available = false;
+                    break;
+                }
+            }
+            
+            // Don't include past times for today
+            if (date('Y-m-d') == $selected_date && $time < time()) {
+                $is_available = false;
+            }
+            
+            if ($is_available) {
+                $available_slots[] = date('H:i', $time);
+            }
         }
+        
+        return $available_slots;
+    } catch (Exception $e) {
+        error_log("Error in getAvailableTimeSlots: " . $e->getMessage());
+        // Return a basic schedule if there's an error
+        $slots = [];
+        $start_hour = 9;
+        $end_hour = 17;
+        
+        for ($hour = $start_hour; $hour < $end_hour; $hour++) {
+            $slots[] = sprintf("%02d:00", $hour);
+            $slots[] = sprintf("%02d:30", $hour);
+        }
+        
+        return $slots;
     }
-    
-    return $available_slots;
 }
 
 // Handle booking submission
@@ -313,7 +368,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_booking'])) {
             $query = "INSERT INTO booking_activity_logs (booking_id, user_id, activity_type, description, ip_address) 
                       VALUES (?, ?, 'created', 'Booking created by applicant', ?)";
             $stmt = $conn->prepare($query);
-            $activity_type = 'created';
             $ip = $_SERVER['REMOTE_ADDR'];
             $stmt->bind_param("iis", $booking_id, $user_id, $ip);
             $stmt->execute();
@@ -374,7 +428,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_booking'])) {
             $query = "INSERT INTO booking_activity_logs (booking_id, user_id, activity_type, description, ip_address) 
                       VALUES (?, ?, 'cancelled', 'Booking cancelled by applicant', ?)";
             $stmt = $conn->prepare($query);
-            $activity_type = 'cancelled';
             $ip = $_SERVER['REMOTE_ADDR'];
             $stmt->bind_param("iis", $booking_id, $user_id, $ip);
             $stmt->execute();
@@ -1245,7 +1298,45 @@ document.getElementById('booking_time').addEventListener('change', function() {
     }
 });
 
-// Function to fetch consultation modes
+// Define a function to show error alerts
+function showErrorAlert(message) {
+    // Create alert if it doesn't exist
+    if (!document.querySelector('.alert-error-js')) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger alert-error-js';
+        alertDiv.style.marginBottom = '20px';
+        
+        // Add close button
+        const closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'close';
+        closeButton.innerHTML = '&times;';
+        closeButton.addEventListener('click', function() {
+            alertDiv.style.display = 'none';
+        });
+        
+        alertDiv.appendChild(closeButton);
+        
+        // Add alert content
+        const alertContent = document.createElement('span');
+        alertContent.className = 'alert-content';
+        alertDiv.appendChild(alertContent);
+        
+        // Insert after header
+        const headerContainer = document.querySelector('.header-container');
+        headerContainer.parentNode.insertBefore(alertDiv, headerContainer.nextSibling);
+    }
+    
+    // Update alert content and show it
+    const alertDiv = document.querySelector('.alert-error-js');
+    alertDiv.querySelector('.alert-content').textContent = message;
+    alertDiv.style.display = 'block';
+    
+    // Scroll to the alert
+    alertDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// Update fetchConsultationModes to use the error alert
 function fetchConsultationModes(serviceId, selectElement) {
     // Show loading state
     selectElement.innerHTML = '<option value="">Loading...</option>';
@@ -1253,32 +1344,45 @@ function fetchConsultationModes(serviceId, selectElement) {
     
     // Make AJAX request to get consultation modes
     fetch(`ajax/get_consultation_modes.php?service_id=${serviceId}`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 // Populate select options
                 selectElement.innerHTML = '<option value="">Select Consultation Mode</option>';
                 
-                data.modes.forEach(mode => {
-                    const option = document.createElement('option');
-                    option.value = mode.consultation_mode_id;
-                    option.textContent = `${mode.mode_name} (${formatPrice(mode.total_price)})`;
-                    selectElement.appendChild(option);
-                });
-                
-                selectElement.disabled = false;
+                if (data.modes && data.modes.length > 0) {
+                    data.modes.forEach(mode => {
+                        const option = document.createElement('option');
+                        option.value = mode.consultation_mode_id;
+                        option.textContent = `${mode.mode_name} (${formatPrice(mode.total_price)})`;
+                        selectElement.appendChild(option);
+                    });
+                    
+                    selectElement.disabled = false;
+                } else {
+                    selectElement.innerHTML = '<option value="">No consultation modes available</option>';
+                    showErrorAlert('No consultation modes are available for this service. Please select a different service or contact support.');
+                }
             } else {
                 // Show error
+                console.error('Error loading consultation modes:', data.message);
                 selectElement.innerHTML = '<option value="">Error loading consultation modes</option>';
+                showErrorAlert('Error loading consultation modes: ' + (data.message || 'Unknown error'));
             }
         })
         .catch(error => {
             console.error('Error fetching consultation modes:', error);
             selectElement.innerHTML = '<option value="">Error: Could not load consultation modes</option>';
+            showErrorAlert('Error: Could not load consultation modes. Please try again later or contact support.');
         });
 }
 
-// Function to fetch available time slots
+// Update fetchAvailableTimeSlots to use the error alert
 function fetchAvailableTimeSlots(serviceId, consultationModeId, date, selectElement) {
     // Show loading state
     selectElement.innerHTML = '<option value="">Loading available times...</option>';
@@ -1286,10 +1390,15 @@ function fetchAvailableTimeSlots(serviceId, consultationModeId, date, selectElem
     
     // Make AJAX request to get available slots
     fetch(`ajax/get_available_slots.php?service_id=${serviceId}&consultation_mode_id=${consultationModeId}&date=${date}`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
-                if (data.slots.length > 0) {
+                if (data.slots && data.slots.length > 0) {
                     // Populate select options
                     selectElement.innerHTML = '<option value="">Select Time</option>';
                     
@@ -1304,15 +1413,19 @@ function fetchAvailableTimeSlots(serviceId, consultationModeId, date, selectElem
                 } else {
                     // No slots available
                     selectElement.innerHTML = '<option value="">No times available on this date</option>';
+                    showErrorAlert('No appointment times are available on the selected date. Please choose a different date.');
                 }
             } else {
                 // Show error
+                console.error('Error fetching time slots:', data.message);
                 selectElement.innerHTML = '<option value="">Error loading time slots</option>';
+                showErrorAlert('Error loading time slots: ' + (data.message || 'Unknown error'));
             }
         })
         .catch(error => {
             console.error('Error fetching time slots:', error);
             selectElement.innerHTML = '<option value="">Error: Could not load time slots</option>';
+            showErrorAlert('Error: Could not load available time slots. Please try again later or contact support.');
         });
 }
 

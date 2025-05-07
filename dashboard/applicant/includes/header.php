@@ -194,12 +194,6 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                     <i class="fas fa-calendar-alt"></i>
                     <span class="nav-item-text">My Bookings</span>
                 </a>
-
-                <a href="services.php" class="nav-item <?php echo $current_page == 'services' ? 'active' : ''; ?>">
-                    <i class="fas fa-concierge-bell"></i>
-                    <span class="nav-item-text">Visa Services</span>
-                </a>
-
                 <div class="sidebar-divider"></div>
 
                 <a href="messages.php" class="nav-item <?php echo $current_page == 'messages' ? 'active' : ''; ?>">
