@@ -454,6 +454,7 @@ if (isset($_GET['success'])) {
     --light-color: #f8f9fc;
     --dark-color: #5a5c69;
     --border-color: #e3e6f0;
+    --warning-color: #f6c23e;
 }
 
 .content {

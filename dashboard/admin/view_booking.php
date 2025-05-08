@@ -558,7 +558,7 @@ if (isset($_GET['success'])) {
     border-radius: 5px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
     padding: 0;
-    overflow: hidden;
+    height: auto;
 }
 
 .card-header {
@@ -578,22 +578,26 @@ if (isset($_GET['success'])) {
 
 .card-body {
     padding: 20px;
+    overflow: visible;
 }
 
 .booking-details {
     grid-column: span 6;
 }
 
-.client-info {
-    grid-column: span 3;
+.client-info, .consultant-info {
+    grid-column: span 6;
 }
 
-.consultant-info {
-    grid-column: span 3;
+.activity-logs {
+    grid-column: 7 / span 6;
+    grid-row: 1 / 4;
+    margin-bottom: 20px;
 }
 
-.documents, .activity-logs {
+.documents {
     grid-column: span 12;
+    margin-top: 20px;
     margin-bottom: 20px;
 }
 
@@ -1029,6 +1033,7 @@ if (isset($_GET['success'])) {
     
     .booking-details, .client-info, .consultant-info, .documents, .activity-logs {
         grid-column: 1;
+        grid-row: auto;
     }
     
     .header-container {
@@ -1269,6 +1274,60 @@ if (isset($_GET['success'])) {
             </div>
         </div>
         
+        <!-- Activity Logs Section -->
+        <div class="card activity-logs">
+            <div class="card-header">
+                <h3>Activity Log</h3>
+            </div>
+            <div class="card-body">
+                <?php if (empty($activity_logs)): ?>
+                    <div class="no-activity">
+                        <i class="fas fa-history"></i>
+                        <p>No activity recorded yet</p>
+                    </div>
+                <?php else: ?>
+                    <div class="timeline">
+                        <?php foreach ($activity_logs as $log): ?>
+                            <div class="timeline-item">
+                                <div class="timeline-marker 
+                                    <?php
+                                    switch ($log['activity_type']) {
+                                        case 'status_changed': echo 'status-changed'; break;
+                                        case 'assigned': echo 'assigned'; break;
+                                        case 'cancelled': echo 'cancelled'; break;
+                                        case 'rescheduled': echo 'rescheduled'; break;
+                                        case 'completed': echo 'completed'; break;
+                                        case 'document_added': echo 'document'; break;
+                                        default: echo ''; break;
+                                    }
+                                    ?>">
+                                    <i class="fas 
+                                    <?php
+                                    switch ($log['activity_type']) {
+                                        case 'status_changed': echo 'fa-sync-alt'; break;
+                                        case 'assigned': echo 'fa-user-check'; break;
+                                        case 'cancelled': echo 'fa-ban'; break;
+                                        case 'rescheduled': echo 'fa-calendar-alt'; break;
+                                        case 'completed': echo 'fa-check-circle'; break;
+                                        case 'document_added': echo 'fa-file-upload'; break;
+                                        default: echo 'fa-history'; break;
+                                    }
+                                    ?>"></i>
+                                </div>
+                                <div class="timeline-content">
+                                    <div class="timeline-header">
+                                        <span class="user-name"><?php echo htmlspecialchars($log['user_name'] ?? ''); ?></span>
+                                        <span class="timestamp"><?php echo date('M d, Y h:i A', strtotime($log['created_at'])); ?></span>
+                                    </div>
+                                    <p class="timeline-description"><?php echo htmlspecialchars($log['description'] ?? ''); ?></p>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+        
         <!-- Client Info Section -->
         <div class="card client-info">
             <div class="card-header">
@@ -1280,14 +1339,14 @@ if (isset($_GET['success'])) {
                     <div class="client-avatar">
                         <div class="initials">
                             <?php
-                            $name_parts = explode(' ', $booking['client_name']);
-                            echo substr($name_parts[0], 0, 1) . (isset($name_parts[1]) ? substr($name_parts[1], 0, 1) : '');
+                            $name_parts = explode(' ', $booking['client_name'] ?? '');
+                            echo substr($name_parts[0] ?? '', 0, 1) . (isset($name_parts[1]) ? substr($name_parts[1], 0, 1) : '');
                             ?>
                         </div>
                     </div>
                     <div class="client-name-email">
-                        <h4><?php echo htmlspecialchars($booking['client_name']); ?></h4>
-                        <p><?php echo htmlspecialchars($booking['client_email']); ?></p>
+                        <h4><?php echo htmlspecialchars($booking['client_name'] ?? ''); ?></h4>
+                        <p><?php echo htmlspecialchars($booking['client_email'] ?? ''); ?></p>
                     </div>
                 </div>
                 
@@ -1315,14 +1374,14 @@ if (isset($_GET['success'])) {
                     <div class="consultant-avatar">
                         <div class="initials">
                             <?php
-                            $name_parts = explode(' ', $booking['consultant_name']);
-                            echo substr($name_parts[0], 0, 1) . (isset($name_parts[1]) ? substr($name_parts[1], 0, 1) : '');
+                            $name_parts = explode(' ', $booking['consultant_name'] ?? '');
+                            echo substr($name_parts[0] ?? '', 0, 1) . (isset($name_parts[1]) ? substr($name_parts[1], 0, 1) : '');
                             ?>
                         </div>
                     </div>
                     <div class="consultant-name-email">
-                        <h4><?php echo htmlspecialchars($booking['consultant_name']); ?></h4>
-                        <p><?php echo htmlspecialchars($booking['consultant_role']); ?></p>
+                        <h4><?php echo htmlspecialchars($booking['consultant_name'] ?? ''); ?></h4>
+                        <p><?php echo htmlspecialchars($booking['consultant_role'] ?? ''); ?></p>
                     </div>
                 </div>
             </div>
@@ -1358,9 +1417,9 @@ if (isset($_GET['success'])) {
                     <tbody>
                         <?php foreach ($documents as $doc): ?>
                             <tr>
-                                <td><?php echo htmlspecialchars($doc['document_name']); ?></td>
-                                <td><?php echo htmlspecialchars($doc['document_type']); ?></td>
-                                <td><?php echo htmlspecialchars($doc['uploaded_by_name']); ?></td>
+                                <td><?php echo htmlspecialchars($doc['document_name'] ?? ''); ?></td>
+                                <td><?php echo htmlspecialchars($doc['document_type'] ?? ''); ?></td>
+                                <td><?php echo htmlspecialchars($doc['uploaded_by_name'] ?? ''); ?></td>
                                 <td><?php echo date('M d, Y', strtotime($doc['created_at'])); ?></td>
                                 <td><?php echo formatFileSize($doc['file_size']); ?></td>
                                 <td>
@@ -1375,60 +1434,6 @@ if (isset($_GET['success'])) {
                         <?php endforeach; ?>
                     </tbody>
                 </table>
-            <?php endif; ?>
-        </div>
-    </div>
-
-    <!-- Activity Logs Section -->
-    <div class="card activity-logs">
-        <div class="card-header">
-            <h3>Activity Log</h3>
-        </div>
-        <div class="card-body">
-            <?php if (empty($activity_logs)): ?>
-                <div class="no-activity">
-                    <i class="fas fa-history"></i>
-                    <p>No activity recorded yet</p>
-                </div>
-            <?php else: ?>
-                <div class="timeline">
-                    <?php foreach ($activity_logs as $log): ?>
-                        <div class="timeline-item">
-                            <div class="timeline-marker 
-                                <?php
-                                switch ($log['activity_type']) {
-                                    case 'status_changed': echo 'status-changed'; break;
-                                    case 'assigned': echo 'assigned'; break;
-                                    case 'cancelled': echo 'cancelled'; break;
-                                    case 'rescheduled': echo 'rescheduled'; break;
-                                    case 'completed': echo 'completed'; break;
-                                    case 'document_added': echo 'document'; break;
-                                    default: echo ''; break;
-                                }
-                                ?>">
-                                <i class="fas 
-                                <?php
-                                switch ($log['activity_type']) {
-                                    case 'status_changed': echo 'fa-sync-alt'; break;
-                                    case 'assigned': echo 'fa-user-check'; break;
-                                    case 'cancelled': echo 'fa-ban'; break;
-                                    case 'rescheduled': echo 'fa-calendar-alt'; break;
-                                    case 'completed': echo 'fa-check-circle'; break;
-                                    case 'document_added': echo 'fa-file-upload'; break;
-                                    default: echo 'fa-history'; break;
-                                }
-                                ?>"></i>
-                            </div>
-                            <div class="timeline-content">
-                                <div class="timeline-header">
-                                    <span class="user-name"><?php echo htmlspecialchars($log['user_name']); ?></span>
-                                    <span class="timestamp"><?php echo date('M d, Y h:i A', strtotime($log['created_at'])); ?></span>
-                                </div>
-                                <p class="timeline-description"><?php echo htmlspecialchars($log['description']); ?></p>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
             <?php endif; ?>
         </div>
     </div>

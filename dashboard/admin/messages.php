@@ -268,6 +268,231 @@ while ($row = $result->fetch_assoc()) {
     $potential_participants[] = $row;
 }
 $stmt->close();
+
+// Handle task assignment
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_task'])) {
+    $conversation_id = $_POST['conversation_id'];
+    $task_name = trim($_POST['task_name']);
+    $task_description = trim($_POST['task_description']);
+    $task_priority = $_POST['task_priority'];
+    $task_due_date = !empty($_POST['task_due_date']) ? $_POST['task_due_date'] : null;
+    $task_assignees = isset($_POST['task_assignees']) ? $_POST['task_assignees'] : [];
+    $share_in_chat = isset($_POST['task_share_in_chat']) ? true : false;
+    
+    // Validate inputs
+    $errors = [];
+    if (empty($task_name)) {
+        $errors[] = "Task name is required";
+    }
+    if (empty($task_assignees)) {
+        $errors[] = "At least one assignee is required";
+    }
+    
+    if (empty($errors)) {
+        // Begin transaction
+        $conn->begin_transaction();
+        
+        try {
+            // Get admin ID from session
+            $admin_id = $_SESSION["id"];
+            
+            // Insert task record
+            $task_insert = "INSERT INTO tasks (name, description, priority, admin_id, due_date) 
+                          VALUES (?, ?, ?, ?, ?)";
+            $stmt = $conn->prepare($task_insert);
+            $stmt->bind_param('sssis', $task_name, $task_description, $task_priority, $admin_id, $task_due_date);
+            $stmt->execute();
+            
+            $task_id = $conn->insert_id;
+            $stmt->close();
+            
+            // Insert task assignments
+            if (!empty($task_assignees)) {
+                $assignment_insert = "INSERT INTO task_assignments (task_id, team_member_id) VALUES (?, ?)";
+                $stmt = $conn->prepare($assignment_insert);
+                
+                foreach ($task_assignees as $assignee_id) {
+                    $stmt->bind_param('ii', $task_id, $assignee_id);
+                    $stmt->execute();
+                    
+                    // Create activity log for assignment
+                    $log_insert = "INSERT INTO task_activity_logs (task_id, user_id, team_member_id, activity_type, description) 
+                                 VALUES (?, ?, ?, 'assigned', 'Task assigned through conversation')";
+                    $log_stmt = $conn->prepare($log_insert);
+                    $log_stmt->bind_param('iii', $task_id, $_SESSION["id"], $assignee_id);
+                    $log_stmt->execute();
+                    $log_stmt->close();
+                    
+                    // Create notification for assignee
+                    $notif_insert = "INSERT INTO notifications (user_id, related_user_id, notification_type, title, content, related_to_type, related_to_id, is_actionable, action_url) 
+                                   VALUES (?, ?, 'task_assigned', 'New Task Assignment', ?, 'task', ?, 1, ?)";
+                    $notif_content = "You have been assigned to task: " . $task_name;
+                    $action_url = "/dashboard/admin/task_detail.php?id=" . $task_id;
+                    
+                    $notif_stmt = $conn->prepare($notif_insert);
+                    $notif_stmt->bind_param('iiss', $assignee_id, $_SESSION["id"], $notif_content, $task_id, $action_url);
+                    $notif_stmt->execute();
+                    $notif_stmt->close();
+                }
+                $stmt->close();
+            }
+            
+            // Add a message in the conversation if requested
+            if ($share_in_chat) {
+                // Format due date for display
+                $due_date_text = !empty($task_due_date) ? " (Due: " . date('M d, Y', strtotime($task_due_date)) . ")" : "";
+                
+                // Get assignee names
+                $assignee_names = [];
+                foreach ($task_assignees as $assignee_id) {
+                    foreach ($conversation_participants as $participant) {
+                        if ($participant['id'] == $assignee_id) {
+                            $assignee_names[] = $participant['first_name'] . ' ' . $participant['last_name'];
+                            break;
+                        }
+                    }
+                }
+                
+                $assignee_text = count($assignee_names) > 0 ? " assigned to " . implode(", ", $assignee_names) : "";
+                
+                // Construct message
+                $system_message = "🔔 Task Created: \"" . $task_name . "\"" . $due_date_text . $assignee_text;
+                if (!empty($task_description)) {
+                    $system_message .= "\n\nDescription: " . $task_description;
+                }
+                $system_message .= "\n\nPriority: " . ucfirst($task_priority);
+                $system_message .= "\n\nView details: /dashboard/admin/task_detail.php?id=" . $task_id;
+                
+                // Insert the message
+                $query = "INSERT INTO messages (conversation_id, user_id, message, created_at)
+                         VALUES (?, ?, ?, NOW())";
+                
+                $stmt = $conn->prepare($query);
+                $stmt->bind_param('iis', $conversation_id, $user_id, $system_message);
+                $stmt->execute();
+                $stmt->close();
+            }
+            
+            // Commit transaction
+            $conn->commit();
+            
+            // Redirect to prevent form resubmission
+            header("Location: messages.php?conversation_id=" . $conversation_id . "&task_assigned=1");
+            exit;
+        } catch (Exception $e) {
+            // Rollback transaction on error
+            $conn->rollback();
+            $error_message = "Error assigning task: " . $e->getMessage();
+        }
+    } else {
+        $error_message = implode("<br>", $errors);
+    }
+}
+
+// Handle document request
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_document'])) {
+    $conversation_id = $_POST['conversation_id'];
+    $document_title = trim($_POST['document_title']);
+    $document_description = trim($_POST['document_description']);
+    $document_type = $_POST['document_type'];
+    $document_requestees = isset($_POST['document_requestees']) ? $_POST['document_requestees'] : [];
+    $document_due_date = !empty($_POST['document_due_date']) ? $_POST['document_due_date'] : null;
+    $share_in_chat = isset($_POST['document_share_in_chat']) ? true : false;
+    
+    // Validate inputs
+    $errors = [];
+    if (empty($document_title)) {
+        $errors[] = "Document title is required";
+    }
+    if (empty($document_requestees)) {
+        $errors[] = "At least one recipient is required";
+    }
+    
+    if (empty($errors)) {
+        // Begin transaction
+        $conn->begin_transaction();
+        
+        try {
+            // Get document type name
+            $doc_type_query = "SELECT name FROM document_types WHERE id = ?";
+            $stmt = $conn->prepare($doc_type_query);
+            $stmt->bind_param('i', $document_type);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $doc_type = $result->fetch_assoc();
+            $document_type_name = $doc_type['name'];
+            $stmt->close();
+            
+            // Process for each recipient
+            foreach ($document_requestees as $requestee_id) {
+                // Create notification for document request
+                $notif_insert = "INSERT INTO notifications (user_id, related_user_id, notification_type, title, content, related_to_type, related_to_id, is_actionable, action_url) 
+                               VALUES (?, ?, 'document_requested', 'Document Request', ?, 'document', NULL, 1, ?)";
+                $notif_content = "Please upload document: " . $document_title . " (" . $document_type_name . ")";
+                if (!empty($document_due_date)) {
+                    $notif_content .= " by " . date('M d, Y', strtotime($document_due_date));
+                }
+                if (!empty($document_description)) {
+                    $notif_content .= "\n\n" . $document_description;
+                }
+                
+                $action_url = "/dashboard/client/documents.php?upload=1&type=" . $document_type;
+                
+                $notif_stmt = $conn->prepare($notif_insert);
+                $notif_stmt->bind_param('iiss', $requestee_id, $_SESSION["id"], $notif_content, $action_url);
+                $notif_stmt->execute();
+                $notif_stmt->close();
+            }
+            
+            // Add a message in the conversation if requested
+            if ($share_in_chat) {
+                // Format due date for display
+                $due_date_text = !empty($document_due_date) ? " (Required by: " . date('M d, Y', strtotime($document_due_date)) . ")" : "";
+                
+                // Get requestee names
+                $requestee_names = [];
+                foreach ($document_requestees as $requestee_id) {
+                    foreach ($conversation_participants as $participant) {
+                        if ($participant['id'] == $requestee_id) {
+                            $requestee_names[] = $participant['first_name'] . ' ' . $participant['last_name'];
+                            break;
+                        }
+                    }
+                }
+                
+                $requestee_text = count($requestee_names) > 0 ? " requested from " . implode(", ", $requestee_names) : "";
+                
+                // Construct message
+                $system_message = "📄 Document Request: \"" . $document_title . "\" (" . $document_type_name . ")" . $due_date_text . $requestee_text;
+                if (!empty($document_description)) {
+                    $system_message .= "\n\nDetails: " . $document_description;
+                }
+                
+                // Insert the message
+                $query = "INSERT INTO messages (conversation_id, user_id, message, created_at)
+                         VALUES (?, ?, ?, NOW())";
+                
+                $stmt = $conn->prepare($query);
+                $stmt->bind_param('iis', $conversation_id, $user_id, $system_message);
+                $stmt->execute();
+                $stmt->close();
+            }
+            
+            // Commit transaction
+            $conn->commit();
+            
+            // Redirect to prevent form resubmission
+            header("Location: messages.php?conversation_id=" . $conversation_id . "&document_requested=1");
+            exit;
+        } catch (Exception $e) {
+            // Rollback transaction on error
+            $conn->rollback();
+            $error_message = "Error requesting document: " . $e->getMessage();
+        }
+    } else {
+        $error_message = implode("<br>", $errors);
+    }
+}
 ?>
 
 <div class="content-wrapper">
@@ -471,17 +696,15 @@ $stmt->close();
                 </div>
                 
                 <div class="message-input">
-                    <form action="messages.php" method="POST">
+                    <form action="messages.php" method="POST" enctype="multipart/form-data">
                         <input type="hidden" name="conversation_id" value="<?php echo $selected_conversation['id']; ?>">
                         <div class="input-container">
                             <textarea name="message_text" placeholder="Type a message..." rows="1" required></textarea>
                             <div class="input-actions">
-                                <button type="button" class="btn-icon" title="Attach File">
+                                <button type="button" class="btn-icon" title="Attachments" id="attachmentBtn">
                                     <i class="fas fa-paperclip"></i>
                                 </button>
-                                <button type="button" class="btn-icon" title="Emoji">
-                                    <i class="fas fa-smile"></i>
-                                </button>
+                                <input type="file" name="file_attachment" id="fileAttachment" style="display: none;">
                             </div>
                         </div>
                         <button type="submit" name="send_message" class="send-btn">
@@ -614,6 +837,187 @@ $stmt->close();
                 </form>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Task Assignment Modal -->
+<div class="modal" id="taskAssignmentModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Assign Task</h3>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form action="messages.php" method="POST" id="assignTaskForm">
+                    <input type="hidden" name="conversation_id" value="<?php echo isset($selected_conversation) ? $selected_conversation['id'] : ''; ?>">
+                    
+                    <div class="form-group">
+                        <label for="task_name">Task Name*</label>
+                        <input type="text" name="task_name" id="task_name" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="task_description">Description</label>
+                        <textarea name="task_description" id="task_description" class="form-control" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="task_priority">Priority*</label>
+                            <select name="task_priority" id="task_priority" class="form-control" required>
+                                <option value="normal">Normal</option>
+                                <option value="high">High</option>
+                                <option value="low">Low</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="task_due_date">Due Date</label>
+                            <input type="date" name="task_due_date" id="task_due_date" class="form-control">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Assign To:</label>
+                        <div class="assignee-selection">
+                            <?php if (isset($conversation_participants)): ?>
+                                <?php foreach ($conversation_participants as $participant): ?>
+                                    <?php if ($participant['id'] != $_SESSION['id']): ?>
+                                    <label class="assignee-check-container">
+                                        <input type="checkbox" name="task_assignees[]" value="<?php echo $participant['id']; ?>">
+                                        <span class="checkmark"></span>
+                                        <div class="assignee-info">
+                                            <div class="assignee-name">
+                                                <?php echo htmlspecialchars($participant['first_name'] . ' ' . $participant['last_name']); ?>
+                                            </div>
+                                            <div class="assignee-role">
+                                                <?php echo ucfirst($participant['role']); ?>
+                                            </div>
+                                        </div>
+                                    </label>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="checkbox-container">
+                            <input type="checkbox" name="task_share_in_chat" id="task_share_in_chat" value="1" checked>
+                            <span class="checkmark"></span>
+                            Share task details in conversation
+                        </label>
+                    </div>
+                    
+                    <div class="form-buttons">
+                        <button type="button" class="btn cancel-btn" data-dismiss="modal">Cancel</button>
+                        <button type="submit" name="assign_task" class="btn submit-btn">Assign Task</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Document Request Modal -->
+<div class="modal" id="documentRequestModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Request Document</h3>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form action="messages.php" method="POST" id="requestDocumentForm">
+                    <input type="hidden" name="conversation_id" value="<?php echo isset($selected_conversation) ? $selected_conversation['id'] : ''; ?>">
+                    
+                    <div class="form-group">
+                        <label for="document_title">Document Title*</label>
+                        <input type="text" name="document_title" id="document_title" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="document_description">Description</label>
+                        <textarea name="document_description" id="document_description" class="form-control" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="document_type">Document Type*</label>
+                        <select name="document_type" id="document_type" class="form-control" required>
+                            <?php
+                            // Get document types from database
+                            $doc_types_query = "SELECT id, name FROM document_types WHERE is_active = 1 ORDER BY name";
+                            $doc_types_stmt = $conn->prepare($doc_types_query);
+                            $doc_types_stmt->execute();
+                            $doc_types_result = $doc_types_stmt->get_result();
+                            
+                            while ($type = $doc_types_result->fetch_assoc()): 
+                            ?>
+                                <option value="<?php echo $type['id']; ?>"><?php echo htmlspecialchars($type['name']); ?></option>
+                            <?php 
+                            endwhile;
+                            $doc_types_stmt->close();
+                            ?>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Request From:</label>
+                        <div class="requestee-selection">
+                            <?php if (isset($conversation_participants)): ?>
+                                <?php foreach ($conversation_participants as $participant): ?>
+                                    <?php if ($participant['id'] != $_SESSION['id']): ?>
+                                    <label class="assignee-check-container">
+                                        <input type="checkbox" name="document_requestees[]" value="<?php echo $participant['id']; ?>">
+                                        <span class="checkmark"></span>
+                                        <div class="assignee-info">
+                                            <div class="assignee-name">
+                                                <?php echo htmlspecialchars($participant['first_name'] . ' ' . $participant['last_name']); ?>
+                                            </div>
+                                            <div class="assignee-role">
+                                                <?php echo ucfirst($participant['role']); ?>
+                                            </div>
+                                        </div>
+                                    </label>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="document_due_date">Required By</label>
+                        <input type="date" name="document_due_date" id="document_due_date" class="form-control">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="checkbox-container">
+                            <input type="checkbox" name="document_share_in_chat" id="document_share_in_chat" value="1" checked>
+                            <span class="checkmark"></span>
+                            Share request details in conversation
+                        </label>
+                    </div>
+                    
+                    <div class="form-buttons">
+                        <button type="button" class="btn cancel-btn" data-dismiss="modal">Cancel</button>
+                        <button type="submit" name="request_document" class="btn submit-btn">Request Document</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Attachment Options Popup -->
+<div class="attachment-options" id="attachmentOptions">
+    <div class="attachment-option" id="attachFileOption">
+        <i class="fas fa-file"></i> Attach File
+    </div>
+    <div class="attachment-option" id="assignTaskOption">
+        <i class="fas fa-tasks"></i> Assign Task
+    </div>
+    <div class="attachment-option" id="requestDocumentOption">
+        <i class="fas fa-file-alt"></i> Request Document
     </div>
 </div>
 
@@ -1441,6 +1845,55 @@ $stmt->close();
         max-width: 85%;
     }
 }
+
+.attachment-options {
+    position: absolute;
+    bottom: 60px;
+    left: 15px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+    display: none;
+    width: 180px;
+    overflow: hidden;
+}
+
+.attachment-option {
+    padding: 12px 15px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.attachment-option:hover {
+    background-color: var(--light-color);
+}
+
+.attachment-option i {
+    width: 16px;
+    text-align: center;
+    color: var(--primary-color);
+}
+
+.assignee-selection, .requestee-selection {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 5px;
+    margin-top: 5px;
+}
+
+.assignee-check-container {
+    margin-bottom: 5px;
+    padding: 8px 8px 8px 35px;
+    background-color: var(--light-color);
+    border-radius: 4px;
+}
 </style>
 
 <script>
@@ -1552,6 +2005,102 @@ document.addEventListener('DOMContentLoaded', function() {
     if (messageContent) {
         messageContent.scrollTop = messageContent.scrollHeight;
     }
+
+    // Handle attachment button and popup
+    const attachmentBtn = document.getElementById('attachmentBtn');
+    const attachmentOptions = document.getElementById('attachmentOptions');
+    const attachFileOption = document.getElementById('attachFileOption');
+    const assignTaskOption = document.getElementById('assignTaskOption');
+    const requestDocumentOption = document.getElementById('requestDocumentOption');
+    const fileAttachment = document.getElementById('fileAttachment');
+
+    // Attachment options popup
+    if (attachmentBtn) {
+        attachmentBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (attachmentOptions.style.display === 'block') {
+                attachmentOptions.style.display = 'none';
+            } else {
+                attachmentOptions.style.display = 'block';
+            }
+        });
+    }
+
+    // Close attachment options when clicking outside
+    document.addEventListener('click', function(e) {
+        if (attachmentOptions && attachmentOptions.style.display === 'block') {
+            if (!attachmentOptions.contains(e.target) && e.target !== attachmentBtn) {
+                attachmentOptions.style.display = 'none';
+            }
+        }
+    });
+
+    // Attach file option
+    if (attachFileOption) {
+        attachFileOption.addEventListener('click', function() {
+            fileAttachment.click();
+            attachmentOptions.style.display = 'none';
+        });
+    }
+
+    // Task assignment option
+    if (assignTaskOption) {
+        assignTaskOption.addEventListener('click', function() {
+            document.getElementById('taskAssignmentModal').style.display = 'block';
+            attachmentOptions.style.display = 'none';
+        });
+    }
+
+    // Document request option
+    if (requestDocumentOption) {
+        requestDocumentOption.addEventListener('click', function() {
+            document.getElementById('documentRequestModal').style.display = 'block';
+            attachmentOptions.style.display = 'none';
+        });
+    }
+
+    // File input change event
+    if (fileAttachment) {
+        fileAttachment.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                // Show selected file name
+                const fileName = this.files[0].name;
+                const messageTextarea = document.querySelector('.message-input textarea');
+                if (messageTextarea.value) {
+                    messageTextarea.value += ' [Attaching: ' + fileName + ']';
+                } else {
+                    messageTextarea.value = '[Attaching: ' + fileName + ']';
+                }
+            }
+        });
+    }
+
+    // Close modals for task and document
+    document.querySelectorAll('#taskAssignmentModal .close, #documentRequestModal .close').forEach(function(element) {
+        element.addEventListener('click', function() {
+            const modal = this.closest('.modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        });
+    });
+
+    // Close modals when clicking outside
+    window.addEventListener('click', function(event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+        }
+    });
+
+    // Cancel buttons in modals
+    document.querySelectorAll('#taskAssignmentModal .cancel-btn, #documentRequestModal .cancel-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const modal = this.closest('.modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        });
+    });
 });
 </script>
 

@@ -6,11 +6,7 @@ $page_title = "Visa Applications";
 $page_specific_css = "assets/css/applications.css";
 require_once 'includes/header.php';
 
-// Ensure user is logged in and has appropriate permissions
-if (!isLoggedIn() || !hasPermission('view_applications')) {
-    header("Location: login.php");
-    exit;
-}
+
 
 // Get all application statuses for filter
 $status_query = "SELECT id, name, color FROM application_statuses ORDER BY name";
@@ -503,6 +499,59 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error(data.error || 'Error assigning application');
             }
         })
+        .catch(error => {
+            console.error('Error:', error);
+            alert(error.message);
+        });
+    });
+
+    // Add event listeners to filters
+    document.getElementById('status-filter').addEventListener('change', function() {
+        currentFilters.status_id = this.value;
+        currentFilters.page = 1;
+        loadApplications(currentFilters);
+    });
+
+    document.getElementById('visa-filter').addEventListener('change', function() {
+        currentFilters.visa_id = this.value;
+        currentFilters.page = 1;
+        loadApplications(currentFilters);
+    });
+
+    document.getElementById('priority-filter').addEventListener('change', function() {
+        currentFilters.priority = this.value;
+        currentFilters.page = 1;
+        loadApplications(currentFilters);
+    });
+
+    // Add debounce to search input
+    let searchTimeout;
+    document.getElementById('search-input').addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            currentFilters.search = this.value;
+            currentFilters.page = 1;
+            loadApplications(currentFilters);
+        }, 300);
+    });
+
+    // Close modals when clicking outside
+    window.addEventListener('click', function(event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+        }
+    });
+
+    // Close modals when clicking close button
+    document.querySelectorAll('.close').forEach(button => {
+        button.addEventListener('click', function() {
+            this.closest('.modal').style.display = 'none';
+        });
+    });
+
+    // Initial load
+    loadApplications(currentFilters);
+});)
         .catch(error => {
             console.error('Error:', error);
             alert(error.message);

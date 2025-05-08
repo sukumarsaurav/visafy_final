@@ -760,133 +760,110 @@ if (isset($_GET['status_updated']) && $_GET['status_updated'] == '1') {
                 </div>
             </div>
             
-            <!-- Add Comment Section -->
+            <!-- Comments & Activity Log Tabs Card -->
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-comment-alt"></i> Add Comment</h3>
+                    <h3><i class="fas fa-comments"></i> Comments & Activity Log</h3>
                 </div>
                 <div class="card-body">
-                    <form action="view_application.php?id=<?php echo $application_id; ?>" method="POST">
-                        <div class="form-group">
-                            <textarea name="comment_text" placeholder="Write your comment here..." class="form-control" rows="3" required></textarea>
-                        </div>
-                        <div class="form-check">
-                            <input type="checkbox" class="form-check-input" id="is_internal" name="is_internal" value="1">
-                            <label class="form-check-label" for="is_internal">Internal comment (only visible to team members)</label>
-                        </div>
-                        <div class="form-buttons">
-                            <button type="submit" name="add_comment" class="btn submit-btn">Add Comment</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-            
-            <!-- Comments Section -->
-            <div class="card">
-                <div class="card-header">
-                    <h3><i class="fas fa-comments"></i> Comments</h3>
-                </div>
-                <div class="card-body">
-                    <?php if (empty($comments)): ?>
-                        <div class="empty-state">
-                            <i class="fas fa-comments"></i>
-                            <p>No comments yet</p>
-                        </div>
-                    <?php else: ?>
-                        <div class="comments-list">
-                            <?php foreach ($comments as $comment): ?>
-                                <div class="comment-item <?php echo $comment['is_internal'] ? 'internal-comment' : ''; ?>">
-                                    <div class="comment-avatar">
-                                        <?php if (!empty($comment['profile_picture'])): ?>
-                                            <img src="../../<?php echo htmlspecialchars($comment['profile_picture']); ?>" alt="Profile Picture">
-                                        <?php else: ?>
-                                            <div class="default-avatar">
-                                                <?php echo strtoupper(substr($comment['user_name'], 0, 1)); ?>
+                    <div class="tab-container">
+                        <button class="tab-btn active" onclick="showTab('comments')">Comments</button>
+                        <button class="tab-btn" onclick="showTab('activity')">Activity Log</button>
+                    </div>
+                    <div id="comments-tab" class="tab-content active">
+                        <?php if (empty($comments)): ?>
+                            <div class="empty-state">
+                                <i class="fas fa-comments"></i>
+                                <p>No comments yet</p>
+                            </div>
+                        <?php else: ?>
+                            <div class="comments-list">
+                                <?php foreach ($comments as $comment): ?>
+                                    <div class="comment-item <?php echo $comment['is_internal'] ? 'internal-comment' : ''; ?>">
+                                        <div class="comment-avatar">
+                                            <?php if (!empty($comment['profile_picture'])): ?>
+                                                <img src="../../<?php echo htmlspecialchars($comment['profile_picture']); ?>" alt="Profile Picture">
+                                            <?php else: ?>
+                                                <div class="default-avatar">
+                                                    <?php echo strtoupper(substr($comment['user_name'], 0, 1)); ?>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="comment-content">
+                                            <div class="comment-header">
+                                                <div class="comment-author">
+                                                    <span class="author-name"><?php echo htmlspecialchars($comment['user_name']); ?></span>
+                                                    <span class="author-role"><?php echo ucfirst($comment['user_type']); ?></span>
+                                                    <?php if ($comment['is_internal']): ?>
+                                                        <span class="internal-badge">Internal</span>
+                                                    <?php endif; ?>
+                                                </div>
+                                                <div class="comment-date">
+                                                    <?php echo date('M d, Y h:i A', strtotime($comment['created_at'])); ?>
+                                                </div>
                                             </div>
-                                        <?php endif; ?>
-                                    </div>
-                                    
-                                    <div class="comment-content">
-                                        <div class="comment-header">
-                                            <div class="comment-author">
-                                                <span class="author-name"><?php echo htmlspecialchars($comment['user_name']); ?></span>
-                                                <span class="author-role"><?php echo ucfirst($comment['user_type']); ?></span>
-                                                <?php if ($comment['is_internal']): ?>
-                                                    <span class="internal-badge">Internal</span>
-                                                <?php endif; ?>
-                                            </div>
-                                            <div class="comment-date">
-                                                <?php echo date('M d, Y h:i A', strtotime($comment['created_at'])); ?>
+                                            <div class="comment-text">
+                                                <?php echo nl2br(htmlspecialchars($comment['comment'])); ?>
                                             </div>
                                         </div>
-                                        <div class="comment-text">
-                                            <?php echo nl2br(htmlspecialchars($comment['comment'])); ?>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    <div id="activity-tab" class="tab-content">
+                        <?php if (empty($activity_logs)): ?>
+                            <div class="empty-state">
+                                <i class="fas fa-history"></i>
+                                <p>No activity recorded yet</p>
+                            </div>
+                        <?php else: ?>
+                            <div class="timeline">
+                                <?php foreach ($activity_logs as $log): ?>
+                                    <div class="timeline-item">
+                                        <div class="timeline-marker 
+                                            <?php
+                                            switch ($log['activity_type']) {
+                                                case 'created': echo 'created'; break;
+                                                case 'status_changed': echo 'status-changed'; break;
+                                                case 'assigned': echo 'assigned'; break;
+                                                case 'document_added': case 'document_updated': echo 'document'; break;
+                                                case 'comment_added': echo 'comment'; break;
+                                                default: echo ''; break;
+                                            }
+                                            ?>">
+                                            <i class="fas 
+                                            <?php
+                                            switch ($log['activity_type']) {
+                                                case 'created': echo 'fa-plus'; break;
+                                                case 'status_changed': echo 'fa-exchange-alt'; break;
+                                                case 'assigned': echo 'fa-user-check'; break;
+                                                case 'document_added': echo 'fa-file-upload'; break;
+                                                case 'document_updated': echo 'fa-file-alt'; break;
+                                                case 'comment_added': echo 'fa-comment-dots'; break;
+                                                default: echo 'fa-circle'; break;
+                                            }
+                                            ?>"></i>
                                         </div>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-            
-            <!-- Activity Log Section -->
-            <div class="card">
-                <div class="card-header">
-                    <h3><i class="fas fa-history"></i> Activity Log</h3>
-                </div>
-                <div class="card-body">
-                    <?php if (empty($activity_logs)): ?>
-                        <div class="empty-state">
-                            <i class="fas fa-history"></i>
-                            <p>No activity recorded yet</p>
-                        </div>
-                    <?php else: ?>
-                        <div class="timeline">
-                            <?php foreach ($activity_logs as $log): ?>
-                                <div class="timeline-item">
-                                    <div class="timeline-marker 
-                                        <?php
-                                        switch ($log['activity_type']) {
-                                            case 'created': echo 'created'; break;
-                                            case 'status_changed': echo 'status-changed'; break;
-                                            case 'assigned': echo 'assigned'; break;
-                                            case 'document_added': case 'document_updated': echo 'document'; break;
-                                            case 'comment_added': echo 'comment'; break;
-                                            default: echo ''; break;
-                                        }
-                                        ?>">
-                                        <i class="fas 
-                                        <?php
-                                        switch ($log['activity_type']) {
-                                            case 'created': echo 'fa-plus'; break;
-                                            case 'status_changed': echo 'fa-exchange-alt'; break;
-                                            case 'assigned': echo 'fa-user-check'; break;
-                                            case 'document_added': echo 'fa-file-upload'; break;
-                                            case 'document_updated': echo 'fa-file-alt'; break;
-                                            case 'comment_added': echo 'fa-comment-dots'; break;
-                                            default: echo 'fa-circle'; break;
-                                        }
-                                        ?>"></i>
-                                    </div>
-                                    
-                                    <div class="timeline-content">
-                                        <div class="timeline-header">
-                                            <div class="timeline-user">
-                                                <?php echo htmlspecialchars($log['user_name']); ?>
+                                        
+                                        <div class="timeline-content">
+                                            <div class="timeline-header">
+                                                <div class="timeline-user">
+                                                    <?php echo htmlspecialchars($log['user_name']); ?>
+                                                </div>
+                                                <div class="timeline-date">
+                                                    <?php echo date('M d, Y h:i A', strtotime($log['created_at'])); ?>
+                                                </div>
                                             </div>
-                                            <div class="timeline-date">
-                                                <?php echo date('M d, Y h:i A', strtotime($log['created_at'])); ?>
+                                            <div class="timeline-body">
+                                                <?php echo htmlspecialchars($log['description']); ?>
                                             </div>
                                         </div>
-                                        <div class="timeline-body">
-                                            <?php echo htmlspecialchars($log['description']); ?>
-                                        </div>
                                     </div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1194,7 +1171,7 @@ if (isset($_GET['status_updated']) && $_GET['status_updated'] == '1') {
 /* Grid Layout */
 .grid-container {
     display: grid;
-    grid-template-columns: 1fr 1.5fr;
+    grid-template-columns: 1fr 2fr;
     gap: 20px;
 }
 
@@ -1209,7 +1186,10 @@ if (isset($_GET['status_updated']) && $_GET['status_updated'] == '1') {
     background-color: white;
     border-radius: 5px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-    overflow: hidden;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+    height: auto;
 }
 
 .card-header {
@@ -1232,6 +1212,8 @@ if (isset($_GET['status_updated']) && $_GET['status_updated'] == '1') {
 
 .card-body {
     padding: 20px;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .detail-group {
@@ -2046,6 +2028,38 @@ if (isset($_GET['status_updated']) && $_GET['status_updated'] == '1') {
         width: 100px;
     }
 }
+
+.tab-container {
+    display: flex;
+    gap: 0;
+    margin-bottom: 18px;
+    border-bottom: 1px solid var(--border-color);
+}
+.tab-btn {
+    background: none;
+    border: none;
+    outline: none;
+    padding: 10px 24px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: border-color 0.2s, color 0.2s;
+}
+.tab-btn.active {
+    border-bottom: 3px solid var(--primary-color);
+    color: var(--primary-color);
+    background: #f8f9fc;
+}
+.tab-content {
+    display: none;
+    max-height: 600px;
+    overflow-y: auto;
+}
+.tab-content.active {
+    display: block;
+}
 </style>
 
 <script>
@@ -2104,6 +2118,19 @@ window.onclick = function(event) {
         assignModal.style.display = 'none';
     } else if (event.target === documentModal) {
         documentModal.style.display = 'none';
+    }
+}
+
+function showTab(tab) {
+    document.getElementById('comments-tab').classList.remove('active');
+    document.getElementById('activity-tab').classList.remove('active');
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    if (tab === 'comments') {
+        document.getElementById('comments-tab').classList.add('active');
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+    } else {
+        document.getElementById('activity-tab').classList.add('active');
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
     }
 }
 </script>

@@ -78,7 +78,7 @@ $team_stmt->close();
 // Get all registered clients for assignment
 $clients_query = "SELECT u.id as user_id, u.first_name, u.last_name, u.email, u.status, u.profile_picture
                FROM users u
-               WHERE u.user_type = 'client' AND u.status = 'active'
+               WHERE u.user_type = 'applicant' AND u.status = 'active' AND u.deleted_at IS NULL
                ORDER BY u.first_name, u.last_name";
 $clients_stmt = $conn->prepare($clients_query);
 $clients_stmt->execute();

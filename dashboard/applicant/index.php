@@ -127,14 +127,7 @@ try {
             <h1>Welcome back, <?php echo htmlspecialchars($_SESSION["first_name"]); ?>!</h1>
             <p class="date-today"><?php echo date('l, F j, Y'); ?></p>
         </div>
-        <div class="quick-actions">
-            <a href="applications.php?action=new" class="action-btn primary">
-                <i class="fas fa-plus"></i> New Application
-            </a>
-            <a href="bookings.php?action=new" class="action-btn secondary">
-                <i class="fas fa-calendar-plus"></i> New Booking
-            </a>
-        </div>
+        
     </div>
     
     <!-- Stats Cards -->
@@ -212,7 +205,7 @@ try {
                                     <p class="country"><i class="fas fa-globe"></i> <?php echo htmlspecialchars($application['country_name']); ?></p>
                                     <p class="date"><i class="fas fa-clock"></i> Updated: <?php echo date('M j, Y', strtotime($application['updated_at'])); ?></p>
                                 </div>
-                                <a href="application_details.php?id=<?php echo $application['id']; ?>" class="btn-view">View Application</a>
+                                <a href="view_application.php?id=<?php echo $application['id']; ?>" class="btn-view">View Application</a>
                             </div>
                         <?php endforeach; ?>
                     </div>
@@ -282,17 +275,17 @@ try {
                 <i class="fas fa-file-upload"></i>
                 <span>Upload Documents</span>
             </a>
-            <a href="visa_requirements.php" class="quick-link-card">
-                <i class="fas fa-clipboard-list"></i>
-                <span>Visa Requirements</span>
+            <a href="bookings.php?action=new" class="quick-link-card">
+                <i class="fas fa-calendar-plus"></i>
+                <span>Book a Consultation</span>
             </a>
             <a href="messages.php" class="quick-link-card">
                 <i class="fas fa-comments"></i>
                 <span>Contact Support</span>
             </a>
-            <a href="ai-chat.php" class="quick-link-card">
-                <i class="fas fa-robot"></i>
-                <span>Visafy AI Assistant</span>
+            <a href="profile.php" class="quick-link-card">
+                <i class="fas fa-user"></i>
+                <span>My Profile</span>
             </a>
         </div>
     </div>
