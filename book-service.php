@@ -8,11 +8,14 @@ $page_title = "Book Immigration Assistant | Visafy";
 include 'includes/header.php';
 
 // Fetch team members with role "Immigration Assistant"
-$stmt = $conn->prepare("SELECT tm.*, u.first_name, u.last_name, u.email, u.profile_picture 
+$stmt = $conn->prepare("SELECT tm.*, u.first_name, u.last_name, u.email, u.profile_picture, 
+                         cp.years_of_experience, cp.bio, cp.specialty_areas
                         FROM team_members tm 
                         JOIN users u ON tm.user_id = u.id 
+                        JOIN consultant_profiles cp ON tm.id = cp.team_member_id
                         WHERE tm.role = 'Immigration Assistant' 
-                        AND u.status = 'active' 
+                        AND u.status = 'active'  -- Only active (admin approved) consultants
+                        AND u.email_verified = 1 -- Email must be verified
                         AND tm.deleted_at IS NULL 
                         AND u.deleted_at IS NULL
                         ORDER BY u.first_name, u.last_name");
@@ -40,7 +43,7 @@ $stmt->close();
             <p>No immigration assistants are currently available. Please check back later.</p>
         </div>
     <?php else: ?>
-        <div class="team-members-grid">
+        <div class="team-members-list">
             <?php foreach ($team_members as $member): ?>
                 <div class="team-member-card">
                     <div class="team-member-image">
@@ -119,9 +122,9 @@ $stmt->close();
     margin: 0 auto;
 }
 
-.team-members-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+.team-members-list {
+    display: flex;
+    flex-direction: column;
     gap: 30px;
 }
 
@@ -131,6 +134,8 @@ $stmt->close();
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
     overflow: hidden;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
+    display: flex;
+    flex-direction: row;
 }
 
 .team-member-card:hover {
@@ -139,7 +144,8 @@ $stmt->close();
 }
 
 .team-member-image {
-    height: 200px;
+    width: 150px;
+    flex-shrink: 0;
     overflow: hidden;
     position: relative;
 }
@@ -156,7 +162,8 @@ $stmt->close();
 }
 
 .team-member-info {
-    padding: 20px;
+    padding: 25px;
+    flex-grow: 1;
 }
 
 .team-member-info h3 {
@@ -193,10 +200,13 @@ $stmt->close();
 }
 
 .team-member-actions {
-    padding: 0 20px 20px;
+    padding: 25px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    justify-content: center;
+    gap: 15px;
+    /* border-left: 1px solid var(--border-color); */
+    min-width: 180px;
 }
 
 .btn {
@@ -252,8 +262,19 @@ $stmt->close();
 }
 
 @media (max-width: 768px) {
-    .team-members-grid {
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    .team-member-card {
+        flex-direction: column;
+    }
+    
+    .team-member-image {
+        width: 100%;
+        height: 200px;
+    }
+    
+    .team-member-actions {
+        border-left: none;
+        border-top: 1px solid var(--border-color);
+        padding: 20px;
     }
     
     .header-container h1 {
@@ -266,8 +287,8 @@ $stmt->close();
 }
 
 @media (max-width: 480px) {
-    .team-members-grid {
-        grid-template-columns: 1fr;
+    .team-member-card {
+        flex-direction: column;
     }
 }
 </style>

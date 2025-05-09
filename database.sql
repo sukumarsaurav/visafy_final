@@ -376,3 +376,149 @@ DELIMITER ;
 
 ALTER TABLE task_assignments 
 ADD COLUMN deleted_at datetime DEFAULT NULL AFTER updated_at;
+
+-- Create a new table for consultant professional information
+CREATE TABLE `consultant_profiles` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `team_member_id` int(11) NOT NULL,
+  `license_number` varchar(100) DEFAULT NULL,
+  `license_expiry` date DEFAULT NULL,
+  `license_type` varchar(100) DEFAULT NULL,
+  `years_of_experience` int(11) DEFAULT NULL,
+  `bio` text DEFAULT NULL,
+  `education` text DEFAULT NULL,
+  `specialty_areas` text DEFAULT NULL COMMENT 'JSON array of visa/immigration specialties',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `team_member_id` (`team_member_id`),
+  CONSTRAINT `consultant_profiles_team_member_id_fk` FOREIGN KEY (`team_member_id`) REFERENCES `team_members` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Create a table for consultant languages
+CREATE TABLE `consultant_languages` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `consultant_profile_id` int(11) NOT NULL,
+  `language` varchar(50) NOT NULL,
+  `proficiency_level` enum('basic','intermediate','fluent','native') NOT NULL DEFAULT 'fluent',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `consultant_profile_id` (`consultant_profile_id`),
+  CONSTRAINT `consultant_languages_profile_id_fk` FOREIGN KEY (`consultant_profile_id`) REFERENCES `consultant_profiles` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Create a table for consultant certification and credentials
+CREATE TABLE `consultant_certifications` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `consultant_profile_id` int(11) NOT NULL,
+  `certification_name` varchar(100) NOT NULL,
+  `issuing_authority` varchar(100) NOT NULL,
+  `issue_date` date NOT NULL,
+  `expiry_date` date DEFAULT NULL,
+  `verification_url` varchar(255) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `consultant_profile_id` (`consultant_profile_id`),
+  CONSTRAINT `consultant_certifications_profile_id_fk` FOREIGN KEY (`consultant_profile_id`) REFERENCES `consultant_profiles` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Create table for consultant reviews
+CREATE TABLE `consultant_reviews` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `team_member_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL COMMENT 'Applicant who left the review',
+  `booking_id` int(11) DEFAULT NULL COMMENT 'Related booking if applicable',
+  `application_id` int(11) DEFAULT NULL COMMENT 'Related application if applicable',
+  `rating` tinyint(1) NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  `review_text` text DEFAULT NULL,
+  `is_anonymous` tinyint(1) NOT NULL DEFAULT 0,
+  `is_public` tinyint(1) NOT NULL DEFAULT 1,
+  `status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  `review_date` datetime NOT NULL DEFAULT current_timestamp(),
+  `admin_response` text DEFAULT NULL,
+  `responded_by` int(11) DEFAULT NULL,
+  `responded_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `team_member_id` (`team_member_id`),
+  KEY `user_id` (`user_id`),
+  KEY `booking_id` (`booking_id`),
+  KEY `application_id` (`application_id`),
+  KEY `responded_by` (`responded_by`),
+  CONSTRAINT `consultant_reviews_team_member_id_fk` FOREIGN KEY (`team_member_id`) REFERENCES `team_members` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `consultant_reviews_user_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `consultant_reviews_booking_id_fk` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `consultant_reviews_application_id_fk` FOREIGN KEY (`application_id`) REFERENCES `applications` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `consultant_reviews_responded_by_fk` FOREIGN KEY (`responded_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Create table for consultant services (which visa services they can provide)
+CREATE TABLE `consultant_services` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `team_member_id` int(11) NOT NULL,
+  `visa_service_id` int(11) NOT NULL,
+  `is_featured` tinyint(1) NOT NULL DEFAULT 0,
+  `custom_fee_adjustment` decimal(10,2) DEFAULT NULL COMMENT 'Additional fee this consultant may charge',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `team_member_visa_service` (`team_member_id`, `visa_service_id`),
+  KEY `visa_service_id` (`visa_service_id`),
+  CONSTRAINT `consultant_services_team_member_id_fk` FOREIGN KEY (`team_member_id`) REFERENCES `team_members` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `consultant_services_visa_service_id_fk` FOREIGN KEY (`visa_service_id`) REFERENCES `visa_services` (`visa_service_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Create a view to display consultant information with ratings
+CREATE OR REPLACE VIEW consultant_profiles_view AS
+SELECT 
+    cp.id AS consultant_profile_id,
+    tm.id AS team_member_id,
+    u.id AS user_id,
+    CONCAT(u.first_name, ' ', u.last_name) AS consultant_name,
+    tm.role,
+    tm.custom_role_name,
+    u.email,
+    u.profile_picture,
+    tm.phone,
+    cp.license_number,
+    cp.license_expiry,
+    cp.license_type,
+    cp.years_of_experience,
+    cp.bio,
+    cp.education,
+    cp.specialty_areas,
+    ROUND(AVG(cr.rating), 1) AS average_rating,
+    COUNT(cr.id) AS review_count,
+    (SELECT GROUP_CONCAT(DISTINCT cl.language ORDER BY cl.language SEPARATOR ', ')
+     FROM consultant_languages cl 
+     WHERE cl.consultant_profile_id = cp.id) AS languages,
+    (SELECT COUNT(DISTINCT cs.visa_service_id) 
+     FROM consultant_services cs 
+     WHERE cs.team_member_id = tm.id) AS service_count,
+    (SELECT GROUP_CONCAT(DISTINCT v.visa_type ORDER BY v.visa_type SEPARATOR ', ')
+     FROM consultant_services cs 
+     JOIN visa_services vs ON cs.visa_service_id = vs.visa_service_id
+     JOIN visas v ON vs.visa_id = v.visa_id
+     WHERE cs.team_member_id = tm.id) AS visa_types
+FROM 
+    team_members tm
+JOIN 
+    users u ON tm.user_id = u.id
+LEFT JOIN 
+    consultant_profiles cp ON tm.id = cp.team_member_id
+LEFT JOIN 
+    consultant_reviews cr ON tm.id = cr.team_member_id AND cr.status = 'approved'
+WHERE 
+    tm.role = 'Immigration Assistant'
+    AND u.status = 'active'
+    AND tm.deleted_at IS NULL
+    AND u.deleted_at IS NULL
+GROUP BY 
+    cp.id, tm.id, u.id, u.first_name, u.last_name, tm.role, 
+    tm.custom_role_name, u.email, u.profile_picture, tm.phone,
+    cp.license_number, cp.license_expiry, cp.license_type,
+    cp.years_of_experience, cp.bio, cp.education, cp.specialty_areas;
+
+-- Modify the existing member registration process in become-member.php to include additional fields
+-- (This would be added to the PHP file, around line 80 where the team member record is created)
+

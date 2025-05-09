@@ -357,6 +357,13 @@ if (isset($_GET['success'])) {
                                     </button>
                                 <?php endif; ?>
                                 
+                                <?php if ($member['status'] === 'suspended' && $member['email_verified'] === 1): ?>
+                                    <button type="button" class="btn-action btn-approve" 
+                                            title="Approve Consultant" onclick="confirmAction('approve', <?php echo $member['id']; ?>, <?php echo $member['user_id']; ?>)">
+                                        <i class="fas fa-user-check"></i> Approve
+                                    </button>
+                                <?php endif; ?>
+                                
                                 <a href="edit_member.php?id=<?php echo $member['id']; ?>" class="btn-action btn-edit" title="Edit">
                                     <i class="fas fa-edit"></i>
                                 </a>
@@ -443,6 +450,12 @@ if (isset($_GET['success'])) {
     <input type="hidden" name="member_id" id="resend_member_id">
     <input type="hidden" name="user_id" id="resend_user_id">
     <input type="hidden" name="resend_invite" value="1">
+</form>
+
+<form id="approveForm" action="team.php" method="POST" style="display: none;">
+    <input type="hidden" name="member_id" id="approve_member_id">
+    <input type="hidden" name="user_id" id="approve_user_id">
+    <input type="hidden" name="approve_member" value="1">
 </form>
 
 <style>
@@ -875,6 +888,13 @@ function confirmAction(action, memberId, userId) {
                 document.getElementById('resend_member_id').value = memberId;
                 document.getElementById('resend_user_id').value = userId;
                 document.getElementById('resendForm').submit();
+            }
+            break;
+        case 'approve':
+            if (confirm('Approve this team member?')) {
+                document.getElementById('approve_member_id').value = memberId;
+                document.getElementById('approve_user_id').value = userId;
+                document.getElementById('approveForm').submit();
             }
             break;
     }

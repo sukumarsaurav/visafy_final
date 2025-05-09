@@ -1,5 +1,6 @@
 <?php
 $page_title = "Become a Member | Visafy Immigration Consultancy";
+require_once 'config/db_connect.php';
 include('includes/functions.php');
 include('includes/header.php');
 
@@ -14,6 +15,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_member'])) {
     $phone = isset($_POST['phone']) ? trim($_POST['phone']) : '';
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
+    
+    // Get consultant profile fields
+    $license_number = isset($_POST['license_number']) ? trim($_POST['license_number']) : null;
+    $license_type = isset($_POST['license_type']) ? trim($_POST['license_type']) : null;
+    $license_expiry = isset($_POST['license_expiry']) ? trim($_POST['license_expiry']) : null;
+    $years_experience = isset($_POST['years_experience']) ? intval($_POST['years_experience']) : null;
+    $bio = isset($_POST['bio']) ? trim($_POST['bio']) : null;
+    $education = isset($_POST['education']) ? trim($_POST['education']) : null;
+    $specialty_areas = isset($_POST['specialty_areas']) ? json_encode($_POST['specialty_areas']) : null;
+    
+    // Language proficiency (stored as array)
+    $languages = [];
+    if (isset($_POST['languages']) && is_array($_POST['languages'])) {
+        foreach ($_POST['languages'] as $idx => $language) {
+            if (!empty($language) && isset($_POST['proficiency'][$idx])) {
+                $languages[$language] = $_POST['proficiency'][$idx];
+            }
+        }
+    }
     
     // Validate inputs
     $errors = [];
@@ -61,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_member'])) {
         $conn->begin_transaction();
         
         try {
-            // Create user with pending status
+            // Create user with pending status - note status is suspended until admin verification
             $user_insert = "INSERT INTO users (first_name, last_name, email, password, user_type, email_verified, email_verification_token, email_verification_expires, status) 
                           VALUES (?, ?, ?, ?, 'member', 0, ?, ?, 'suspended')";
             $stmt = $conn->prepare($user_insert);
@@ -77,7 +97,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_member'])) {
             $stmt = $conn->prepare($member_insert);
             $stmt->bind_param('iss', $user_id, $phone, $role);
             $stmt->execute();
+            $team_member_id = $conn->insert_id;
             $stmt->close();
+            
+            // Create consultant profile record
+            $consultant_profile_insert = "INSERT INTO consultant_profiles (
+                team_member_id, license_number, license_expiry, license_type, 
+                years_of_experience, bio, education, specialty_areas
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            $stmt = $conn->prepare($consultant_profile_insert);
+            $stmt->bind_param('isssssss', 
+                $team_member_id, 
+                $license_number,
+                $license_expiry, 
+                $license_type, 
+                $years_experience, 
+                $bio,
+                $education,
+                $specialty_areas
+            );
+            $stmt->execute();
+            $consultant_profile_id = $conn->insert_id;
+            $stmt->close();
+            
+            // Add languages for the consultant
+            if (!empty($languages)) {
+                foreach($languages as $language => $proficiency) {
+                    $lang_insert = "INSERT INTO consultant_languages (
+                        consultant_profile_id, language, proficiency_level
+                    ) VALUES (?, ?, ?)";
+                    $stmt = $conn->prepare($lang_insert);
+                    $stmt->bind_param('iss', $consultant_profile_id, $language, $proficiency);
+                    $stmt->execute();
+                    $stmt->close();
+                }
+            }
             
             // Send verification email
             $verify_link = "https://" . $_SERVER['HTTP_HOST'] . "/activate.php?token=" . $token;
@@ -485,9 +539,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_member'])) {
     </div>
 </section>
 
-<!-- Registration Modal -->
+<!-- Registration Modal - UPDATED with additional fields -->
 <div class="modal" id="registerModal">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h3 class="modal-title">Apply to Become a Partner</h3>
@@ -499,13 +553,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_member'])) {
                         <i class="fas fa-check-circle"></i>
                         <h4>Application Submitted!</h4>
                         <p>Thank you for applying to become a Visafy partner. We've sent a verification email to your inbox. Please verify your email to complete the first step of your application.</p>
-                        <p>Our admin team will review your application after verification.</p>
+                        <p>Our admin team will review your application after verification. You will be able to access the platform after admin approval.</p>
                     </div>
                 <?php else: ?>
                     <?php if (!empty($registration_error)): ?>
                         <div class="alert alert-danger"><?php echo $registration_error; ?></div>
                     <?php endif; ?>
                     <form action="become-member.php" method="POST" id="registerForm">
+                        <h4 class="section-title">Personal Information</h4>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="first_name">First Name*</label>
@@ -524,6 +579,96 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_member'])) {
                             <label for="phone">Phone Number</label>
                             <input type="tel" name="phone" id="phone" class="form-control">
                         </div>
+                        
+                        <h4 class="section-title">Professional Information</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="license_number">License Number</label>
+                                <input type="text" name="license_number" id="license_number" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="license_type">License Type</label>
+                                <input type="text" name="license_type" id="license_type" class="form-control" placeholder="e.g., ICCRC, CICC">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="license_expiry">License Expiry Date</label>
+                                <input type="date" name="license_expiry" id="license_expiry" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="years_experience">Years of Experience</label>
+                                <input type="number" name="years_experience" id="years_experience" class="form-control" min="0" max="50">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="education">Education</label>
+                            <textarea name="education" id="education" class="form-control" rows="2" placeholder="e.g., Bachelor in Law, Immigration Consultant Diploma"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="bio">Professional Bio</label>
+                            <textarea name="bio" id="bio" class="form-control" rows="3" placeholder="Brief description of your experience and expertise"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Specialty Areas</label>
+                            <div class="specialty-areas-container">
+                                <div class="checkbox-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" name="specialty_areas[]" value="Study Permits">
+                                        <span>Study Permits</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" name="specialty_areas[]" value="Work Permits">
+                                        <span>Work Permits</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" name="specialty_areas[]" value="Express Entry">
+                                        <span>Express Entry</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" name="specialty_areas[]" value="Business Immigration">
+                                        <span>Business Immigration</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" name="specialty_areas[]" value="Family Sponsorship">
+                                        <span>Family Sponsorship</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" name="specialty_areas[]" value="Refugee Claims">
+                                        <span>Refugee Claims</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Languages</label>
+                            <div id="languages-container">
+                                <div class="language-row">
+                                    <div class="form-row">
+                                        <div class="form-group language-input">
+                                            <input type="text" name="languages[]" class="form-control" placeholder="Language">
+                                        </div>
+                                        <div class="form-group proficiency-select">
+                                            <select name="proficiency[]" class="form-control">
+                                                <option value="basic">Basic</option>
+                                                <option value="intermediate">Intermediate</option>
+                                                <option value="fluent" selected>Fluent</option>
+                                                <option value="native">Native</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group language-actions">
+                                            <button type="button" class="btn btn-sm add-language-btn"><i class="fas fa-plus"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <h4 class="section-title">Account Security</h4>
                         <div class="form-group">
                             <label for="password">Password*</label>
                             <input type="password" name="password" id="password" class="form-control" required minlength="8">
@@ -1378,6 +1523,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_member'])) {
         width: auto;
     }
 }
+
+/* Additional styles for the enhanced registration form */
+.modal-dialog.modal-lg {
+    max-width: 800px;
+}
+
+.section-title {
+    color: var(--primary-color);
+    margin: 25px 0 15px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.specialty-areas-container {
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 15px;
+    background-color: #f9f9f9;
+}
+
+.checkbox-group {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.language-row {
+    margin-bottom: 10px;
+}
+
+.form-row .language-input {
+    flex: 2;
+}
+
+.form-row .proficiency-select {
+    flex: 1;
+}
+
+.form-row .language-actions {
+    flex: 0 0 40px;
+    display: flex;
+    align-items: center;
+}
+
+.add-language-btn,
+.remove-language-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+}
+
+.add-language-btn {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.remove-language-btn {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+@media (max-width: 768px) {
+    .checkbox-group {
+        grid-template-columns: 1fr;
+    }
+}
 </style>
 
 <script>
@@ -1488,6 +1711,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register_member'])) {
             once: true
         });
     }
+
+    // Add script for dynamic language fields
+    document.addEventListener('DOMContentLoaded', function() {
+        const languagesContainer = document.getElementById('languages-container');
+        
+        // Add language field
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('add-language-btn') || e.target.parentElement.classList.contains('add-language-btn')) {
+                const btn = e.target.closest('.add-language-btn');
+                const languageRow = btn.closest('.language-row');
+                
+                // Create new language row
+                const newRow = document.createElement('div');
+                newRow.className = 'language-row';
+                newRow.innerHTML = `
+                    <div class="form-row">
+                        <div class="form-group language-input">
+                            <input type="text" name="languages[]" class="form-control" placeholder="Language">
+                        </div>
+                        <div class="form-group proficiency-select">
+                            <select name="proficiency[]" class="form-control">
+                                <option value="basic">Basic</option>
+                                <option value="intermediate">Intermediate</option>
+                                <option value="fluent" selected>Fluent</option>
+                                <option value="native">Native</option>
+                            </select>
+                        </div>
+                        <div class="form-group language-actions">
+                            <button type="button" class="btn btn-sm remove-language-btn"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                `;
+                
+                // Insert after current row
+                languageRow.parentNode.insertBefore(newRow, languageRow.nextSibling);
+            }
+            
+            // Remove language field
+            if (e.target.classList.contains('remove-language-btn') || e.target.parentElement.classList.contains('remove-language-btn')) {
+                const btn = e.target.closest('.remove-language-btn');
+                const languageRow = btn.closest('.language-row');
+                languageRow.remove();
+            }
+        });
+    });
 </script>
 
 <?php include('includes/footer.php'); ?>

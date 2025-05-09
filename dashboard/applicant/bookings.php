@@ -125,6 +125,59 @@ if ($past_result && $past_result->num_rows > 0) {
 }
 $stmt->close();
 
+// Get available consultants (Immigration Assistants with active accounts)
+$query = "SELECT tm.id as team_member_id, u.id as user_id, 
+          u.first_name, u.last_name, u.profile_picture,
+          cp.bio, cp.specialty_areas, cp.years_of_experience, cp.license_type,
+          ROUND(AVG(IFNULL(cr.rating, 0)), 1) as average_rating,
+          COUNT(cr.id) as review_count
+          FROM team_members tm
+          JOIN users u ON tm.user_id = u.id
+          LEFT JOIN consultant_profiles cp ON tm.id = cp.team_member_id
+          LEFT JOIN consultant_reviews cr ON tm.id = cr.team_member_id AND cr.status = 'approved'
+          WHERE tm.role = 'Immigration Assistant'
+          AND u.status = 'active'
+          AND tm.deleted_at IS NULL
+          AND u.deleted_at IS NULL
+          GROUP BY tm.id, u.id, u.first_name, u.last_name, u.profile_picture, 
+                   cp.bio, cp.specialty_areas, cp.years_of_experience, cp.license_type
+          ORDER BY average_rating DESC";
+          
+$stmt = $conn->prepare($query);
+$stmt->execute();
+$consultants_result = $stmt->get_result();
+$consultants = [];
+
+if ($consultants_result && $consultants_result->num_rows > 0) {
+    while ($row = $consultants_result->fetch_assoc()) {
+        // Parse specialty areas if available
+        if (!empty($row['specialty_areas'])) {
+            $row['specialty_areas_array'] = json_decode($row['specialty_areas'], true) ?? [];
+        } else {
+            $row['specialty_areas_array'] = [];
+        }
+        
+        // Get consultant languages
+        $languages_query = "SELECT cl.language, cl.proficiency_level 
+                           FROM consultant_languages cl
+                           JOIN consultant_profiles cp ON cl.consultant_profile_id = cp.id
+                           WHERE cp.team_member_id = ?";
+        $lang_stmt = $conn->prepare($languages_query);
+        $lang_stmt->bind_param('i', $row['team_member_id']);
+        $lang_stmt->execute();
+        $languages_result = $lang_stmt->get_result();
+        
+        $row['languages'] = [];
+        while ($lang = $languages_result->fetch_assoc()) {
+            $row['languages'][] = $lang;
+        }
+        $lang_stmt->close();
+        
+        $consultants[] = $row;
+    }
+}
+$stmt->close();
+
 // Function to get available time slots
 function getAvailableTimeSlots($conn, $service_id, $consultation_mode_id, $selected_date) {
     try {
@@ -611,6 +664,119 @@ if (isset($_GET['success'])) {
                                     onclick="viewBookingDetails(<?php echo $booking['id']; ?>)">
                                 <i class="fas fa-info-circle"></i> Details
                             </button>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- Our Immigration Consultants -->
+    <div class="section">
+        <div class="section-header">
+            <h2>Our Immigration Consultants</h2>
+            <span class="subtitle">Choose from our experienced immigration specialists</span>
+        </div>
+        
+        <div class="consultants-list">
+            <?php if (empty($consultants)): ?>
+                <div class="empty-state">
+                    <i class="fas fa-users"></i>
+                    <p>No consultants are available at the moment.</p>
+                </div>
+            <?php else: ?>
+                <?php foreach ($consultants as $consultant): ?>
+                    <div class="consultant-card horizontal">
+                        <div class="consultant-photo">
+                            <?php if (!empty($consultant['profile_picture'])): ?>
+                                <img src="../../uploads/profiles/<?php echo htmlspecialchars($consultant['profile_picture']); ?>" alt="<?php echo htmlspecialchars($consultant['first_name'] . ' ' . $consultant['last_name']); ?>">
+                            <?php else: ?>
+                                <div class="consultant-initials">
+                                    <?php echo substr($consultant['first_name'], 0, 1) . substr($consultant['last_name'], 0, 1); ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <div class="consultant-content">
+                            <div class="consultant-header">
+                                <h3><?php echo htmlspecialchars($consultant['first_name'] . ' ' . $consultant['last_name']); ?></h3>
+                                <div class="consultant-rating">
+                                    <div class="stars">
+                                        <?php for ($i = 1; $i <= 5; $i++): ?>
+                                            <?php if ($i <= floor($consultant['average_rating'])): ?>
+                                                <i class="fas fa-star"></i>
+                                            <?php elseif ($i - 0.5 <= $consultant['average_rating']): ?>
+                                                <i class="fas fa-star-half-alt"></i>
+                                            <?php else: ?>
+                                                <i class="far fa-star"></i>
+                                            <?php endif; ?>
+                                        <?php endfor; ?>
+                                    </div>
+                                    <span class="rating-text"><?php echo $consultant['average_rating']; ?> (<?php echo $consultant['review_count']; ?> reviews)</span>
+                                </div>
+                            </div>
+                            
+                            <div class="consultant-details">
+                                <?php if (!empty($consultant['license_type'])): ?>
+                                    <div class="detail-badge">
+                                        <i class="fas fa-certificate"></i> <?php echo htmlspecialchars($consultant['license_type']); ?>
+                                    </div>
+                                <?php endif; ?>
+                                <?php if (!empty($consultant['years_of_experience'])): ?>
+                                    <div class="detail-badge">
+                                        <i class="fas fa-briefcase"></i> <?php echo $consultant['years_of_experience']; ?> years
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                            
+                            <?php if (!empty($consultant['bio'])): ?>
+                                <div class="consultant-bio">
+                                    <?php echo nl2br(htmlspecialchars(substr($consultant['bio'], 0, 200) . (strlen($consultant['bio']) > 200 ? '...' : ''))); ?>
+                                </div>
+                            <?php endif; ?>
+                            
+                            <div class="consultant-footer">
+                                <?php if (!empty($consultant['specialty_areas_array'])): ?>
+                                    <div class="specialties">
+                                        <span class="specialties-label">Specialties:</span>
+                                        <div class="specialty-tags">
+                                            <?php foreach(array_slice($consultant['specialty_areas_array'], 0, 4) as $specialty): ?>
+                                                <span class="specialty-tag"><?php echo htmlspecialchars($specialty); ?></span>
+                                            <?php endforeach; ?>
+                                            <?php if (count($consultant['specialty_areas_array']) > 4): ?>
+                                                <span class="specialty-tag more">+<?php echo count($consultant['specialty_areas_array']) - 4; ?> more</span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                                
+                                <?php if (!empty($consultant['languages'])): ?>
+                                    <div class="languages">
+                                        <span class="languages-label">Languages:</span>
+                                        <div class="language-list">
+                                            <?php foreach(array_slice($consultant['languages'], 0, 3) as $language): ?>
+                                                <span class="language-item">
+                                                    <?php echo htmlspecialchars($language['language']); ?> 
+                                                    <small>(<?php echo ucfirst($language['proficiency_level']); ?>)</small>
+                                                </span>
+                                            <?php endforeach; ?>
+                                            <?php if (count($consultant['languages']) > 3): ?>
+                                                <span class="language-item more">+<?php echo count($consultant['languages']) - 3; ?> more</span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        
+                        <div class="consultant-actions-column">
+                            <button type="button" class="btn btn-select-consultant" 
+                                    onclick="selectConsultant(<?php echo $consultant['team_member_id']; ?>, '<?php echo htmlspecialchars($consultant['first_name'] . ' ' . $consultant['last_name']); ?>')">
+                                <i class="fas fa-calendar-check"></i> Book Consultation
+                            </button>
+                            <a href="view_consultant.php?id=<?php echo $consultant['team_member_id']; ?>" class="btn-view-profile">
+                                <i class="fas fa-user"></i> View Profile
+                            </a>
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -1152,6 +1318,272 @@ if (isset($_GET['success'])) {
         margin: 60px 15px;
     }
 }
+
+/* Consultants List Section */
+.consultants-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-top: 20px;
+    padding: 20px;
+}
+
+.consultant-card.horizontal {
+    display: grid;
+    grid-template-columns: 180px 1fr 200px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.consultant-card.horizontal:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.consultant-card.horizontal .consultant-photo {
+    width: 100%;
+    height: 100%;
+    background-color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 220px;
+}
+
+.consultant-card.horizontal .consultant-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.consultant-card.horizontal .consultant-initials {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 50px;
+    font-weight: 600;
+}
+
+.consultant-card.horizontal .consultant-content {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+   
+}
+
+.consultant-card.horizontal .consultant-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 12px;
+}
+
+.consultant-card.horizontal h3 {
+    margin: 0;
+    font-size: 1.3rem;
+    color: var(--primary-color);
+    white-space: nowrap;
+}
+
+.consultant-rating {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.stars {
+    color: #ffc107;
+    font-size: 0.9rem;
+}
+
+.rating-text {
+    font-size: 0.8rem;
+    color: var(--secondary-color);
+}
+
+.consultant-card.horizontal .consultant-details {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.detail-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    background-color: rgba(4, 33, 103, 0.1);
+    border-radius: 15px;
+    font-size: 0.85rem;
+    color: var(--primary-color);
+}
+
+.consultant-bio {
+    font-size: 0.95rem;
+    color: var(--dark-color);
+    line-height: 1.5;
+    margin-bottom: 15px;
+    flex: 1;
+}
+
+.consultant-footer {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding-top: 4px;
+    margin-top: auto;
+}
+
+.specialties, .languages {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.specialties-label, .languages-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--dark-color);
+}
+
+.specialty-tags, .language-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.specialty-tag {
+    padding: 3px 8px;
+    background-color: rgba(4, 33, 103, 0.05);
+    color: var(--primary-color);
+    font-size: 0.8rem;
+    border-radius: 12px;
+}
+
+.language-item {
+    padding: 3px 8px;
+    background-color: rgba(70, 130, 180, 0.05);
+    color: #4682b4;
+    font-size: 0.8rem;
+    border-radius: 12px;
+}
+
+.specialty-tag.more {
+    background-color: var(--light-color);
+    color: var(--secondary-color);
+}
+
+.language-item.more {
+    background-color: var(--light-color);
+    color: var(--secondary-color);
+}
+
+.language-item small {
+    color: inherit;
+    opacity: 0.8;
+}
+
+.section .subtitle {
+    color: var(--secondary-color);
+    font-size: 0.9rem;
+    margin-left: 10px;
+}
+
+.consultant-actions-column {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 15px;
+    padding: 20px;
+    
+}
+
+.btn-select-consultant {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 12px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background-color 0.2s;
+}
+
+.btn-select-consultant:hover {
+    background-color: #031c56;
+}
+
+.btn-view-profile {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 15px;
+    border: 1px solid var(--primary-color);
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.btn-view-profile:hover {
+    background-color: rgba(4, 33, 103, 0.05);
+    text-decoration: none;
+}
+
+/* Responsive design */
+@media (max-width: 992px) {
+    .consultant-card.horizontal {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+    }
+    
+    .consultant-card.horizontal .consultant-photo {
+        height: 150px;
+    }
+    
+    .consultant-card.horizontal .consultant-content {
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .consultant-actions-column {
+        flex-direction: row;
+    }
+    
+    .btn-select-consultant, .btn-view-profile {
+        flex: 1;
+    }
+}
+
+@media (max-width: 576px) {
+    .consultant-card.horizontal .consultant-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    .consultant-footer {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .consultant-actions-column {
+        flex-direction: column;
+    }
+}
 </style>
 
 <script>
@@ -1460,6 +1892,36 @@ function formatTime(timeString) {
 function viewBookingDetails(bookingId) {
     // Redirect to booking details page or show details in a modal
     window.location.href = `booking_details.php?id=${bookingId}`;
+}
+
+// Add function to handle consultant selection
+function selectConsultant(consultantId, consultantName) {
+    // Open the booking modal
+    document.getElementById('createBookingBtn').click();
+    
+    // Store the selected consultant ID in a hidden field
+    if (!document.getElementById('selected_consultant_id')) {
+        const hiddenField = document.createElement('input');
+        hiddenField.type = 'hidden';
+        hiddenField.id = 'selected_consultant_id';
+        hiddenField.name = 'selected_consultant_id';
+        document.getElementById('createBookingForm').appendChild(hiddenField);
+    }
+    
+    document.getElementById('selected_consultant_id').value = consultantId;
+    
+    // Add a note to the form indicating the consultant selection
+    const noteText = `I would like to book with ${consultantName}`;
+    
+    // Set the note in the client_notes field, preserving any existing content
+    const clientNotesField = document.getElementById('client_notes');
+    if (clientNotesField.value) {
+        if (!clientNotesField.value.includes(noteText)) {
+            clientNotesField.value += '\n\n' + noteText;
+        }
+    } else {
+        clientNotesField.value = noteText;
+    }
 }
 </script>
 

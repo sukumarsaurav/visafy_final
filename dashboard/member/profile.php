@@ -8,7 +8,8 @@ require_once 'includes/header.php';
 
 // Get user data including team member details
 try {
-    $query = "SELECT u.*, tm.role, tm.custom_role_name, tm.phone as tm_phone, c.country_name 
+    $query = "SELECT u.*, tm.role, tm.custom_role_name, tm.phone as tm_phone, c.country_name, 
+              tm.id as team_member_id
               FROM users u
               JOIN team_members tm ON u.id = tm.user_id
               LEFT JOIN countries c ON u.country_id = c.country_id 
@@ -23,6 +24,48 @@ try {
     // Use team member phone if user phone is empty
     if (empty($user_data['phone']) && !empty($user_data['tm_phone'])) {
         $user_data['phone'] = $user_data['tm_phone'];
+    }
+    
+    // Check if user is a consultant (Immigration Assistant)
+    $is_consultant = ($user_data['role'] === 'Immigration Assistant');
+    
+    // Get consultant profile data if applicable
+    if ($is_consultant) {
+        $query = "SELECT * FROM consultant_profiles WHERE team_member_id = ?";
+        $stmt = $conn->prepare($query);
+        $stmt->bind_param('i', $user_data['team_member_id']);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows > 0) {
+            $consultant_data = $result->fetch_assoc();
+        } else {
+            // Initialize empty consultant data
+            $consultant_data = [
+                'license_number' => '',
+                'license_expiry' => '',
+                'license_type' => '',
+                'years_of_experience' => '',
+                'bio' => '',
+                'education' => '',
+                'specialty_areas' => ''
+            ];
+        }
+        $stmt->close();
+        
+        // Get consultant languages
+        $query = "SELECT language, proficiency_level FROM consultant_languages 
+                  WHERE consultant_profile_id = (SELECT id FROM consultant_profiles WHERE team_member_id = ?)";
+        $stmt = $conn->prepare($query);
+        $stmt->bind_param('i', $user_data['team_member_id']);
+        $stmt->execute();
+        $lang_result = $stmt->get_result();
+        
+        $languages = [];
+        while ($lang = $lang_result->fetch_assoc()) {
+            $languages[] = $lang;
+        }
+        $stmt->close();
     }
 } catch (Exception $e) {
     error_log("Error fetching user data: " . $e->getMessage());
@@ -42,6 +85,7 @@ try {
         'custom_role_name' => '',
         'created_at' => date('Y-m-d H:i:s')
     ];
+    $is_consultant = false;
 }
 
 // Get role display name
@@ -117,6 +161,103 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         $stmt->execute();
         $stmt->close();
         
+        // If user is consultant, update consultant profile
+        if ($is_consultant) {
+            $license_number = trim($_POST['license_number']);
+            $license_type = trim($_POST['license_type']);
+            $license_expiry = !empty($_POST['license_expiry']) ? $_POST['license_expiry'] : null;
+            $years_experience = !empty($_POST['years_experience']) ? intval($_POST['years_experience']) : null;
+            $bio = trim($_POST['bio']);
+            $education = trim($_POST['education']);
+            $specialty_areas = isset($_POST['specialty_areas']) ? json_encode($_POST['specialty_areas']) : null;
+            
+            // Check if profile exists and update or insert
+            $check_query = "SELECT id FROM consultant_profiles WHERE team_member_id = ?";
+            $stmt = $conn->prepare($check_query);
+            $stmt->bind_param('i', $user_data['team_member_id']);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            if ($result->num_rows > 0) {
+                // Update existing profile
+                $profile_id = $result->fetch_assoc()['id'];
+                $query = "UPDATE consultant_profiles SET 
+                          license_number = ?, 
+                          license_type = ?, 
+                          license_expiry = ?, 
+                          years_of_experience = ?, 
+                          bio = ?, 
+                          education = ?, 
+                          specialty_areas = ? 
+                          WHERE id = ?";
+                $stmt = $conn->prepare($query);
+                $stmt->bind_param('sssisssi', 
+                    $license_number, 
+                    $license_type, 
+                    $license_expiry, 
+                    $years_experience, 
+                    $bio, 
+                    $education, 
+                    $specialty_areas,
+                    $profile_id
+                );
+            } else {
+                // Insert new profile
+                $query = "INSERT INTO consultant_profiles 
+                          (team_member_id, license_number, license_type, license_expiry, 
+                           years_of_experience, bio, education, specialty_areas) 
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                $stmt = $conn->prepare($query);
+                $stmt->bind_param('isssssss', 
+                    $user_data['team_member_id'], 
+                    $license_number, 
+                    $license_type, 
+                    $license_expiry, 
+                    $years_experience, 
+                    $bio, 
+                    $education, 
+                    $specialty_areas
+                );
+            }
+            $stmt->execute();
+            $stmt->close();
+            
+            // Handle languages
+            if (isset($_POST['languages']) && is_array($_POST['languages'])) {
+                // Get consultant profile ID
+                $query = "SELECT id FROM consultant_profiles WHERE team_member_id = ?";
+                $stmt = $conn->prepare($query);
+                $stmt->bind_param('i', $user_data['team_member_id']);
+                $stmt->execute();
+                $profile_id = $stmt->get_result()->fetch_assoc()['id'];
+                $stmt->close();
+                
+                // Delete existing languages
+                $query = "DELETE FROM consultant_languages WHERE consultant_profile_id = ?";
+                $stmt = $conn->prepare($query);
+                $stmt->bind_param('i', $profile_id);
+                $stmt->execute();
+                $stmt->close();
+                
+                // Add new languages
+                foreach ($_POST['languages'] as $idx => $language) {
+                    if (!empty($language) && isset($_POST['proficiency'][$idx])) {
+                        $query = "INSERT INTO consultant_languages 
+                                 (consultant_profile_id, language, proficiency_level) 
+                                 VALUES (?, ?, ?)";
+                        $stmt = $conn->prepare($query);
+                        $stmt->bind_param('iss', 
+                            $profile_id, 
+                            $language, 
+                            $_POST['proficiency'][$idx]
+                        );
+                        $stmt->execute();
+                        $stmt->close();
+                    }
+                }
+            }
+        }
+        
         // Commit transaction
         $conn->commit();
         
@@ -128,11 +269,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         $_SESSION['last_name'] = $last_name;
         
         // Refresh user data
-        $query = "SELECT u.*, tm.role, tm.custom_role_name, tm.phone as tm_phone, c.country_name 
-                FROM users u
-                JOIN team_members tm ON u.id = tm.user_id
-                LEFT JOIN countries c ON u.country_id = c.country_id 
-                WHERE u.id = ?";
+        $query = "SELECT u.*, tm.role, tm.custom_role_name, tm.phone as tm_phone, c.country_name, 
+                  tm.id as team_member_id
+                  FROM users u
+                  JOIN team_members tm ON u.id = tm.user_id
+                  LEFT JOIN countries c ON u.country_id = c.country_id 
+                  WHERE u.id = ?";
         $stmt = $conn->prepare($query);
         $stmt->bind_param('i', $_SESSION['id']);
         $stmt->execute();
@@ -143,6 +285,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         // Use team member phone if user phone is empty
         if (empty($user_data['phone']) && !empty($user_data['tm_phone'])) {
             $user_data['phone'] = $user_data['tm_phone'];
+        }
+        
+        // Refresh consultant data if applicable
+        if ($is_consultant) {
+            $query = "SELECT * FROM consultant_profiles WHERE team_member_id = ?";
+            $stmt = $conn->prepare($query);
+            $stmt->bind_param('i', $user_data['team_member_id']);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            if ($result->num_rows > 0) {
+                $consultant_data = $result->fetch_assoc();
+            }
+            $stmt->close();
+            
+            // Refresh languages
+            $query = "SELECT language, proficiency_level FROM consultant_languages 
+                      WHERE consultant_profile_id = (SELECT id FROM consultant_profiles WHERE team_member_id = ?)";
+            $stmt = $conn->prepare($query);
+            $stmt->bind_param('i', $user_data['team_member_id']);
+            $stmt->execute();
+            $lang_result = $stmt->get_result();
+            
+            $languages = [];
+            while ($lang = $lang_result->fetch_assoc()) {
+                $languages[] = $lang;
+            }
+            $stmt->close();
         }
     } catch (Exception $e) {
         // Rollback transaction on error
@@ -301,6 +471,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_picture'])) {
             <div class="tab-container">
                 <div class="tabs">
                     <button class="tab-btn active" data-tab="personal">Personal Information</button>
+                    <?php if ($is_consultant): ?>
+                    <button class="tab-btn" data-tab="professional">Professional Details</button>
+                    <?php endif; ?>
                     <button class="tab-btn" data-tab="security">Security</button>
                 </div>
                 
@@ -371,11 +544,164 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_picture'])) {
                             </div>
                         </div>
                         
+                        <?php if ($is_consultant): ?>
+                        <!-- Hidden consultant fields for this form submission -->
+                        <input type="hidden" name="license_number" value="<?php echo htmlspecialchars($consultant_data['license_number'] ?? ''); ?>">
+                        <input type="hidden" name="license_type" value="<?php echo htmlspecialchars($consultant_data['license_type'] ?? ''); ?>">
+                        <input type="hidden" name="license_expiry" value="<?php echo htmlspecialchars($consultant_data['license_expiry'] ?? ''); ?>">
+                        <input type="hidden" name="years_experience" value="<?php echo htmlspecialchars($consultant_data['years_of_experience'] ?? ''); ?>">
+                        <input type="hidden" name="bio" value="<?php echo htmlspecialchars($consultant_data['bio'] ?? ''); ?>">
+                        <input type="hidden" name="education" value="<?php echo htmlspecialchars($consultant_data['education'] ?? ''); ?>">
+                        <?php if (isset($consultant_data['specialty_areas']) && !empty($consultant_data['specialty_areas'])): 
+                            $areas = json_decode($consultant_data['specialty_areas'], true);
+                            if (is_array($areas)):
+                                foreach ($areas as $area): ?>
+                                <input type="hidden" name="specialty_areas[]" value="<?php echo htmlspecialchars($area); ?>">
+                                <?php endforeach; 
+                            endif;
+                        endif; ?>
+                        <?php endif; ?>
+                        
                         <div class="form-actions">
                             <button type="submit" name="update_profile" class="btn primary-btn">Save Changes</button>
                         </div>
                     </form>
                 </div>
+                
+                <?php if ($is_consultant): ?>
+                <!-- Professional Details Tab for Immigration Consultants -->
+                <div id="professional" class="tab-content">
+                    <h3>Professional Information</h3>
+                    <form method="post" class="profile-form">
+                        <!-- Preserve personal information in hidden fields -->
+                        <input type="hidden" name="first_name" value="<?php echo htmlspecialchars($user_data['first_name']); ?>">
+                        <input type="hidden" name="last_name" value="<?php echo htmlspecialchars($user_data['last_name']); ?>">
+                        <input type="hidden" name="phone" value="<?php echo htmlspecialchars($user_data['phone']); ?>">
+                        <input type="hidden" name="address" value="<?php echo htmlspecialchars($user_data['address']); ?>">
+                        <input type="hidden" name="city" value="<?php echo htmlspecialchars($user_data['city']); ?>">
+                        <input type="hidden" name="state" value="<?php echo htmlspecialchars($user_data['state']); ?>">
+                        <input type="hidden" name="zipcode" value="<?php echo htmlspecialchars($user_data['zipcode']); ?>">
+                        <input type="hidden" name="country_id" value="<?php echo htmlspecialchars($user_data['country_id']); ?>">
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="license_number">License Number</label>
+                                <input type="text" id="license_number" name="license_number" value="<?php echo htmlspecialchars($consultant_data['license_number'] ?? ''); ?>">
+                            </div>
+                            <div class="form-group">
+                                <label for="license_type">License Type</label>
+                                <input type="text" id="license_type" name="license_type" value="<?php echo htmlspecialchars($consultant_data['license_type'] ?? ''); ?>" placeholder="e.g., ICCRC, CICC">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="license_expiry">License Expiry Date</label>
+                                <input type="date" id="license_expiry" name="license_expiry" value="<?php echo htmlspecialchars($consultant_data['license_expiry'] ?? ''); ?>">
+                            </div>
+                            <div class="form-group">
+                                <label for="years_experience">Years of Experience</label>
+                                <input type="number" id="years_experience" name="years_experience" value="<?php echo htmlspecialchars($consultant_data['years_of_experience'] ?? ''); ?>" min="0" max="50">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group full-width">
+                            <label for="bio">Professional Bio</label>
+                            <textarea id="bio" name="bio" rows="4" class="form-control"><?php echo htmlspecialchars($consultant_data['bio'] ?? ''); ?></textarea>
+                            <small>Brief description of your experience and expertise in immigration services.</small>
+                        </div>
+                        
+                        <div class="form-group full-width">
+                            <label for="education">Education</label>
+                            <textarea id="education" name="education" rows="3" class="form-control"><?php echo htmlspecialchars($consultant_data['education'] ?? ''); ?></textarea>
+                            <small>e.g., Bachelor in Law, Immigration Consultant Diploma</small>
+                        </div>
+                        
+                        <div class="form-group full-width">
+                            <label>Specialty Areas</label>
+                            <div class="specialty-areas-container">
+                                <div class="checkbox-group">
+                                    <?php 
+                                    $specialty_areas = [];
+                                    if (isset($consultant_data['specialty_areas']) && !empty($consultant_data['specialty_areas'])) {
+                                        $specialty_areas = json_decode($consultant_data['specialty_areas'], true) ?? [];
+                                    }
+                                    
+                                    $available_specialties = [
+                                        "Study Permits", "Work Permits", "Express Entry", "Business Immigration", 
+                                        "Family Sponsorship", "Refugee Claims", "Provincial Nominee Programs",
+                                        "Citizenship Applications", "Permanent Residency", "Temporary Residency"
+                                    ];
+                                    
+                                    foreach ($available_specialties as $specialty): 
+                                    ?>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" name="specialty_areas[]" value="<?php echo htmlspecialchars($specialty); ?>" 
+                                            <?php echo (is_array($specialty_areas) && in_array($specialty, $specialty_areas)) ? 'checked' : ''; ?>>
+                                        <span><?php echo htmlspecialchars($specialty); ?></span>
+                                    </label>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group full-width">
+                            <label>Languages</label>
+                            <div id="languages-container">
+                                <?php if (!empty($languages)): 
+                                    foreach ($languages as $index => $lang): ?>
+                                <div class="language-row">
+                                    <div class="form-row">
+                                        <div class="form-group language-input">
+                                            <input type="text" name="languages[]" class="form-control" value="<?php echo htmlspecialchars($lang['language']); ?>" placeholder="Language">
+                                        </div>
+                                        <div class="form-group proficiency-select">
+                                            <select name="proficiency[]" class="form-control">
+                                                <option value="basic" <?php echo ($lang['proficiency_level'] == 'basic') ? 'selected' : ''; ?>>Basic</option>
+                                                <option value="intermediate" <?php echo ($lang['proficiency_level'] == 'intermediate') ? 'selected' : ''; ?>>Intermediate</option>
+                                                <option value="fluent" <?php echo ($lang['proficiency_level'] == 'fluent') ? 'selected' : ''; ?>>Fluent</option>
+                                                <option value="native" <?php echo ($lang['proficiency_level'] == 'native') ? 'selected' : ''; ?>>Native</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group language-actions">
+                                            <?php if ($index === 0): ?>
+                                            <button type="button" class="btn btn-sm add-language-btn"><i class="fas fa-plus"></i></button>
+                                            <?php else: ?>
+                                            <button type="button" class="btn btn-sm remove-language-btn"><i class="fas fa-times"></i></button>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                                <?php endforeach;
+                                else: ?>
+                                <div class="language-row">
+                                    <div class="form-row">
+                                        <div class="form-group language-input">
+                                            <input type="text" name="languages[]" class="form-control" placeholder="Language">
+                                        </div>
+                                        <div class="form-group proficiency-select">
+                                            <select name="proficiency[]" class="form-control">
+                                                <option value="basic">Basic</option>
+                                                <option value="intermediate">Intermediate</option>
+                                                <option value="fluent" selected>Fluent</option>
+                                                <option value="native">Native</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group language-actions">
+                                            <button type="button" class="btn btn-sm add-language-btn"><i class="fas fa-plus"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" name="update_profile" class="btn primary-btn">Save Professional Profile</button>
+                        </div>
+                    </form>
+                </div>
+                <?php endif; ?>
                 
                 <!-- Security Tab -->
                 <div id="security" class="tab-content">
@@ -609,11 +935,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_picture'])) {
     color: var(--dark-color);
 }
 
-.form-group input, .form-group select {
+.form-group input, .form-group select, .form-group textarea {
     padding: 10px;
     border: 1px solid var(--border-color);
     border-radius: 4px;
     font-size: 14px;
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 80px;
 }
 
 .form-group small {
@@ -665,6 +996,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_picture'])) {
     color: var(--secondary-color);
 }
 
+/* Specialty areas container */
+.specialty-areas-container {
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 15px;
+    background-color: #f9f9f9;
+}
+
+.checkbox-group {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+/* Languages section */
+.language-row {
+    margin-bottom: 10px;
+}
+
+.form-row .language-input {
+    flex: 2;
+}
+
+.form-row .proficiency-select {
+    flex: 1;
+}
+
+.form-row .language-actions {
+    flex: 0 0 40px;
+    display: flex;
+    align-items: center;
+}
+
+.add-language-btn,
+.remove-language-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+}
+
+.add-language-btn {
+    background-color: var(--success-color, #1cc88a);
+    color: white;
+}
+
+.remove-language-btn {
+    background-color: var(--danger-color, #e74a3b);
+    color: white;
+}
+
 @media (max-width: 768px) {
     .profile-container {
         flex-direction: column;
@@ -677,6 +1070,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_picture'])) {
     .form-row {
         flex-direction: column;
         gap: 15px;
+    }
+    
+    .checkbox-group {
+        grid-template-columns: 1fr;
     }
 }
 </style>
@@ -740,6 +1137,51 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    
+    // Add/remove language fields
+    const languagesContainer = document.getElementById('languages-container');
+    
+    if (languagesContainer) {
+        // Add language field
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('add-language-btn') || e.target.parentElement.classList.contains('add-language-btn')) {
+                const btn = e.target.closest('.add-language-btn');
+                const languageRow = btn.closest('.language-row');
+                
+                // Create new language row
+                const newRow = document.createElement('div');
+                newRow.className = 'language-row';
+                newRow.innerHTML = `
+                    <div class="form-row">
+                        <div class="form-group language-input">
+                            <input type="text" name="languages[]" class="form-control" placeholder="Language">
+                        </div>
+                        <div class="form-group proficiency-select">
+                            <select name="proficiency[]" class="form-control">
+                                <option value="basic">Basic</option>
+                                <option value="intermediate">Intermediate</option>
+                                <option value="fluent" selected>Fluent</option>
+                                <option value="native">Native</option>
+                            </select>
+                        </div>
+                        <div class="form-group language-actions">
+                            <button type="button" class="btn btn-sm remove-language-btn"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                `;
+                
+                // Insert after current row
+                languageRow.parentNode.insertBefore(newRow, languageRow.nextSibling);
+            }
+            
+            // Remove language field
+            if (e.target.classList.contains('remove-language-btn') || e.target.parentElement.classList.contains('remove-language-btn')) {
+                const btn = e.target.closest('.remove-language-btn');
+                const languageRow = btn.closest('.language-row');
+                languageRow.remove();
+            }
+        });
+    }
 });
 </script>
 
@@ -749,3 +1191,4 @@ ob_end_flush();
 ?>
 
 <?php require_once 'includes/footer.php'; ?>
+
