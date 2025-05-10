@@ -351,6 +351,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_booking'])) {
     $booking_date = $_POST['booking_date'];
     $booking_time = $_POST['booking_time'];
     $client_notes = isset($_POST['client_notes']) ? trim($_POST['client_notes']) : '';
+    $selected_consultant_id = isset($_POST['selected_consultant_id']) ? (int)$_POST['selected_consultant_id'] : null;
     
     // Validate inputs
     $errors = [];
@@ -403,26 +404,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_booking'])) {
         $conn->begin_transaction();
         
         try {
-            // Insert booking
-            $query = "INSERT INTO bookings (user_id, visa_service_id, service_consultation_id, 
+            // Prepare the query - including team_member_id if selected
+            if ($selected_consultant_id) {
+                $query = "INSERT INTO bookings (user_id, visa_service_id, service_consultation_id, 
+                                         team_member_id, status_id, booking_datetime, end_datetime, duration_minutes, 
+                                         client_notes, time_zone) 
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                $stmt = $conn->prepare($query);
+                $timezone = date_default_timezone_get(); // Use server timezone or get from user
+                $stmt->bind_param("iiiisssisd", $user_id, $visa_service_id, $service_consultation_id, 
+                                $selected_consultant_id, $status_id, $booking_datetime, $end_datetime, $duration_minutes, 
+                                $client_notes, $timezone);
+            } else {
+                $query = "INSERT INTO bookings (user_id, visa_service_id, service_consultation_id, 
                                          status_id, booking_datetime, end_datetime, duration_minutes, 
                                          client_notes, time_zone) 
                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            $stmt = $conn->prepare($query);
-            $timezone = date_default_timezone_get(); // Use server timezone or get from user
-            $stmt->bind_param("iiisssisd", $user_id, $visa_service_id, $service_consultation_id, 
-                            $status_id, $booking_datetime, $end_datetime, $duration_minutes, 
-                            $client_notes, $timezone);
+                $stmt = $conn->prepare($query);
+                $timezone = date_default_timezone_get(); // Use server timezone or get from user
+                $stmt->bind_param("iiisssisd", $user_id, $visa_service_id, $service_consultation_id, 
+                                $status_id, $booking_datetime, $end_datetime, $duration_minutes, 
+                                $client_notes, $timezone);
+            }
             $stmt->execute();
             $booking_id = $conn->insert_id;
             $stmt->close();
             
-            // Log activity
+            // Log activity - add a note about the consultant selection if applicable
+            $activity_description = $selected_consultant_id ? 
+                 'Booking created by applicant with specific consultant requested' : 
+                 'Booking created by applicant';
+                 
             $query = "INSERT INTO booking_activity_logs (booking_id, user_id, activity_type, description, ip_address) 
-                      VALUES (?, ?, 'created', 'Booking created by applicant', ?)";
+                      VALUES (?, ?, 'created', ?, ?)";
             $stmt = $conn->prepare($query);
             $ip = $_SERVER['REMOTE_ADDR'];
-            $stmt->bind_param("iis", $booking_id, $user_id, $ip);
+            $stmt->bind_param("iiss", $booking_id, $user_id, $activity_description, $ip);
             $stmt->execute();
             $stmt->close();
             
@@ -1429,7 +1446,7 @@ if (isset($_GET['success'])) {
     font-size: 0.95rem;
     color: var(--dark-color);
     line-height: 1.5;
-    margin-bottom: 15px;
+    margin-bottom: 8px;
     flex: 1;
 }
 
@@ -1501,7 +1518,7 @@ if (isset($_GET['success'])) {
     flex-direction: column;
     justify-content: center;
     gap: 15px;
-    padding: 20px;
+    padding-right: 16px;
     
 }
 

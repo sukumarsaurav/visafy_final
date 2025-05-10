@@ -288,7 +288,7 @@ $stmt->close();
         </div>
     <?php endif; ?>
 
-    <!-- Booking Stats Cards -->
+    <!-- Stats Cards and Next Booking Card remain outside the tabs -->
     <div class="stats-container">
         <div class="stats-card">
             <div class="stats-icon">
@@ -351,282 +351,303 @@ $stmt->close();
         <?php endif; ?>
     </div>
 
-    <div class="availability-container">
-        <div class="availability-column main-column">
-            <div class="card">
-                <div class="card-header">
-                    <h2>Regular Weekly Availability</h2>
-                </div>
-                <div class="card-body">
-                    <p>Set your regular working hours for each day of the week. This helps clients know when you're available for appointments.</p>
-                    
-                    <form action="" method="post">
-                        <div class="table-responsive">
-                            <table class="availability-table">
-                                <thead>
-                                    <tr>
-                                        <th>Day</th>
-                                        <th>Available</th>
-                                        <th>Start Time</th>
-                                        <th>End Time</th>
-                                        <th>Slot Duration</th>
-                                        <th>Buffer</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($days_of_week as $day_number => $day_name): ?>
-                                        <tr>
-                                            <td><?php echo $day_name; ?></td>
-                                            <td>
-                                                <div class="toggle-switch">
-                                                    <input type="checkbox" class="availability-toggle" 
-                                                        name="is_available[<?php echo $day_number; ?>]" 
-                                                        value="1" 
-                                                        id="available_<?php echo $day_number; ?>"
-                                                        <?php echo ($availability[$day_number]['is_available'] == 1) ? 'checked' : ''; ?>>
-                                                    <label for="available_<?php echo $day_number; ?>"></label>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <input type="time" class="time-input" 
-                                                    name="start_time[<?php echo $day_number; ?>]" 
-                                                    value="<?php echo substr($availability[$day_number]['start_time'], 0, 5); ?>"
-                                                    <?php echo ($availability[$day_number]['is_available'] == 0) ? 'disabled' : ''; ?>>
-                                            </td>
-                                            <td>
-                                                <input type="time" class="time-input" 
-                                                    name="end_time[<?php echo $day_number; ?>]" 
-                                                    value="<?php echo substr($availability[$day_number]['end_time'], 0, 5); ?>"
-                                                    <?php echo ($availability[$day_number]['is_available'] == 0) ? 'disabled' : ''; ?>>
-                                            </td>
-                                            <td>
-                                                <select class="select-input" 
-                                                    name="slot_duration[<?php echo $day_number; ?>]"
-                                                    <?php echo ($availability[$day_number]['is_available'] == 0) ? 'disabled' : ''; ?>>
-                                                    <option value="15" <?php echo ($availability[$day_number]['slot_duration_minutes'] == 15) ? 'selected' : ''; ?>>15 min</option>
-                                                    <option value="30" <?php echo ($availability[$day_number]['slot_duration_minutes'] == 30) ? 'selected' : ''; ?>>30 min</option>
-                                                    <option value="45" <?php echo ($availability[$day_number]['slot_duration_minutes'] == 45) ? 'selected' : ''; ?>>45 min</option>
-                                                    <option value="60" <?php echo ($availability[$day_number]['slot_duration_minutes'] == 60) ? 'selected' : ''; ?>>1 hour</option>
-                                                    <option value="90" <?php echo ($availability[$day_number]['slot_duration_minutes'] == 90) ? 'selected' : ''; ?>>1.5 hours</option>
-                                                    <option value="120" <?php echo ($availability[$day_number]['slot_duration_minutes'] == 120) ? 'selected' : ''; ?>>2 hours</option>
-                                                </select>
-                                            </td>
-                                            <td>
-                                                <select class="select-input" 
-                                                    name="buffer_time[<?php echo $day_number; ?>]"
-                                                    <?php echo ($availability[$day_number]['is_available'] == 0) ? 'disabled' : ''; ?>>
-                                                    <option value="0" <?php echo ($availability[$day_number]['buffer_time_minutes'] == 0) ? 'selected' : ''; ?>>None</option>
-                                                    <option value="5" <?php echo ($availability[$day_number]['buffer_time_minutes'] == 5) ? 'selected' : ''; ?>>5 min</option>
-                                                    <option value="10" <?php echo ($availability[$day_number]['buffer_time_minutes'] == 10) ? 'selected' : ''; ?>>10 min</option>
-                                                    <option value="15" <?php echo ($availability[$day_number]['buffer_time_minutes'] == 15) ? 'selected' : ''; ?>>15 min</option>
-                                                    <option value="30" <?php echo ($availability[$day_number]['buffer_time_minutes'] == 30) ? 'selected' : ''; ?>>30 min</option>
-                                                </select>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="form-actions">
-                            <button type="submit" name="update_regular_availability" class="btn-primary">
-                                <i class="fas fa-save"></i> Save Availability
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <h2>Upcoming Bookings</h2>
-                </div>
-                <div class="card-body">
-                    <?php if ($upcoming_bookings->num_rows > 0): ?>
-                        <div class="table-responsive">
-                            <table class="bookings-table">
-                                <thead>
-                                    <tr>
-                                        <th>Date & Time</th>
-                                        <th>Client</th>
-                                        <th>Service</th>
-                                        <th>Duration</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php while ($booking = $upcoming_bookings->fetch_assoc()): ?>
-                                        <tr>
-                                            <td><?php echo date('M d, Y H:i', strtotime($booking['booking_datetime'])); ?></td>
-                                            <td><?php echo htmlspecialchars($booking['client_name']); ?></td>
-                                            <td>
-                                                <?php echo htmlspecialchars($booking['service_name'] . ' (' . $booking['visa_type'] . ')'); ?><br>
-                                                <small class="text-muted"><?php echo htmlspecialchars($booking['mode_name']); ?></small>
-                                            </td>
-                                            <td class="duration-cell"><?php echo $booking['duration_minutes']; ?> min</td>
-                                            <td>
-                                                <span class="status-badge" style="background-color: <?php echo $booking['status_color']; ?>">
-                                                    <?php echo ucfirst($booking['status_name']); ?>
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    <?php endwhile; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    <?php else: ?>
-                        <div class="empty-state">
-                            <i class="fas fa-calendar-alt"></i>
-                            <p>You have no upcoming bookings.</p>
-                        </div>
-                    <?php endif; ?>
-                </div>
-            </div>
+    <!-- Tabbed Interface -->
+    <div class="tabs-container">
+        <div class="tab-header">
+            <button class="tab-btn active" data-tab="upcoming-bookings">Upcoming Bookings</button>
+            <button class="tab-btn" data-tab="weekly-availability">Regular Weekly Availability</button>
+            <button class="tab-btn" data-tab="time-off">Time Off Requests</button>
         </div>
 
-        <div class="availability-column side-column">
-            <div class="card">
-                <div class="card-header">
-                    <h2>Request Time Off</h2>
-                </div>
-                <div class="card-body">
-                    <p>Need time off? Submit your request below. Your availability will be automatically blocked during this period once approved.</p>
-                    
-                    <form action="" method="post" id="time-off-form">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="start_date">Start Date</label>
-                                <input type="date" class="form-input" id="start_date" name="start_date" required min="<?php echo date('Y-m-d'); ?>">
-                            </div>
-                            <div class="form-group">
-                                <label for="start_time">Start Time</label>
-                                <input type="time" class="form-input" id="start_time" name="start_time" required>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="end_date">End Date</label>
-                                <input type="date" class="form-input" id="end_date" name="end_date" required min="<?php echo date('Y-m-d'); ?>">
-                            </div>
-                            <div class="form-group">
-                                <label for="end_time">End Time</label>
-                                <input type="time" class="form-input" id="end_time" name="end_time" required>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="reason">Reason</label>
-                            <textarea class="form-input" id="reason" name="reason" rows="3" required></textarea>
-                        </div>
-                        <div class="form-actions">
-                            <button type="submit" name="request_time_off" class="btn-primary">
-                                <i class="fas fa-paper-plane"></i> Submit Request
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <h2>Pending & Approved Time Off</h2>
-                </div>
-                <div class="card-body">
-                    <?php if ($time_off_requests->num_rows > 0): ?>
-                        <div class="table-responsive">
-                            <table class="time-off-table">
-                                <thead>
-                                    <tr>
-                                        <th>Period</th>
-                                        <th>Reason</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php while ($time_off = $time_off_requests->fetch_assoc()): ?>
+        <!-- Tab Content -->
+        <div class="tab-content">
+            <!-- Upcoming Bookings Tab (Default active) -->
+            <div class="tab-pane active" id="upcoming-bookings">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Upcoming Bookings</h2>
+                    </div>
+                    <div class="card-body">
+                        <?php if ($upcoming_bookings->num_rows > 0): ?>
+                            <div class="table-responsive">
+                                <table class="bookings-table">
+                                    <thead>
                                         <tr>
-                                            <td>
-                                                <?php 
-                                                $start = new DateTime($time_off['start_datetime']);
-                                                $end = new DateTime($time_off['end_datetime']);
-                                                
-                                                // Same day
-                                                if ($start->format('Y-m-d') == $end->format('Y-m-d')) {
-                                                    echo $start->format('M d, Y H:i') . ' - ' . $end->format('H:i');
-                                                } else {
-                                                    echo $start->format('M d, Y H:i') . ' - <br>' . $end->format('M d, Y H:i');
-                                                }
-                                                ?>
-                                            </td>
-                                            <td><?php echo htmlspecialchars($time_off['reason']); ?></td>
-                                            <td>
-                                                <span class="status-badge <?php echo ($time_off['status'] == 'approved') ? 'approved' : 'pending'; ?>">
-                                                    <?php echo ucfirst($time_off['status']); ?>
-                                                </span>
-                                            </td>
+                                            <th>Date & Time</th>
+                                            <th>Client</th>
+                                            <th>Service</th>
+                                            <th>Duration</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
                                         </tr>
-                                    <?php endwhile; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    <?php else: ?>
-                        <div class="empty-state">
-                            <i class="fas fa-clock"></i>
-                            <p>You have no pending or approved time off requests.</p>
-                        </div>
-                    <?php endif; ?>
+                                    </thead>
+                                    <tbody>
+                                        <?php while ($booking = $upcoming_bookings->fetch_assoc()): ?>
+                                            <tr>
+                                                <td><?php echo date('M d, Y H:i', strtotime($booking['booking_datetime'])); ?></td>
+                                                <td><?php echo htmlspecialchars($booking['client_name']); ?></td>
+                                                <td>
+                                                    <?php echo htmlspecialchars($booking['service_name'] . ' (' . $booking['visa_type'] . ')'); ?><br>
+                                                    <small class="text-muted"><?php echo htmlspecialchars($booking['mode_name']); ?></small>
+                                                </td>
+                                                <td class="duration-cell"><?php echo $booking['duration_minutes']; ?> min</td>
+                                                <td>
+                                                    <span class="status-badge" style="background-color: <?php echo $booking['status_color']; ?>">
+                                                        <?php echo ucfirst($booking['status_name']); ?>
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <a href="booking_details.php?id=<?php echo $booking['id']; ?>" class="btn-action btn-view">
+                                                        <i class="fas fa-eye"></i> View
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        <?php endwhile; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php else: ?>
+                            <div class="empty-state">
+                                <i class="fas fa-calendar-alt"></i>
+                                <p>You have no upcoming bookings.</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
 
-            <div class="card">
-                <div class="card-header">
-                    <h2>Time Off History</h2>
-                </div>
-                <div class="card-body">
-                    <?php if ($past_time_off->num_rows > 0): ?>
-                        <div class="table-responsive">
-                            <table class="time-off-table">
-                                <thead>
-                                    <tr>
-                                        <th>Period</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php while ($time_off = $past_time_off->fetch_assoc()): ?>
+            <!-- Weekly Availability Tab -->
+            <div class="tab-pane" id="weekly-availability">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Regular Weekly Availability</h2>
+                    </div>
+                    <div class="card-body">
+                        <p>Set your regular working hours for each day of the week. This helps clients know when you're available for appointments.</p>
+                        
+                        <form action="" method="post">
+                            <div class="table-responsive">
+                                <table class="availability-table">
+                                    <thead>
                                         <tr>
-                                            <td>
-                                                <?php 
-                                                $start = new DateTime($time_off['start_datetime']);
-                                                $end = new DateTime($time_off['end_datetime']);
-                                                
-                                                // Same day
-                                                if ($start->format('Y-m-d') == $end->format('Y-m-d')) {
-                                                    echo $start->format('M d, Y') . '<br>' . $start->format('H:i') . ' - ' . $end->format('H:i');
-                                                } else {
-                                                    echo $start->format('M d') . ' - ' . $end->format('M d, Y');
-                                                }
-                                                ?>
-                                            </td>
-                                            <td>
-                                                <span class="status-badge 
+                                            <th>Day</th>
+                                            <th>Available</th>
+                                            <th>Start Time</th>
+                                            <th>End Time</th>
+                                            <th>Slot Duration</th>
+                                            <th>Buffer</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($days_of_week as $day_number => $day_name): ?>
+                                            <tr>
+                                                <td><?php echo $day_name; ?></td>
+                                                <td>
+                                                    <div class="toggle-switch">
+                                                        <input type="checkbox" class="availability-toggle" 
+                                                            name="is_available[<?php echo $day_number; ?>]" 
+                                                            value="1" 
+                                                            id="available_<?php echo $day_number; ?>"
+                                                            <?php echo ($availability[$day_number]['is_available'] == 1) ? 'checked' : ''; ?>>
+                                                        <label for="available_<?php echo $day_number; ?>"></label>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <input type="time" class="time-input" 
+                                                        name="start_time[<?php echo $day_number; ?>]" 
+                                                        value="<?php echo substr($availability[$day_number]['start_time'], 0, 5); ?>"
+                                                        <?php echo ($availability[$day_number]['is_available'] == 0) ? 'disabled' : ''; ?>>
+                                                </td>
+                                                <td>
+                                                    <input type="time" class="time-input" 
+                                                        name="end_time[<?php echo $day_number; ?>]" 
+                                                        value="<?php echo substr($availability[$day_number]['end_time'], 0, 5); ?>"
+                                                        <?php echo ($availability[$day_number]['is_available'] == 0) ? 'disabled' : ''; ?>>
+                                                </td>
+                                                <td>
+                                                    <select class="select-input" 
+                                                        name="slot_duration[<?php echo $day_number; ?>]"
+                                                        <?php echo ($availability[$day_number]['is_available'] == 0) ? 'disabled' : ''; ?>>
+                                                        <option value="15" <?php echo ($availability[$day_number]['slot_duration_minutes'] == 15) ? 'selected' : ''; ?>>15 min</option>
+                                                        <option value="30" <?php echo ($availability[$day_number]['slot_duration_minutes'] == 30) ? 'selected' : ''; ?>>30 min</option>
+                                                        <option value="45" <?php echo ($availability[$day_number]['slot_duration_minutes'] == 45) ? 'selected' : ''; ?>>45 min</option>
+                                                        <option value="60" <?php echo ($availability[$day_number]['slot_duration_minutes'] == 60) ? 'selected' : ''; ?>>1 hour</option>
+                                                        <option value="90" <?php echo ($availability[$day_number]['slot_duration_minutes'] == 90) ? 'selected' : ''; ?>>1.5 hours</option>
+                                                        <option value="120" <?php echo ($availability[$day_number]['slot_duration_minutes'] == 120) ? 'selected' : ''; ?>>2 hours</option>
+                                                    </select>
+                                                </td>
+                                                <td>
+                                                    <select class="select-input" 
+                                                        name="buffer_time[<?php echo $day_number; ?>]"
+                                                        <?php echo ($availability[$day_number]['is_available'] == 0) ? 'disabled' : ''; ?>>
+                                                        <option value="0" <?php echo ($availability[$day_number]['buffer_time_minutes'] == 0) ? 'selected' : ''; ?>>None</option>
+                                                        <option value="5" <?php echo ($availability[$day_number]['buffer_time_minutes'] == 5) ? 'selected' : ''; ?>>5 min</option>
+                                                        <option value="10" <?php echo ($availability[$day_number]['buffer_time_minutes'] == 10) ? 'selected' : ''; ?>>10 min</option>
+                                                        <option value="15" <?php echo ($availability[$day_number]['buffer_time_minutes'] == 15) ? 'selected' : ''; ?>>15 min</option>
+                                                        <option value="30" <?php echo ($availability[$day_number]['buffer_time_minutes'] == 30) ? 'selected' : ''; ?>>30 min</option>
+                                                    </select>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" name="update_regular_availability" class="btn-primary">
+                                    <i class="fas fa-save"></i> Save Availability
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Time Off Requests Tab -->
+            <div class="tab-pane" id="time-off">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Request Time Off</h2>
+                    </div>
+                    <div class="card-body">
+                        <p>Need time off? Submit your request below. Your availability will be automatically blocked during this period once approved.</p>
+                        
+                        <form action="" method="post" id="time-off-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="start_date">Start Date</label>
+                                    <input type="date" class="form-input" id="start_date" name="start_date" required min="<?php echo date('Y-m-d'); ?>">
+                                </div>
+                                <div class="form-group">
+                                    <label for="start_time">Start Time</label>
+                                    <input type="time" class="form-input" id="start_time" name="start_time" required>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="end_date">End Date</label>
+                                    <input type="date" class="form-input" id="end_date" name="end_date" required min="<?php echo date('Y-m-d'); ?>">
+                                </div>
+                                <div class="form-group">
+                                    <label for="end_time">End Time</label>
+                                    <input type="time" class="form-input" id="end_time" name="end_time" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="reason">Reason</label>
+                                <textarea class="form-input" id="reason" name="reason" rows="3" required></textarea>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" name="request_time_off" class="btn-primary">
+                                    <i class="fas fa-paper-plane"></i> Submit Request
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card mt-20">
+                    <div class="card-header">
+                        <h2>Pending & Approved Time Off</h2>
+                    </div>
+                    <div class="card-body">
+                        <?php if ($time_off_requests->num_rows > 0): ?>
+                            <div class="table-responsive">
+                                <table class="time-off-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Period</th>
+                                            <th>Reason</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php while ($time_off = $time_off_requests->fetch_assoc()): ?>
+                                            <tr>
+                                                <td>
                                                     <?php 
-                                                    if ($time_off['status'] == 'approved') echo 'approved';
-                                                    else if ($time_off['status'] == 'rejected') echo 'rejected';
-                                                    else echo 'default';
-                                                    ?>">
-                                                    <?php echo ucfirst($time_off['status']); ?>
-                                                </span>
-                                            </td>
+                                                    $start = new DateTime($time_off['start_datetime']);
+                                                    $end = new DateTime($time_off['end_datetime']);
+                                                    
+                                                    // Same day
+                                                    if ($start->format('Y-m-d') == $end->format('Y-m-d')) {
+                                                        echo $start->format('M d, Y H:i') . ' - ' . $end->format('H:i');
+                                                    } else {
+                                                        echo $start->format('M d, Y H:i') . ' - <br>' . $end->format('M d, Y H:i');
+                                                    }
+                                                    ?>
+                                                </td>
+                                                <td><?php echo htmlspecialchars($time_off['reason']); ?></td>
+                                                <td>
+                                                    <span class="status-badge <?php echo ($time_off['status'] == 'approved') ? 'approved' : 'pending'; ?>">
+                                                        <?php echo ucfirst($time_off['status']); ?>
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        <?php endwhile; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php else: ?>
+                            <div class="empty-state">
+                                <i class="fas fa-clock"></i>
+                                <p>You have no pending or approved time off requests.</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <div class="card mt-20">
+                    <div class="card-header">
+                        <h2>Time Off History</h2>
+                    </div>
+                    <div class="card-body">
+                        <?php if ($past_time_off->num_rows > 0): ?>
+                            <div class="table-responsive">
+                                <table class="time-off-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Period</th>
+                                            <th>Status</th>
                                         </tr>
-                                    <?php endwhile; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    <?php else: ?>
-                        <div class="empty-state">
-                            <i class="fas fa-history"></i>
-                            <p>No time off history to display.</p>
-                        </div>
-                    <?php endif; ?>
+                                    </thead>
+                                    <tbody>
+                                        <?php while ($time_off = $past_time_off->fetch_assoc()): ?>
+                                            <tr>
+                                                <td>
+                                                    <?php 
+                                                    $start = new DateTime($time_off['start_datetime']);
+                                                    $end = new DateTime($time_off['end_datetime']);
+                                                    
+                                                    // Same day
+                                                    if ($start->format('Y-m-d') == $end->format('Y-m-d')) {
+                                                        echo $start->format('M d, Y') . '<br>' . $start->format('H:i') . ' - ' . $end->format('H:i');
+                                                    } else {
+                                                        echo $start->format('M d') . ' - ' . $end->format('M d, Y');
+                                                    }
+                                                    ?>
+                                                </td>
+                                                <td>
+                                                    <span class="status-badge 
+                                                        <?php 
+                                                        if ($time_off['status'] == 'approved') echo 'approved';
+                                                        else if ($time_off['status'] == 'rejected') echo 'rejected';
+                                                        else echo 'default';
+                                                        ?>">
+                                                        <?php echo ucfirst($time_off['status']); ?>
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        <?php endwhile; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php else: ?>
+                            <div class="empty-state">
+                                <i class="fas fa-history"></i>
+                                <p>No time off history to display.</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1034,6 +1055,80 @@ $stmt->close();
         min-width: 100%;
     }
 }
+
+/* Additional Styles for Tabbed Interface */
+.tabs-container {
+    margin-top: 20px;
+}
+
+.tab-header {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 20px;
+    background-color: white;
+    border-radius: 8px 8px 0 0;
+    overflow: hidden;
+}
+
+.tab-btn {
+    padding: 15px 20px;
+    background-color: #f8f9fc;
+    border: none;
+    border-bottom: 3px solid transparent;
+    font-weight: 500;
+    color: var(--secondary-color);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    flex: 1;
+    text-align: center;
+}
+
+.tab-btn:hover {
+    background-color: #f0f2f9;
+    color: var(--primary-color);
+}
+
+.tab-btn.active {
+    background-color: white;
+    color: var(--primary-color);
+    border-bottom: 3px solid var(--primary-color);
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+.mt-20 {
+    margin-top: 20px;
+}
+
+.btn-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-view {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.btn-view:hover {
+    background-color: #031c56;
+    color: white;
+}
 </style>
 
 <script>
@@ -1049,6 +1144,25 @@ document.addEventListener('DOMContentLoaded', function() {
             rowInputs.forEach(input => {
                 input.disabled = !this.checked;
             });
+        });
+    });
+    
+    // Tab functionality
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabPanes = document.querySelectorAll('.tab-pane');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Remove active class from all buttons and panes
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabPanes.forEach(pane => pane.classList.remove('active'));
+            
+            // Add active class to clicked button
+            this.classList.add('active');
+            
+            // Show corresponding tab pane
+            const tabId = this.getAttribute('data-tab');
+            document.getElementById(tabId).classList.add('active');
         });
     });
     

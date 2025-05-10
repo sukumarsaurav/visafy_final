@@ -34,7 +34,7 @@ if ($app_result && $app_result->num_rows > 0) {
 }
 $app_stmt->close();
 
-// Get clients from bookings assigned to this team member
+// Get clients from bookings assigned to this team member (by admin or client choice)
 $bookings_query = "SELECT DISTINCT u.id, u.first_name, u.last_name, u.email, u.status, u.profile_picture, u.email_verified,
                   u.created_at, COUNT(b.id) as booking_count, MAX(b.booking_datetime) as last_booking_date,
                   (SELECT bs.name FROM bookings b2 
