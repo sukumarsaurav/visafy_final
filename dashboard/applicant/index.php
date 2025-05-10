@@ -119,6 +119,116 @@ try {
     error_log("Error fetching recent applications: " . $e->getMessage());
     $recent_applications = [];
 }
+
+// Get recent messages
+try {
+    $stmt = $conn->prepare("SELECT m.*, CONCAT(u.first_name, ' ', u.last_name) as sender_name
+                           FROM messages m
+                           JOIN users u ON m.sender_id = u.id
+                           WHERE m.recipient_id = ?
+                           ORDER BY m.created_at DESC
+                           LIMIT 5");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $recent_messages = [];
+    
+    while ($row = $result->fetch_assoc()) {
+        $recent_messages[] = $row;
+    }
+    $stmt->close();
+} catch (Exception $e) {
+    error_log("Error fetching recent messages: " . $e->getMessage());
+    $recent_messages = [];
+}
+
+// Get recent notifications
+try {
+    $stmt = $conn->prepare("SELECT * FROM notifications 
+                           WHERE user_id = ? 
+                           ORDER BY created_at DESC 
+                           LIMIT 5");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $notifications = [];
+    
+    while ($row = $result->fetch_assoc()) {
+        $notifications[] = $row;
+    }
+    $stmt->close();
+} catch (Exception $e) {
+    error_log("Error fetching notifications: " . $e->getMessage());
+    $notifications = [];
+}
+
+// Get tasks assigned to the applicant
+try {
+    $stmt = $conn->prepare("SELECT t.*, ta.status as assignment_status
+                           FROM tasks t
+                           JOIN task_assignments ta ON t.id = ta.task_id
+                           WHERE ta.team_member_id = ?
+                           AND t.deleted_at IS NULL
+                           AND ta.deleted_at IS NULL
+                           ORDER BY t.due_date ASC
+                           LIMIT 5");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $tasks = [];
+    
+    while ($row = $result->fetch_assoc()) {
+        $tasks[] = $row;
+    }
+    $stmt->close();
+} catch (Exception $e) {
+    error_log("Error fetching tasks: " . $e->getMessage());
+    $tasks = [];
+}
+
+function getNotificationIcon($type) {
+    $icons = [
+        'application_status_change' => 'fa-file-alt',
+        'document_requested' => 'fa-file-upload',
+        'document_submitted' => 'fa-file-download',
+        'document_approved' => 'fa-check-circle',
+        'document_rejected' => 'fa-times-circle',
+        'booking_created' => 'fa-calendar-plus',
+        'booking_confirmed' => 'fa-calendar-check',
+        'booking_rescheduled' => 'fa-calendar-alt',
+        'booking_cancelled' => 'fa-calendar-times',
+        'task_assigned' => 'fa-tasks',
+        'task_updated' => 'fa-edit',
+        'task_completed' => 'fa-check-square',
+        'message_received' => 'fa-envelope',
+        'comment_added' => 'fa-comment',
+        'team_member_assigned' => 'fa-user-plus',
+        'system_alert' => 'fa-exclamation-circle'
+    ];
+    
+    return $icons[$type] ?? 'fa-bell';
+}
+
+function timeAgo($datetime) {
+    $time = strtotime($datetime);
+    $now = time();
+    $diff = $now - $time;
+    
+    if ($diff < 60) {
+        return 'Just now';
+    } elseif ($diff < 3600) {
+        $mins = floor($diff / 60);
+        return $mins . ' min' . ($mins > 1 ? 's' : '') . ' ago';
+    } elseif ($diff < 86400) {
+        $hours = floor($diff / 3600);
+        return $hours . ' hour' . ($hours > 1 ? 's' : '') . ' ago';
+    } elseif ($diff < 604800) {
+        $days = floor($diff / 86400);
+        return $days . ' day' . ($days > 1 ? 's' : '') . ' ago';
+    } else {
+        return date('M j, Y', $time);
+    }
+}
 ?>
 
 <div class="content">
@@ -175,118 +285,204 @@ try {
     
     <!-- Main Content Sections -->
     <div class="dashboard-sections">
-        <!-- Recent Applications -->
-        <div class="dashboard-section">
-            <div class="section-header">
-                <h2>Recent Applications</h2>
-                <a href="applications.php" class="view-all">View All</a>
+        <!-- Left Column -->
+        <div class="dashboard-main">
+            <!-- Recent Applications -->
+            <div class="dashboard-section">
+                <div class="section-header">
+                    <h2>Recent Applications</h2>
+                    <a href="applications.php" class="view-all">View All</a>
+                </div>
+                <div class="section-content scrollable">
+                    <?php if (empty($recent_applications)): ?>
+                        <div class="empty-state">
+                            <i class="fas fa-folder-open"></i>
+                            <p>You don't have any visa applications yet.</p>
+                            <a href="applications.php?action=new" class="btn-link">Start a new application</a>
+                        </div>
+                    <?php else: ?>
+                        <div class="application-list">
+                            <?php foreach ($recent_applications as $application): ?>
+                                <div class="application-card compact">
+                                    <div class="application-header">
+                                        <div class="visa-type">
+                                            <i class="fas fa-passport"></i>
+                                            <span><?php echo htmlspecialchars($application['visa_type']); ?></span>
+                                        </div>
+                                        <div class="status-badge <?php echo strtolower($application['status']); ?>">
+                                            <?php echo htmlspecialchars($application['status']); ?>
+                                        </div>
+                                    </div>
+                                    <div class="application-details">
+                                        <p class="country"><i class="fas fa-globe"></i> <?php echo htmlspecialchars($application['country_name']); ?></p>
+                                        <p class="date"><i class="fas fa-clock"></i> Updated: <?php echo date('M j, Y', strtotime($application['updated_at'])); ?></p>
+                                    </div>
+                                    <a href="view_application.php?id=<?php echo $application['id']; ?>" class="btn-view">View</a>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
             </div>
-            <div class="section-content">
-                <?php if (empty($recent_applications)): ?>
-                    <div class="empty-state">
-                        <i class="fas fa-folder-open"></i>
-                        <p>You don't have any visa applications yet.</p>
-                        <a href="applications.php?action=new" class="btn-link">Start a new application</a>
-                    </div>
-                <?php else: ?>
-                    <div class="application-list">
-                        <?php foreach ($recent_applications as $application): ?>
-                            <div class="application-card">
-                                <div class="application-header">
-                                    <div class="visa-type">
-                                        <i class="fas fa-passport"></i>
-                                        <span><?php echo htmlspecialchars($application['visa_type']); ?></span>
+            
+            <!-- Upcoming Bookings -->
+            <div class="dashboard-section">
+                <div class="section-header">
+                    <h2>Upcoming Bookings</h2>
+                    <a href="bookings.php" class="view-all">View All</a>
+                </div>
+                <div class="section-content scrollable">
+                    <?php if (empty($upcoming_bookings)): ?>
+                        <div class="empty-state">
+                            <i class="fas fa-calendar"></i>
+                            <p>You don't have any upcoming bookings.</p>
+                            <a href="bookings.php?action=new" class="btn-link">Schedule a consultation</a>
+                        </div>
+                    <?php else: ?>
+                        <div class="booking-list">
+                            <?php foreach ($upcoming_bookings as $booking): ?>
+                                <div class="booking-card compact">
+                                    <div class="booking-date">
+                                        <div class="date-badge">
+                                            <span class="month"><?php echo date('M', strtotime($booking['booking_datetime'])); ?></span>
+                                            <span class="day"><?php echo date('d', strtotime($booking['booking_datetime'])); ?></span>
+                                        </div>
+                                        <div class="time">
+                                            <?php echo date('h:i A', strtotime($booking['booking_datetime'])); ?>
+                                        </div>
                                     </div>
-                                    <div class="status-badge <?php echo strtolower($application['status']); ?>">
-                                        <?php echo htmlspecialchars($application['status']); ?>
+                                    <div class="booking-details">
+                                        <h3><?php echo htmlspecialchars($booking['visa_type'] . ' - ' . $booking['country_name']); ?></h3>
+                                        <p class="consultation-mode">
+                                            <i class="fas fa-video"></i> 
+                                            <?php echo htmlspecialchars($booking['consultation_mode']); ?>
+                                        </p>
+                                        <div class="status-badge" style="background-color: <?php echo $booking['status_color']; ?>10; color: <?php echo $booking['status_color']; ?>;">
+                                            <?php echo htmlspecialchars($booking['status_name']); ?>
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="application-details">
-                                    <p class="country"><i class="fas fa-globe"></i> <?php echo htmlspecialchars($application['country_name']); ?></p>
-                                    <p class="date"><i class="fas fa-clock"></i> Updated: <?php echo date('M j, Y', strtotime($application['updated_at'])); ?></p>
-                                </div>
-                                <a href="view_application.php?id=<?php echo $application['id']; ?>" class="btn-view">View Application</a>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-            </div>
-        </div>
-        
-        <!-- Upcoming Bookings -->
-        <div class="dashboard-section">
-            <div class="section-header">
-                <h2>Upcoming Bookings</h2>
-                <a href="bookings.php" class="view-all">View All</a>
-            </div>
-            <div class="section-content">
-                <?php if (empty($upcoming_bookings)): ?>
-                    <div class="empty-state">
-                        <i class="fas fa-calendar"></i>
-                        <p>You don't have any upcoming bookings.</p>
-                        <a href="bookings.php?action=new" class="btn-link">Schedule a consultation</a>
-                    </div>
-                <?php else: ?>
-                    <div class="booking-list">
-                        <?php foreach ($upcoming_bookings as $booking): ?>
-                            <div class="booking-card">
-                                <div class="booking-date">
-                                    <div class="date-badge">
-                                        <span class="month"><?php echo date('M', strtotime($booking['booking_datetime'])); ?></span>
-                                        <span class="day"><?php echo date('d', strtotime($booking['booking_datetime'])); ?></span>
-                                    </div>
-                                    <div class="time">
-                                        <?php echo date('h:i A', strtotime($booking['booking_datetime'])); ?> - 
-                                        <?php echo date('h:i A', strtotime($booking['end_datetime'])); ?>
+                                    <div class="booking-actions">
+                                        <a href="view_booking.php?id=<?php echo $booking['id']; ?>" class="btn-view">View</a>
                                     </div>
                                 </div>
-                                <div class="booking-details">
-                                    <h3><?php echo htmlspecialchars($booking['visa_type'] . ' - ' . $booking['country_name']); ?></h3>
-                                    <p class="consultation-mode">
-                                        <i class="fas fa-video"></i> 
-                                        <?php echo htmlspecialchars($booking['consultation_mode']); ?>
-                                    </p>
-                                    <p class="service-name">
-                                        <?php echo htmlspecialchars($booking['service_name']); ?>
-                                    </p>
-                                    <div class="status-badge" style="background-color: <?php echo $booking['status_color']; ?>10; color: <?php echo $booking['status_color']; ?>;">
-                                        <?php echo htmlspecialchars($booking['status_name']); ?>
-                                    </div>
-                                </div>
-                                <div class="booking-actions">
-                                    <a href="view_booking.php?id=<?php echo $booking['id']; ?>" class="btn-view">View Details</a>
-                                    <?php if ($booking['status_name'] != 'cancelled'): ?>
-                                        <a href="reschedule_booking.php?id=<?php echo $booking['id']; ?>" class="btn-link">Reschedule</a>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
-    </div>
-    
-    <!-- Quick Links Section -->
-    <div class="quick-links-section">
-        <h2>Quick Links</h2>
-        <div class="quick-links">
-            <a href="documents.php" class="quick-link-card">
-                <i class="fas fa-file-upload"></i>
-                <span>Upload Documents</span>
-            </a>
-            <a href="bookings.php?action=new" class="quick-link-card">
-                <i class="fas fa-calendar-plus"></i>
-                <span>Book a Consultation</span>
-            </a>
-            <a href="messages.php" class="quick-link-card">
-                <i class="fas fa-comments"></i>
-                <span>Contact Support</span>
-            </a>
-            <a href="profile.php" class="quick-link-card">
-                <i class="fas fa-user"></i>
-                <span>My Profile</span>
-            </a>
+
+        <!-- Right Column -->
+        <div class="dashboard-sidebar">
+            <!-- Notifications -->
+            <div class="dashboard-section">
+                <div class="section-header">
+                    <h2>Notifications</h2>
+                    <a href="notifications.php" class="view-all">View All</a>
+                </div>
+                <div class="section-content scrollable">
+                    <?php if (empty($notifications)): ?>
+                        <div class="empty-state">
+                            <i class="fas fa-bell"></i>
+                            <p>No new notifications</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="notification-list">
+                            <?php foreach ($notifications as $notification): ?>
+                                <div class="notification-card <?php echo $notification['is_read'] ? 'read' : 'unread'; ?>">
+                                    <div class="notification-icon">
+                                        <i class="fas <?php echo getNotificationIcon($notification['notification_type']); ?>"></i>
+                                    </div>
+                                    <div class="notification-content">
+                                        <div class="notification-title">
+                                            <?php echo htmlspecialchars($notification['title']); ?>
+                                        </div>
+                                        <div class="notification-time">
+                                            <?php echo timeAgo($notification['created_at']); ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- Messages -->
+            <div class="dashboard-section">
+                <div class="section-header">
+                    <h2>Messages</h2>
+                    <a href="messages.php" class="view-all">View All</a>
+                </div>
+                <div class="section-content scrollable">
+                    <?php if (empty($recent_messages)): ?>
+                        <div class="empty-state">
+                            <i class="fas fa-comments"></i>
+                            <p>No recent messages</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="message-list">
+                            <?php foreach ($recent_messages as $message): ?>
+                                <div class="message-card">
+                                    <div class="message-header">
+                                        <div class="sender">
+                                            <i class="fas fa-user"></i>
+                                            <span><?php echo htmlspecialchars($message['sender_name']); ?></span>
+                                        </div>
+                                        <div class="message-time">
+                                            <?php echo date('M j, h:i A', strtotime($message['created_at'])); ?>
+                                        </div>
+                                    </div>
+                                    <div class="message-preview">
+                                        <?php echo htmlspecialchars(substr($message['message'], 0, 100)) . '...'; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- Tasks -->
+            <div class="dashboard-section">
+                <div class="section-header">
+                    <h2>Tasks</h2>
+                    <a href="tasks.php" class="view-all">View All</a>
+                </div>
+                <div class="section-content scrollable">
+                    <?php if (empty($tasks)): ?>
+                        <div class="empty-state">
+                            <i class="fas fa-tasks"></i>
+                            <p>No tasks assigned</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="task-list">
+                            <?php foreach ($tasks as $task): ?>
+                                <div class="task-card">
+                                    <div class="task-header">
+                                        <div class="task-title">
+                                            <i class="fas fa-clipboard-list"></i>
+                                            <span><?php echo htmlspecialchars($task['name']); ?></span>
+                                        </div>
+                                        <div class="task-priority <?php echo $task['priority']; ?>">
+                                            <?php echo ucfirst($task['priority']); ?>
+                                        </div>
+                                    </div>
+                                    <div class="task-details">
+                                        <p class="due-date">
+                                            <i class="fas fa-calendar"></i>
+                                            Due: <?php echo date('M j, Y', strtotime($task['due_date'])); ?>
+                                        </p>
+                                        <div class="task-status <?php echo $task['status']; ?>">
+                                            <?php echo ucfirst($task['status']); ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -441,9 +637,21 @@ try {
 /* Dashboard Sections */
 .dashboard-sections {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    grid-template-columns: 2fr 1fr;
     gap: 20px;
     margin-bottom: 25px;
+}
+
+.dashboard-main {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.dashboard-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
 }
 
 .dashboard-section {
@@ -451,6 +659,9 @@ try {
     border-radius: 8px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
     overflow: hidden;
+    height: 400px; /* Fixed height for all sections */
+    display: flex;
+    flex-direction: column;
 }
 
 .section-header {
@@ -475,8 +686,14 @@ try {
 }
 
 .section-content {
-    padding: 20px;
-    min-height: 320px;
+    padding: 15px;
+    flex: 1;
+    overflow: hidden;
+}
+
+.section-content.scrollable {
+    overflow-y: auto;
+    padding-right: 10px;
 }
 
 /* Empty States */
@@ -525,6 +742,22 @@ try {
 
 .application-card:hover {
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+}
+
+.application-card.compact {
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.application-card.compact .application-header,
+.booking-card.compact .booking-date {
+    margin-bottom: 8px;
+}
+
+.application-card.compact .application-details p,
+.booking-card.compact .booking-details p {
+    margin: 3px 0;
+    font-size: 13px;
 }
 
 .application-header {
@@ -615,6 +848,11 @@ try {
 
 .booking-card:hover {
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+}
+
+.booking-card.compact {
+    padding: 10px;
+    margin-bottom: 10px;
 }
 
 .booking-date {
@@ -719,91 +957,179 @@ try {
     text-decoration: underline;
 }
 
-/* Quick Links Section */
-.quick-links-section {
-    margin-bottom: 25px;
-}
-
-.quick-links-section h2 {
-    margin: 0 0 15px;
-    font-size: 1.1rem;
-    color: var(--primary-color);
-    font-weight: 600;
-}
-
-.quick-links {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-}
-
-.quick-link-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-    text-decoration: none;
-    color: var(--dark-color);
-    transition: transform 0.2s, box-shadow 0.2s;
-    height: 120px;
-}
-
-.quick-link-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-}
-
-.quick-link-card i {
-    font-size: 24px;
+/* Message card styles */
+.message-card {
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
     margin-bottom: 10px;
+}
+
+.message-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.sender {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 500;
+}
+
+.message-time {
+    font-size: 12px;
+    color: var(--secondary-color);
+}
+
+.message-preview {
+    font-size: 13px;
+    color: var(--secondary-color);
+    line-height: 1.4;
+}
+
+/* Notification card styles */
+.notification-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.notification-card:last-child {
+    border-bottom: none;
+}
+
+.notification-card.unread {
+    background-color: rgba(4, 33, 103, 0.05);
+}
+
+.notification-icon {
+    width: 32px;
+    height: 32px;
+    background-color: var(--light-color);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     color: var(--primary-color);
+}
+
+.notification-content {
+    flex: 1;
+}
+
+.notification-title {
+    font-size: 13px;
+    margin-bottom: 3px;
+}
+
+.notification-time {
+    font-size: 12px;
+    color: var(--secondary-color);
+}
+
+/* Scrollbar styling */
+.section-content.scrollable::-webkit-scrollbar {
+    width: 6px;
+}
+
+.section-content.scrollable::-webkit-scrollbar-track {
+    background: var(--light-color);
+    border-radius: 3px;
+}
+
+.section-content.scrollable::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+.section-content.scrollable::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary-color);
 }
 
 /* Responsive adjustments */
-@media (max-width: 768px) {
-    .dashboard-welcome {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .stat-card {
-        padding: 15px;
-    }
-    
+@media (max-width: 1200px) {
     .dashboard-sections {
         grid-template-columns: 1fr;
     }
-    
-    .booking-card {
-        flex-direction: column;
-    }
-    
-    .booking-date {
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: center;
-        padding: 10px 15px;
-    }
-    
-    .date-badge {
-        margin-bottom: 0;
-        flex-direction: row;
-        gap: 5px;
-    }
-    
-    .booking-actions {
-        flex-direction: row;
-        border-left: none;
-        border-top: 1px solid var(--border-color);
-    }
-    
-    .quick-links {
-        grid-template-columns: repeat(2, 1fr);
-    }
+}
+
+/* Task Card Styles */
+.task-card {
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    margin-bottom: 10px;
+    background-color: white;
+}
+
+.task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.task-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+}
+
+.task-priority {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.task-priority.high {
+    background-color: rgba(231, 74, 59, 0.1);
+    color: var(--danger-color);
+}
+
+.task-priority.normal {
+    background-color: rgba(78, 115, 223, 0.1);
+    color: #4e73df;
+}
+
+.task-priority.low {
+    background-color: rgba(28, 200, 138, 0.1);
+    color: var(--success-color);
+}
+
+.task-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+}
+
+.task-status {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.task-status.pending {
+    background-color: rgba(246, 194, 62, 0.1);
+    color: var(--warning-color);
+}
+
+.task-status.in_progress {
+    background-color: rgba(78, 115, 223, 0.1);
+    color: #4e73df;
+}
+
+.task-status.completed {
+    background-color: rgba(28, 200, 138, 0.1);
+    color: var(--success-color);
 }
 </style>
 
