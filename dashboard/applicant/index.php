@@ -120,26 +120,40 @@ try {
     $recent_applications = [];
 }
 
-// Get recent messages
+// Get recent conversations
 try {
-    $stmt = $conn->prepare("SELECT m.*, CONCAT(u.first_name, ' ', u.last_name) as sender_name
-                           FROM messages m
-                           JOIN users u ON m.sender_id = u.id
-                           WHERE m.recipient_id = ?
-                           ORDER BY m.created_at DESC
-                           LIMIT 5");
-    $stmt->bind_param("i", $user_id);
+    $query = "SELECT c.id, c.title, c.type, c.application_id, c.created_at, c.last_message_at,
+              (SELECT message FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message,
+              (SELECT CONCAT(u.first_name, ' ', u.last_name) 
+               FROM messages m 
+               JOIN users u ON m.user_id = u.id 
+               WHERE m.conversation_id = c.id 
+               ORDER BY m.created_at DESC LIMIT 1) as last_message_sender,
+              (SELECT COUNT(m.id) 
+               FROM messages m 
+               LEFT JOIN message_read_status mrs ON m.id = mrs.message_id AND mrs.user_id = ?
+               WHERE m.conversation_id = c.id AND m.user_id != ? AND mrs.id IS NULL) as unread_count
+              FROM conversations c
+              JOIN conversation_participants cp ON c.id = cp.conversation_id
+              WHERE cp.user_id = ? AND cp.left_at IS NULL
+              ORDER BY c.last_message_at DESC
+              LIMIT 5";
+
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param('iii', $user_id, $user_id, $user_id);
     $stmt->execute();
     $result = $stmt->get_result();
-    $recent_messages = [];
-    
-    while ($row = $result->fetch_assoc()) {
-        $recent_messages[] = $row;
+    $recent_conversations = [];
+
+    if ($result && $result->num_rows > 0) {
+        while ($row = $result->fetch_assoc()) {
+            $recent_conversations[] = $row;
+        }
     }
     $stmt->close();
 } catch (Exception $e) {
-    error_log("Error fetching recent messages: " . $e->getMessage());
-    $recent_messages = [];
+    error_log("Error fetching recent conversations: " . $e->getMessage());
+    $recent_conversations = [];
 }
 
 // Get recent notifications
@@ -415,28 +429,71 @@ function timeAgo($datetime) {
                     <a href="messages.php" class="view-all">View All</a>
                 </div>
                 <div class="section-content scrollable">
-                    <?php if (empty($recent_messages)): ?>
+                    <?php if (empty($recent_conversations)): ?>
                         <div class="empty-state">
                             <i class="fas fa-comments"></i>
                             <p>No recent messages</p>
                         </div>
                     <?php else: ?>
-                        <div class="message-list">
-                            <?php foreach ($recent_messages as $message): ?>
-                                <div class="message-card">
-                                    <div class="message-header">
-                                        <div class="sender">
-                                            <i class="fas fa-user"></i>
-                                            <span><?php echo htmlspecialchars($message['sender_name']); ?></span>
+                        <div class="conversations-list">
+                            <?php foreach ($recent_conversations as $conversation): ?>
+                                <a href="messages.php?conversation_id=<?php echo $conversation['id']; ?>" class="conversation-item">
+                                    <div class="conversation-avatar">
+                                        <?php if ($conversation['type'] === 'group'): ?>
+                                            <div class="group-avatar">
+                                                <i class="fas fa-users"></i>
+                                            </div>
+                                        <?php else: ?>
+                                            <div class="initials">
+                                                <?php 
+                                                // Get the other participant's name in direct conversations
+                                                $query = "SELECT CONCAT(u.first_name, ' ', u.last_name) as name
+                                                        FROM conversation_participants cp
+                                                        JOIN users u ON cp.user_id = u.id
+                                                        WHERE cp.conversation_id = ? AND cp.user_id <> ? AND cp.left_at IS NULL
+                                                        LIMIT 1";
+                                                $stmt = $conn->prepare($query);
+                                                $stmt->bind_param('ii', $conversation['id'], $user_id);
+                                                $stmt->execute();
+                                                $result = $stmt->get_result();
+                                                $other_user = $result->fetch_assoc();
+                                                $stmt->close();
+                                                
+                                                $name_parts = explode(' ', $other_user['name']);
+                                                echo substr($name_parts[0], 0, 1) . (isset($name_parts[1]) ? substr($name_parts[1], 0, 1) : '');
+                                                ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="conversation-details">
+                                        <div class="conversation-header">
+                                            <h4>
+                                                <?php 
+                                                if ($conversation['type'] === 'group') {
+                                                    echo htmlspecialchars($conversation['title']);
+                                                } else {
+                                                    echo htmlspecialchars($other_user['name']);
+                                                }
+                                                ?>
+                                            </h4>
+                                            <span class="conversation-time">
+                                                <?php echo timeAgo($conversation['last_message_at']); ?>
+                                            </span>
                                         </div>
-                                        <div class="message-time">
-                                            <?php echo date('M j, h:i A', strtotime($message['created_at'])); ?>
+                                        <div class="conversation-preview">
+                                            <p>
+                                                <?php if ($conversation['last_message']): ?>
+                                                    <?php echo htmlspecialchars(substr($conversation['last_message'], 0, 50) . (strlen($conversation['last_message']) > 50 ? '...' : '')); ?>
+                                                <?php else: ?>
+                                                    No messages yet
+                                                <?php endif; ?>
+                                            </p>
+                                            <?php if ($conversation['unread_count'] > 0): ?>
+                                                <span class="unread-badge"><?php echo $conversation['unread_count']; ?></span>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
-                                    <div class="message-preview">
-                                        <?php echo htmlspecialchars(substr($message['message'], 0, 100)) . '...'; ?>
-                                    </div>
-                                </div>
+                                </a>
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
@@ -976,7 +1033,26 @@ function timeAgo($datetime) {
     display: flex;
     align-items: center;
     gap: 5px;
-    font-weight: 500;
+}
+
+.sender .initials {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: var(--primary-color);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.sender-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
 }
 
 .message-time {
@@ -1130,6 +1206,120 @@ function timeAgo($datetime) {
 .task-status.completed {
     background-color: rgba(28, 200, 138, 0.1);
     color: var(--success-color);
+}
+
+.message-actions {
+    margin-top: 8px;
+    text-align: right;
+}
+
+.view-conversation {
+    font-size: 12px;
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.view-conversation:hover {
+    text-decoration: underline;
+}
+
+/* Conversation items for dashboard */
+.conversations-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.conversation-item {
+    display: flex;
+    padding: 12px 15px;
+    text-decoration: none;
+    color: var(--dark-color);
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.2s;
+    gap: 12px;
+}
+
+.conversation-item:hover {
+    background-color: #f8f9fc;
+}
+
+.conversation-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #4e73df;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.group-avatar {
+    background-color: #4e73df;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.conversation-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.conversation-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.conversation-header h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--dark-color);
+}
+
+.conversation-time {
+    font-size: 12px;
+    color: var(--secondary-color);
+    white-space: nowrap;
+}
+
+.conversation-preview {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.conversation-preview p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--secondary-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.unread-badge {
+    min-width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    background-color: #4e73df;
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
 }
 </style>
 

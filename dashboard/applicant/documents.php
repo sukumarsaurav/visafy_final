@@ -346,30 +346,35 @@ if (isset($_GET['success'])) {
                                     </div>
                                     
                                     <div class="doc-details">
-                                        <h3><?php echo htmlspecialchars($document['document_type_name']); ?></h3>
-                                        <p class="app-info">
-                                            <?php echo htmlspecialchars($document['visa_type']); ?> - 
-                                            #<?php echo htmlspecialchars($document['reference_number']); ?>
-                                        </p>
-                                        <p class="doc-date">
+                                        <div class="doc-name"><?php echo htmlspecialchars($document['document_type_name']); ?></div>
+                                        <div class="doc-info">
+                                            <span class="visa-type"><?php echo htmlspecialchars($document['visa_type']); ?></span>
+                                            <span class="app-number">#<?php echo htmlspecialchars($document['reference_number']); ?></span>
+                                        </div>
+                                        <!-- <div class="doc-date">
                                             Uploaded: <?php echo date('M j, Y', strtotime($document['created_at'])); ?>
-                                        </p>
-                                    </div>
-                                    
-                                    <div class="doc-status">
-                                        <?php
-                                        $status_class = 'status-' . $document['status'];
-                                        $status_text = ucfirst($document['status']);
-                                        ?>
-                                        <span class="status-badge <?php echo $status_class; ?>">
-                                            <?php echo $status_text; ?>
-                                        </span>
+                                        </div> -->
+                                        <div class="doc-status">
+                                            <?php
+                                            $status_class = 'status-' . $document['status'];
+                                            $status_text = ucfirst($document['status']);
+                                            ?>
+                                            <span class="status-badge <?php echo $status_class; ?>">
+                                                <i class="fas <?php 
+                                                    echo $document['status'] === 'approved' ? 'fa-check-circle' : 
+                                                        ($document['status'] === 'rejected' ? 'fa-times-circle' : 
+                                                        ($document['status'] === 'submitted' ? 'fa-paper-plane' : 'fa-clock')); 
+                                                ?>"></i>
+                                                <?php echo $status_text; ?>
+                                            </span>
+                                        </div>
                                     </div>
                                     
                                     <div class="doc-actions">
-                                        <a href="../../<?php echo $document['file_path']; ?>" class="btn-icon" title="View Document" target="_blank">
+                                        <button type="button" class="btn-icon" title="View Document" 
+                                                onclick="openDocumentModal('../../<?php echo $document['file_path']; ?>')">
                                             <i class="fas fa-eye"></i>
-                                        </a>
+                                        </button>
                                         <?php if ($document['status'] !== 'approved'): ?>
                                             <button type="button" class="btn-icon" title="Replace Document" 
                                                     onclick="prepareUpload(<?php echo $document['application_id']; ?>, <?php echo $document['document_type_id']; ?>)">
@@ -438,6 +443,23 @@ if (isset($_GET['success'])) {
                         <button type="submit" name="upload_document" class="btn submit-btn">Upload Document</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add this new modal for document viewing -->
+<div class="modal" id="documentViewerModal">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Document Viewer</h3>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="document-viewer">
+                    <iframe id="documentFrame" width="100%" height="600px" frameborder="0"></iframe>
+                </div>
             </div>
         </div>
     </div>
@@ -577,8 +599,8 @@ if (isset($_GET['success'])) {
     border-radius: 5px;
     padding: 15px;
     display: flex;
-    flex-direction: column;
-    gap: 15px;
+    align-items: flex-start;
+    gap: 20px;
     transition: transform 0.2s;
 }
 
@@ -588,76 +610,109 @@ if (isset($_GET['success'])) {
 }
 
 .doc-icon {
-    font-size: 24px;
+    font-size: 3.5rem;
     color: var(--primary-color);
+    flex-shrink: 0;
+    margin-top: 5px;
 }
 
-.doc-details h3 {
-    margin: 0 0 5px;
-    font-size: 16px;
+.doc-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.doc-name {
+    font-size: 1.1rem;
+    font-weight: 600;
     color: var(--dark-color);
 }
 
-.app-info, .doc-date {
-    margin: 0;
-    font-size: 13px;
+.doc-info {
+    display: flex;
+    gap: 10px;
+    font-size: 0.9rem;
+    color: var(--secondary-color);
+}
+
+.visa-type {
+    font-weight: 500;
+}
+
+.app-number {
+    color: var(--primary-color);
+}
+
+.doc-date {
+    font-size: 0.85rem;
     color: var(--secondary-color);
 }
 
 .doc-status {
-    margin-top: auto;
+    margin-top: 5px;
 }
 
 .status-badge {
-    display: inline-block;
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
     font-weight: 500;
+    text-transform: capitalize;
 }
 
+/* Status badge colors with improved styling */
 .status-pending {
-    background-color: rgba(133, 135, 150, 0.1);
-    color: var(--secondary-color);
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
 }
 
 .status-submitted {
-    background-color: rgba(78, 115, 223, 0.1);
-    color: #4e73df;
+    background-color: #cce5ff;
+    color: #004085;
+    border: 1px solid #b8daff;
 }
 
 .status-approved {
-    background-color: rgba(28, 200, 138, 0.1);
-    color: var(--success-color);
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
 }
 
 .status-rejected {
-    background-color: rgba(231, 74, 59, 0.1);
-    color: var(--danger-color);
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
 }
 
 .doc-actions {
     display: flex;
+    flex-direction: column;
     gap: 8px;
-    margin-top: 10px;
+    /* margin-top: 5px; */
 }
 
 .btn-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     border-radius: 4px;
     background-color: var(--primary-color);
     color: white;
     border: none;
     cursor: pointer;
-    text-decoration: none;
+    font-size: 1rem;
+    transition: all 0.2s ease;
 }
 
 .btn-icon:hover {
     background-color: #031c56;
+    transform: translateY(-2px);
 }
 
 .empty-state {
@@ -867,6 +922,114 @@ if (isset($_GET['success'])) {
     .modal-dialog {
         margin: 60px 15px;
     }
+}
+
+.document-card.horizontal {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 12px 18px;
+    margin-bottom: 12px;
+    background: #fff;
+}
+
+.document-icon {
+    font-size: 2rem;
+    color: var(--primary-color);
+    flex-shrink: 0;
+}
+
+.document-info {
+    flex: 1;
+}
+
+.document-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.document-meta {
+    color: var(--secondary-color);
+    font-size: 0.95rem;
+}
+
+.document-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-view, .btn-download {
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: none;
+    background: var(--primary-color);
+    color: #fff;
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 0.95rem;
+}
+
+.btn-download {
+    background: var(--success-color);
+}
+
+.btn-view:hover, .btn-download:hover {
+    opacity: 0.85;
+}
+
+/* Modal styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    left: 0; top: 0; width: 100%; height: 100%;
+    overflow: auto;
+    background: rgba(0,0,0,0.4);
+}
+.modal-dialog {
+    margin: 60px auto;
+    max-width: 90%;
+    width: 90%;
+}
+.modal-content {
+    background: #fff;
+    border-radius: 8px;
+    padding: 0;
+    overflow: hidden;
+}
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid #eee;
+}
+.modal-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+.close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+.modal-body {
+    padding: 0 24px 24px 24px;
+}
+.document-viewer {
+    background: #f8f9fa;
+    border-radius: 4px;
+    padding: 20px;
+}
+.document-viewer iframe {
+    width: 100%;
+    height: calc(100vh - 200px);
+    border: none;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 </style>
 
@@ -1094,6 +1257,40 @@ function handleDrop(e) {
     const event = new Event('change', { bubbles: true });
     fileInput.dispatchEvent(event);
 }
+
+function openDocumentModal(filePath) {
+    var modal = document.getElementById('documentViewerModal');
+    var frame = document.getElementById('documentFrame');
+    
+    // Set the iframe source
+    frame.src = filePath;
+    
+    // Show the modal
+    modal.style.display = 'block';
+    
+    // Add body class to prevent scrolling
+    document.body.style.overflow = 'hidden';
+}
+
+// Close modal when clicking the close button or outside the modal
+document.addEventListener('DOMContentLoaded', function() {
+    var modal = document.getElementById('documentViewerModal');
+    var closeBtn = modal.querySelector('.close');
+    
+    closeBtn.onclick = function() {
+        modal.style.display = 'none';
+        document.getElementById('documentFrame').src = '';
+        document.body.style.overflow = '';
+    };
+    
+    window.onclick = function(event) {
+        if (event.target == modal) {
+            modal.style.display = 'none';
+            document.getElementById('documentFrame').src = '';
+            document.body.style.overflow = '';
+        }
+    };
+});
 </script>
 
 <?php

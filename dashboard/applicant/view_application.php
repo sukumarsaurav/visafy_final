@@ -287,351 +287,357 @@ if (isset($_GET['success'])) {
         <div class="alert alert-success"><?php echo $success_message; ?></div>
     <?php endif; ?>
     
-    <!-- Application Overview -->
-    <div class="section">
-        <div class="section-header">
-            <h2>Application Overview</h2>
-        </div>
-        <div class="section-body">
-            <div class="overview-grid">
-                <div class="overview-item">
-                    <div class="item-label">Status</div>
-                    <div class="item-value">
-                        <span class="status-badge" style="background-color: <?php echo $application['status_color']; ?>10; color: <?php echo $application['status_color']; ?>;">
-                            <?php echo ucfirst($application['status_name']); ?>
-                        </span>
-                    </div>
+    <div class="two-column-layout">
+        <div class="left-column">
+            <!-- Application Overview -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>Application Overview</h2>
                 </div>
-                
-                <div class="overview-item">
-                    <div class="item-label">Priority</div>
-                    <div class="item-value">
-                        <span class="priority-badge priority-<?php echo $application['priority']; ?>">
-                            <?php echo ucfirst($application['priority']); ?>
-                        </span>
-                    </div>
-                </div>
-                
-                <div class="overview-item">
-                    <div class="item-label">Submitted</div>
-                    <div class="item-value">
-                        <?php echo $application['submitted_at'] ? date('M d, Y', strtotime($application['submitted_at'])) : 'Not submitted'; ?>
-                    </div>
-                </div>
-                
-                <div class="overview-item">
-                    <div class="item-label">Expected Completion</div>
-                    <div class="item-value">
-                        <?php echo $application['expected_completion_date'] ? date('M d, Y', strtotime($application['expected_completion_date'])) : 'Not specified'; ?>
-                    </div>
-                </div>
-                
-                <div class="overview-item">
-                    <div class="item-label">Created</div>
-                    <div class="item-value">
-                        <?php echo date('M d, Y', strtotime($application['created_at'])); ?>
-                    </div>
-                </div>
-                
-                <div class="overview-item">
-                    <div class="item-label">Last Updated</div>
-                    <div class="item-value">
-                        <?php echo date('M d, Y', strtotime($application['updated_at'])); ?>
-                    </div>
-                </div>
-                
-                <div class="overview-item">
-                    <div class="item-label">Case Manager</div>
-                    <div class="item-value">
-                        <?php echo !empty($application['case_manager_name']) ? htmlspecialchars($application['case_manager_name']) . ' (' . htmlspecialchars($application['case_manager_role']) . ')' : 'Not assigned'; ?>
-                    </div>
-                </div>
-                
-                <div class="overview-item">
-                    <div class="item-label">Documents Status</div>
-                    <div class="item-value">
-                        <div class="doc-stats">
-                            <span class="doc-stat approved"><?php echo $application['approved_documents']; ?> approved</span>
-                            <span class="doc-stat pending"><?php echo $application['pending_documents'] + $application['submitted_documents']; ?> pending</span>
-                            <span class="doc-stat rejected"><?php echo $application['rejected_documents']; ?> rejected</span>
+                <div class="section-body">
+                    <div class="overview-grid">
+                        <div class="overview-item">
+                            <div class="item-label">Status</div>
+                            <div class="item-value">
+                                <span class="status-badge" style="background-color: <?php echo $application['status_color']; ?>10; color: <?php echo $application['status_color']; ?>;">
+                                    <?php echo ucfirst($application['status_name']); ?>
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="overview-item">
+                            <div class="item-label">Priority</div>
+                            <div class="item-value">
+                                <span class="priority-badge priority-<?php echo $application['priority']; ?>">
+                                    <?php echo ucfirst($application['priority']); ?>
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="overview-item">
+                            <div class="item-label">Submitted</div>
+                            <div class="item-value">
+                                <?php echo $application['submitted_at'] ? date('M d, Y', strtotime($application['submitted_at'])) : 'Not submitted'; ?>
+                            </div>
+                        </div>
+                        
+                        <div class="overview-item">
+                            <div class="item-label">Expected Completion</div>
+                            <div class="item-value">
+                                <?php echo $application['expected_completion_date'] ? date('M d, Y', strtotime($application['expected_completion_date'])) : 'Not specified'; ?>
+                            </div>
+                        </div>
+                        
+                        <div class="overview-item">
+                            <div class="item-label">Created</div>
+                            <div class="item-value">
+                                <?php echo date('M d, Y', strtotime($application['created_at'])); ?>
+                            </div>
+                        </div>
+                        
+                        <div class="overview-item">
+                            <div class="item-label">Last Updated</div>
+                            <div class="item-value">
+                                <?php echo date('M d, Y', strtotime($application['updated_at'])); ?>
+                            </div>
+                        </div>
+                        
+                        <div class="overview-item">
+                            <div class="item-label">Case Manager</div>
+                            <div class="item-value">
+                                <?php echo !empty($application['case_manager_name']) ? htmlspecialchars($application['case_manager_name']) . ' (' . htmlspecialchars($application['case_manager_role']) . ')' : 'Not assigned'; ?>
+                            </div>
+                        </div>
+                        
+                        <div class="overview-item">
+                            <div class="item-label">Documents Status</div>
+                            <div class="item-value">
+                                <div class="doc-stats">
+                                    <span class="doc-stat approved"><?php echo $application['approved_documents']; ?> approved</span>
+                                    <span class="doc-stat pending"><?php echo $application['pending_documents'] + $application['submitted_documents']; ?> pending</span>
+                                    <span class="doc-stat rejected"><?php echo $application['rejected_documents']; ?> rejected</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                    
+                    <?php if (!empty($application['notes'])): ?>
+                    <div class="application-notes">
+                        <h3>Notes</h3>
+                        <div class="notes-content">
+                            <?php echo nl2br(htmlspecialchars($application['notes'])); ?>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    
+                    <div class="action-buttons">
+                        <a href="upload_documents.php?id=<?php echo $application_id; ?>" class="btn primary-btn">
+                            <i class="fas fa-upload"></i> Upload Documents
+                        </a>
+                        <a href="applications.php" class="btn secondary-btn">
+                            <i class="fas fa-arrow-left"></i> Back to Applications
+                        </a>
+                    </div>
                 </div>
             </div>
             
-            <?php if (!empty($application['notes'])): ?>
-            <div class="application-notes">
-                <h3>Notes</h3>
-                <div class="notes-content">
-                    <?php echo nl2br(htmlspecialchars($application['notes'])); ?>
+            <!-- Documents Section -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>Required Documents</h2>
+                    <a href="upload_documents.php?id=<?php echo $application_id; ?>" class="btn-sm primary-btn">
+                        <i class="fas fa-upload"></i> Upload Documents
+                    </a>
                 </div>
-            </div>
-            <?php endif; ?>
-            
-            <div class="action-buttons">
-                <a href="upload_documents.php?id=<?php echo $application_id; ?>" class="btn primary-btn">
-                    <i class="fas fa-upload"></i> Upload Documents
-                </a>
-                <a href="applications.php" class="btn secondary-btn">
-                    <i class="fas fa-arrow-left"></i> Back to Applications
-                </a>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Documents Section -->
-    <div class="section">
-        <div class="section-header">
-            <h2>Required Documents</h2>
-            <a href="upload_documents.php?id=<?php echo $application_id; ?>" class="btn-sm primary-btn">
-                <i class="fas fa-upload"></i> Upload Documents
-            </a>
-        </div>
-        <div class="section-body">
-            <?php if (empty($required_documents)): ?>
-                <div class="empty-state">
-                    <i class="fas fa-file-alt"></i>
-                    <p>No required documents have been specified for this application.</p>
-                </div>
-            <?php else: ?>
-                <div class="documents-container">
-                    <?php foreach ($required_by_category as $category): ?>
-                        <div class="document-category">
-                            <div class="category-header">
-                                <h3><i class="fas fa-folder"></i> <?php echo htmlspecialchars($category['name']); ?></h3>
-                            </div>
-                            <div class="document-list">
-                                <?php foreach ($category['documents'] as $doc): ?>
-                                    <div class="document-item <?php echo isset($uploaded_document_types[$doc['document_type_id']]) ? 'has-document status-' . $uploaded_document_types[$doc['document_type_id']]['status'] : 'missing'; ?>">
-                                        <div class="document-info">
-                                            <div class="document-name">
-                                                <?php echo htmlspecialchars($doc['document_name']); ?>
-                                                <?php if ($doc['is_mandatory']): ?>
-                                                    <span class="mandatory-badge">Required</span>
-                                                <?php else: ?>
-                                                    <span class="optional-badge">Optional</span>
-                                                <?php endif; ?>
-                                            </div>
-                                            
-                                            <?php if (!empty($doc['document_description'])): ?>
-                                                <div class="document-description">
-                                                    <?php echo htmlspecialchars($doc['document_description']); ?>
-                                                </div>
-                                            <?php endif; ?>
-                                            
-                                            <?php if (isset($uploaded_document_types[$doc['document_type_id']])): 
-                                                $uploaded_doc = $uploaded_document_types[$doc['document_type_id']];
-                                            ?>
-                                                <div class="document-upload-info">
-                                                    <div class="upload-detail">
-                                                        <span class="label">Submitted:</span>
-                                                        <span class="value"><?php echo date('M d, Y', strtotime($uploaded_doc['submitted_at'])); ?></span>
+                <div class="section-body">
+                    <?php if (empty($required_documents)): ?>
+                        <div class="empty-state">
+                            <i class="fas fa-file-alt"></i>
+                            <p>No required documents have been specified for this application.</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="documents-container">
+                            <?php foreach ($required_by_category as $category): ?>
+                                <div class="document-category">
+                                    <div class="category-header">
+                                        <h3><i class="fas fa-folder"></i> <?php echo htmlspecialchars($category['name']); ?></h3>
+                                    </div>
+                                    <div class="document-list">
+                                        <?php foreach ($category['documents'] as $doc): ?>
+                                            <div class="document-item <?php echo isset($uploaded_document_types[$doc['document_type_id']]) ? 'has-document status-' . $uploaded_document_types[$doc['document_type_id']]['status'] : 'missing'; ?>">
+                                                <div class="document-info">
+                                                    <div class="document-name">
+                                                        <?php echo htmlspecialchars($doc['document_name']); ?>
+                                                        <?php if ($doc['is_mandatory']): ?>
+                                                            <span class="mandatory-badge">Required</span>
+                                                        <?php else: ?>
+                                                            <span class="optional-badge">Optional</span>
+                                                        <?php endif; ?>
                                                     </div>
-                                                    <div class="upload-detail">
-                                                        <span class="label">Status:</span>
-                                                        <span class="value status-text status-<?php echo $uploaded_doc['status']; ?>">
-                                                            <?php echo ucfirst($uploaded_doc['status']); ?>
-                                                        </span>
-                                                    </div>
-                                                    <?php if ($uploaded_doc['status'] === 'rejected' && !empty($uploaded_doc['rejection_reason'])): ?>
-                                                        <div class="upload-detail rejection-reason">
-                                                            <span class="label">Rejection Reason:</span>
-                                                            <span class="value"><?php echo htmlspecialchars($uploaded_doc['rejection_reason']); ?></span>
+                                                    
+                                                    <?php if (!empty($doc['document_description'])): ?>
+                                                        <div class="document-description">
+                                                            <?php echo htmlspecialchars($doc['document_description']); ?>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                    
+                                                    <?php if (isset($uploaded_document_types[$doc['document_type_id']])): 
+                                                        $uploaded_doc = $uploaded_document_types[$doc['document_type_id']];
+                                                    ?>
+                                                        <div class="document-upload-info">
+                                                            <div class="upload-detail">
+                                                                <span class="label">Submitted:</span>
+                                                                <span class="value"><?php echo date('M d, Y', strtotime($uploaded_doc['submitted_at'])); ?></span>
+                                                            </div>
+                                                            <div class="upload-detail">
+                                                                <span class="label">Status:</span>
+                                                                <span class="value status-text status-<?php echo $uploaded_doc['status']; ?>">
+                                                                    <?php echo ucfirst($uploaded_doc['status']); ?>
+                                                                </span>
+                                                            </div>
+                                                            <?php if ($uploaded_doc['status'] === 'rejected' && !empty($uploaded_doc['rejection_reason'])): ?>
+                                                                <div class="upload-detail rejection-reason">
+                                                                    <span class="label">Rejection Reason:</span>
+                                                                    <span class="value"><?php echo htmlspecialchars($uploaded_doc['rejection_reason']); ?></span>
+                                                                </div>
+                                                            <?php endif; ?>
+                                                        </div>
+                                                    <?php else: ?>
+                                                        <div class="document-missing">
+                                                            <i class="fas fa-exclamation-circle"></i> Document not uploaded yet
                                                         </div>
                                                     <?php endif; ?>
                                                 </div>
+                                                
+                                                <div class="document-actions">
+                                                    <?php if (isset($uploaded_document_types[$doc['document_type_id']])): 
+                                                        $uploaded_doc = $uploaded_document_types[$doc['document_type_id']];
+                                                    ?>
+                                                        <a href="../../<?php echo $uploaded_doc['file_path']; ?>" class="btn-icon" title="View Document" target="_blank">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                        
+                                                        <?php if ($uploaded_doc['status'] !== 'approved'): ?>
+                                                            <a href="upload_documents.php?id=<?php echo $application_id; ?>&document_id=<?php echo $uploaded_doc['document_type_id']; ?>" class="btn-icon" title="Replace Document">
+                                                                <i class="fas fa-upload"></i>
+                                                            </a>
+                                                        <?php endif; ?>
+                                                    <?php else: ?>
+                                                        <a href="upload_documents.php?id=<?php echo $application_id; ?>&document_id=<?php echo $doc['document_type_id']; ?>" class="btn-icon btn-upload" title="Upload Document">
+                                                            <i class="fas fa-upload"></i>
+                                                        </a>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <div class="right-column">
+        <div class="section">
+                <div class="section-header">
+                    <h2>Activity Log</h2>
+                </div>
+                <div class="section-body">
+                    <?php if (empty($activity_logs)): ?>
+                        <div class="empty-state">
+                            <i class="fas fa-history"></i>
+                            <p>No activity has been recorded yet.</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="timeline">
+                            <?php foreach ($activity_logs as $log): ?>
+                                <div class="timeline-item">
+                                    <div class="timeline-icon">
+                                        <?php
+                                        switch ($log['activity_type']) {
+                                            case 'created':
+                                                echo '<i class="fas fa-plus-circle"></i>';
+                                                break;
+                                            case 'updated':
+                                                echo '<i class="fas fa-edit"></i>';
+                                                break;
+                                            case 'status_changed':
+                                                echo '<i class="fas fa-sync-alt"></i>';
+                                                break;
+                                            case 'document_added':
+                                            case 'document_updated':
+                                                echo '<i class="fas fa-file-upload"></i>';
+                                                break;
+                                            case 'comment_added':
+                                                echo '<i class="fas fa-comment"></i>';
+                                                break;
+                                            case 'assigned':
+                                                echo '<i class="fas fa-user-check"></i>';
+                                                break;
+                                            case 'completed':
+                                                echo '<i class="fas fa-check-circle"></i>';
+                                                break;
+                                            default:
+                                                echo '<i class="fas fa-info-circle"></i>';
+                                        }
+                                        ?>
+                                    </div>
+                                    <div class="timeline-content">
+                                        <div class="timeline-header">
+                                            <span class="timeline-title"><?php echo htmlspecialchars($log['description']); ?></span>
+                                            <span class="timeline-date">
+                                                <?php echo date('M d, Y h:i A', strtotime($log['created_at'])); ?>
+                                            </span>
+                                        </div>
+                                        <div class="timeline-user">
+                                            <i class="fas fa-user"></i> <?php echo htmlspecialchars($log['user_name']); ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <!-- Comments Section -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>Comments</h2>
+                </div>
+                <div class="section-body">
+                    <div class="add-comment-form">
+                        <form action="view_application.php?id=<?php echo $application_id; ?>" method="POST">
+                            <textarea name="comment" placeholder="Write a comment..." required></textarea>
+                            <div class="comment-actions">
+                                <button type="submit" name="add_comment" class="btn primary-btn">
+                                    <i class="fas fa-paper-plane"></i> Add Comment
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <div class="comments-container">
+                        <?php if (empty($comments)): ?>
+                            <div class="empty-state">
+                                <i class="fas fa-comments"></i>
+                                <p>No comments yet. Be the first to add a comment.</p>
+                            </div>
+                        <?php else: ?>
+                            <div class="comments-list">
+                                <?php foreach ($comments as $comment): ?>
+                                    <div class="comment-item">
+                                        <div class="comment-avatar">
+                                            <?php if (!empty($comment['profile_picture'])): ?>
+                                                <img src="../../<?php echo htmlspecialchars($comment['profile_picture']); ?>" alt="Profile Picture">
                                             <?php else: ?>
-                                                <div class="document-missing">
-                                                    <i class="fas fa-exclamation-circle"></i> Document not uploaded yet
+                                                <div class="default-avatar">
+                                                    <?php echo strtoupper(substr($comment['user_name'], 0, 1)); ?>
                                                 </div>
                                             <?php endif; ?>
                                         </div>
-                                        
-                                        <div class="document-actions">
-                                            <?php if (isset($uploaded_document_types[$doc['document_type_id']])): 
-                                                $uploaded_doc = $uploaded_document_types[$doc['document_type_id']];
-                                            ?>
-                                                <a href="../../<?php echo $uploaded_doc['file_path']; ?>" class="btn-icon" title="View Document" target="_blank">
-                                                    <i class="fas fa-eye"></i>
-                                                </a>
-                                                
-                                                <?php if ($uploaded_doc['status'] !== 'approved'): ?>
-                                                    <a href="upload_documents.php?id=<?php echo $application_id; ?>&document_id=<?php echo $uploaded_doc['document_type_id']; ?>" class="btn-icon" title="Replace Document">
-                                                        <i class="fas fa-upload"></i>
-                                                    </a>
-                                                <?php endif; ?>
-                                            <?php else: ?>
-                                                <a href="upload_documents.php?id=<?php echo $application_id; ?>&document_id=<?php echo $doc['document_type_id']; ?>" class="btn-icon btn-upload" title="Upload Document">
-                                                    <i class="fas fa-upload"></i>
-                                                </a>
-                                            <?php endif; ?>
+                                        <div class="comment-content">
+                                            <div class="comment-header">
+                                                <div class="comment-author">
+                                                    <span class="author-name"><?php echo htmlspecialchars($comment['user_name']); ?></span>
+                                                    <span class="author-role"><?php echo ucfirst($comment['user_type']); ?></span>
+                                                </div>
+                                                <div class="comment-date">
+                                                    <?php echo date('M d, Y h:i A', strtotime($comment['created_at'])); ?>
+                                                </div>
+                                            </div>
+                                            <div class="comment-text">
+                                                <?php echo nl2br(htmlspecialchars($comment['comment'])); ?>
+                                            </div>
                                         </div>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
-        </div>
-    </div>
-    
-    <!-- Comments Section -->
-    <div class="section">
-        <div class="section-header">
-            <h2>Comments</h2>
-        </div>
-        <div class="section-body">
-            <div class="add-comment-form">
-                <form action="view_application.php?id=<?php echo $application_id; ?>" method="POST">
-                    <textarea name="comment" placeholder="Write a comment..." required></textarea>
-                    <div class="comment-actions">
-                        <button type="submit" name="add_comment" class="btn primary-btn">
-                            <i class="fas fa-paper-plane"></i> Add Comment
-                        </button>
+                        <?php endif; ?>
                     </div>
-                </form>
+                </div>
             </div>
             
-            <div class="comments-container">
-                <?php if (empty($comments)): ?>
-                    <div class="empty-state">
-                        <i class="fas fa-comments"></i>
-                        <p>No comments yet. Be the first to add a comment.</p>
-                    </div>
-                <?php else: ?>
-                    <div class="comments-list">
-                        <?php foreach ($comments as $comment): ?>
-                            <div class="comment-item">
-                                <div class="comment-avatar">
-                                    <?php if (!empty($comment['profile_picture'])): ?>
-                                        <img src="../../<?php echo htmlspecialchars($comment['profile_picture']); ?>" alt="Profile Picture">
-                                    <?php else: ?>
-                                        <div class="default-avatar">
-                                            <?php echo strtoupper(substr($comment['user_name'], 0, 1)); ?>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="comment-content">
-                                    <div class="comment-header">
-                                        <div class="comment-author">
-                                            <span class="author-name"><?php echo htmlspecialchars($comment['user_name']); ?></span>
-                                            <span class="author-role"><?php echo ucfirst($comment['user_type']); ?></span>
-                                        </div>
-                                        <div class="comment-date">
-                                            <?php echo date('M d, Y h:i A', strtotime($comment['created_at'])); ?>
-                                        </div>
-                                    </div>
-                                    <div class="comment-text">
-                                        <?php echo nl2br(htmlspecialchars($comment['comment'])); ?>
-                                    </div>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Activity Log Section -->
-    <div class="section">
-        <div class="section-header">
-            <h2>Activity Log</h2>
-        </div>
-        <div class="section-body">
-            <?php if (empty($activity_logs)): ?>
-                <div class="empty-state">
-                    <i class="fas fa-history"></i>
-                    <p>No activity has been recorded yet.</p>
+            <!-- Activity Log Section -->
+            
+            
+            <!-- Status History Section -->
+            <!-- <div class="section">
+                <div class="section-header">
+                    <h2>Status History</h2>
                 </div>
-            <?php else: ?>
-                <div class="timeline">
-                    <?php foreach ($activity_logs as $log): ?>
-                        <div class="timeline-item">
-                            <div class="timeline-icon">
-                                <?php
-                                switch ($log['activity_type']) {
-                                    case 'created':
-                                        echo '<i class="fas fa-plus-circle"></i>';
-                                        break;
-                                    case 'updated':
-                                        echo '<i class="fas fa-edit"></i>';
-                                        break;
-                                    case 'status_changed':
-                                        echo '<i class="fas fa-sync-alt"></i>';
-                                        break;
-                                    case 'document_added':
-                                    case 'document_updated':
-                                        echo '<i class="fas fa-file-upload"></i>';
-                                        break;
-                                    case 'comment_added':
-                                        echo '<i class="fas fa-comment"></i>';
-                                        break;
-                                    case 'assigned':
-                                        echo '<i class="fas fa-user-check"></i>';
-                                        break;
-                                    case 'completed':
-                                        echo '<i class="fas fa-check-circle"></i>';
-                                        break;
-                                    default:
-                                        echo '<i class="fas fa-info-circle"></i>';
-                                }
-                                ?>
-                            </div>
-                            <div class="timeline-content">
-                                <div class="timeline-header">
-                                    <span class="timeline-title"><?php echo htmlspecialchars($log['description']); ?></span>
-                                    <span class="timeline-date">
-                                        <?php echo date('M d, Y h:i A', strtotime($log['created_at'])); ?>
-                                    </span>
-                                </div>
-                                <div class="timeline-user">
-                                    <i class="fas fa-user"></i> <?php echo htmlspecialchars($log['user_name']); ?>
-                                </div>
-                            </div>
+                <div class="section-body">
+                    <?php if (empty($status_history)): ?>
+                        <div class="empty-state">
+                            <i class="fas fa-history"></i>
+                            <p>No status changes have been recorded yet.</p>
                         </div>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
-        </div>
-    </div>
-    
-    <!-- Status History Section -->
-    <div class="section">
-        <div class="section-header">
-            <h2>Status History</h2>
-        </div>
-        <div class="section-body">
-            <?php if (empty($status_history)): ?>
-                <div class="empty-state">
-                    <i class="fas fa-history"></i>
-                    <p>No status changes have been recorded yet.</p>
-                </div>
-            <?php else: ?>
-                <div class="status-history-list">
-                    <?php foreach ($status_history as $status): ?>
-                        <div class="status-history-item">
-                            <div class="status-history-badge" style="background-color: <?php echo $status['status_color']; ?>10; color: <?php echo $status['status_color']; ?>;">
-                                <?php echo ucfirst($status['status_name']); ?>
-                            </div>
-                            <div class="status-history-details">
-                                <div class="status-history-date">
-                                    <?php echo date('M d, Y h:i A', strtotime($status['created_at'])); ?>
-                                </div>
-                                <div class="status-history-user">
-                                    Changed by: <?php echo htmlspecialchars($status['changed_by_name']); ?>
-                                </div>
-                                <?php if (!empty($status['notes'])): ?>
-                                    <div class="status-history-notes">
-                                        <?php echo nl2br(htmlspecialchars($status['notes'])); ?>
+                    <?php else: ?>
+                        <div class="status-history-list">
+                            <?php foreach ($status_history as $status): ?>
+                                <div class="status-history-item">
+                                    <div class="status-history-badge" style="background-color: <?php echo $status['status_color']; ?>10; color: <?php echo $status['status_color']; ?>;">
+                                        <?php echo ucfirst($status['status_name']); ?>
                                     </div>
-                                <?php endif; ?>
-                            </div>
+                                    <div class="status-history-details">
+                                        <div class="status-history-date">
+                                            <?php echo date('M d, Y h:i A', strtotime($status['created_at'])); ?>
+                                        </div>
+                                        <div class="status-history-user">
+                                            Changed by: <?php echo htmlspecialchars($status['changed_by_name']); ?>
+                                        </div>
+                                        <?php if (!empty($status['notes'])): ?>
+                                            <div class="status-history-notes">
+                                                <?php echo nl2br(htmlspecialchars($status['notes'])); ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
                         </div>
-                    <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
-            <?php endif; ?>
+            </div> -->
         </div>
     </div>
 </div>
@@ -1326,6 +1332,28 @@ if (isset($_GET['success'])) {
     
     .status-history-badge {
         align-self: flex-start;
+    }
+}
+
+.two-column-layout {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+    margin-top: 24px;
+}
+
+.left-column, .right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+@media (max-width: 900px) {
+    .two-column-layout {
+        grid-template-columns: 1fr;
+    }
+    .left-column, .right-column {
+        gap: 16px;
     }
 }
 </style>

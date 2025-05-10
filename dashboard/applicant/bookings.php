@@ -554,183 +554,49 @@ if (isset($_GET['success'])) {
         <div class="alert alert-success"><?php echo $success_message; ?></div>
     <?php endif; ?>
     
-    <!-- Upcoming Bookings -->
-    <div class="section">
-        <div class="section-header">
-            <h2>Upcoming Appointments</h2>
-        </div>
-        <div class="booking-list">
-            <?php if (empty($upcoming_bookings)): ?>
-                <div class="empty-state">
-                    <i class="fas fa-calendar-alt"></i>
-                    <p>You don't have any upcoming appointments.</p>
-                    <button type="button" class="btn-link" id="noBookingsBtn">Schedule a consultation</button>
-                </div>
-            <?php else: ?>
-                <?php foreach ($upcoming_bookings as $booking): ?>
-                    <div class="booking-card">
-                        <div class="booking-date">
-                            <div class="date">
-                                <span class="month"><?php echo date('M', strtotime($booking['booking_datetime'])); ?></span>
-                                <span class="day"><?php echo date('d', strtotime($booking['booking_datetime'])); ?></span>
-                            </div>
-                            <div class="time">
-                                <?php echo date('h:i A', strtotime($booking['booking_datetime'])); ?> - 
-                                <?php echo date('h:i A', strtotime($booking['end_datetime'])); ?>
-                            </div>
-                        </div>
-                        
-                        <div class="booking-details">
-                            <h3><?php echo htmlspecialchars($booking['service_name'] . ' (' . $booking['visa_type'] . ' - ' . $booking['country_name'] . ')'); ?></h3>
-                            <p class="booking-info">
-                                <i class="fas fa-layer-group"></i> <?php echo htmlspecialchars($booking['consultation_mode']); ?>
-                            </p>
-                            <?php if (!empty($booking['consultant_name'])): ?>
-                                <p class="consultant">
-                                    <i class="fas fa-user"></i> 
-                                    <?php echo htmlspecialchars($booking['consultant_name']); ?> 
-                                    (<?php echo htmlspecialchars($booking['consultant_role']); ?>)
-                                </p>
-                            <?php else: ?>
-                                <p class="consultant">
-                                    <i class="fas fa-user"></i> Consultant not yet assigned
-                                </p>
-                            <?php endif; ?>
-                            
-                            <p class="status">
-                                <span class="status-badge" style="background-color: <?php echo $booking['status_color']; ?>10; color: <?php echo $booking['status_color']; ?>;">
-                                    <?php echo ucfirst($booking['status_name']); ?>
-                                </span>
-                            </p>
-                        </div>
-                        
-                        <div class="booking-actions">
-                            <?php if ($booking['status_name'] !== 'cancelled_by_user' && $booking['status_name'] !== 'cancelled_by_admin'): ?>
-                                <button type="button" class="btn-action btn-cancel" 
-                                        onclick="prepareCancel(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['reference_number']); ?>')">
-                                    <i class="fas fa-times"></i> Cancel
-                                </button>
-                            <?php endif; ?>
-                            
-                            <?php if (!empty($booking['meeting_link']) && $booking['status_name'] === 'confirmed'): ?>
-                                <a href="<?php echo htmlspecialchars($booking['meeting_link']); ?>" target="_blank" class="btn-action btn-primary">
-                                    <i class="fas fa-video"></i> Join Meeting
-                                </a>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </div>
-    </div>
-    
-    <!-- Past Bookings -->
-    <div class="section">
-        <div class="section-header">
-            <h2>Past Appointments</h2>
-            <a href="booking_history.php" class="view-all">View All</a>
-        </div>
-        <div class="booking-list">
-            <?php if (empty($past_bookings)): ?>
-                <div class="empty-state">
-                    <i class="fas fa-history"></i>
-                    <p>You don't have any past appointments.</p>
-                </div>
-            <?php else: ?>
-                <?php foreach ($past_bookings as $booking): ?>
-                    <div class="booking-card past">
-                        <div class="booking-date">
-                            <div class="date">
-                                <span class="month"><?php echo date('M', strtotime($booking['booking_datetime'])); ?></span>
-                                <span class="day"><?php echo date('d', strtotime($booking['booking_datetime'])); ?></span>
-                            </div>
-                            <div class="time">
-                                <?php echo date('h:i A', strtotime($booking['booking_datetime'])); ?> - 
-                                <?php echo date('h:i A', strtotime($booking['end_datetime'])); ?>
-                            </div>
-                        </div>
-                        
-                        <div class="booking-details">
-                            <h3><?php echo htmlspecialchars($booking['service_name'] . ' (' . $booking['visa_type'] . ' - ' . $booking['country_name'] . ')'); ?></h3>
-                            <p class="booking-info">
-                                <i class="fas fa-layer-group"></i> <?php echo htmlspecialchars($booking['consultation_mode']); ?>
-                            </p>
-                            <?php if (!empty($booking['consultant_name'])): ?>
-                                <p class="consultant">
-                                    <i class="fas fa-user"></i> 
-                                    <?php echo htmlspecialchars($booking['consultant_name']); ?> 
-                                    (<?php echo htmlspecialchars($booking['consultant_role']); ?>)
-                                </p>
-                            <?php endif; ?>
-                            
-                            <p class="status">
-                                <span class="status-badge" style="background-color: <?php echo $booking['status_color']; ?>10; color: <?php echo $booking['status_color']; ?>;">
-                                    <?php echo ucfirst($booking['status_name']); ?>
-                                </span>
-                            </p>
-                        </div>
-                        
-                        <div class="booking-actions">
-                            <?php if ($booking['status_name'] === 'completed'): ?>
-                                <a href="leave_feedback.php?id=<?php echo $booking['id']; ?>" class="btn-action btn-secondary">
-                                    <i class="fas fa-star"></i> Leave Feedback
-                                </a>
-                            <?php endif; ?>
-                            
-                            <button type="button" class="btn-action btn-view" 
-                                    onclick="viewBookingDetails(<?php echo $booking['id']; ?>)">
-                                <i class="fas fa-info-circle"></i> Details
-                            </button>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </div>
+    <!-- Tabs Navigation -->
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="consultants-tab">Consultants</button>
+        <button class="tab-btn" data-tab="upcoming-tab">Upcoming Bookings</button>
+        <button class="tab-btn" data-tab="past-tab">Past Bookings</button>
     </div>
 
-    <!-- Our Immigration Consultants -->
-    <div class="section">
-        <div class="section-header">
-            <h2>Our Immigration Consultants</h2>
-            <span class="subtitle">Choose from our experienced immigration specialists</span>
-        </div>
-        
-        <div class="consultants-list">
-            <?php if (empty($consultants)): ?>
-                <div class="empty-state">
-                    <i class="fas fa-users"></i>
-                    <p>No consultants are available at the moment.</p>
-                </div>
-            <?php else: ?>
+    <!-- Consultants Tab -->
+    <div class="tab-content active" id="consultants-tab">
+        <div class="section">
+            <div class="section-header">
+                <h2>Our Immigration Consultants</h2>
+                <span class="subtitle">Choose from our experienced immigration specialists</span>
+            </div>
+            <div class="consultants-list">
                 <?php foreach ($consultants as $consultant): ?>
                     <div class="consultant-card horizontal">
-                        <div class="consultant-photo">
+                        <div class="consultant-photo-col">
                             <?php if (!empty($consultant['profile_picture'])): ?>
-                                <img src="../../uploads/profiles/<?php echo htmlspecialchars($consultant['profile_picture']); ?>" alt="<?php echo htmlspecialchars($consultant['first_name'] . ' ' . $consultant['last_name']); ?>">
+                                <img class="consultant-photo" src="../../uploads/profiles/<?php echo htmlspecialchars($consultant['profile_picture']); ?>" alt="<?php echo htmlspecialchars($consultant['first_name'] . ' ' . $consultant['last_name']); ?>">
                             <?php else: ?>
                                 <div class="consultant-initials">
                                     <?php echo substr($consultant['first_name'], 0, 1) . substr($consultant['last_name'], 0, 1); ?>
                                 </div>
                             <?php endif; ?>
+                            <div class="consultant-rating">
+                                <div class="stars">
+                                    <?php for ($i = 1; $i <= 5; $i++): ?>
+                                        <?php if ($i <= floor($consultant['average_rating'])): ?>
+                                            <i class="fas fa-star"></i>
+                                        <?php elseif ($i - 0.5 <= $consultant['average_rating']): ?>
+                                            <i class="fas fa-star-half-alt"></i>
+                                        <?php else: ?>
+                                            <i class="far fa-star"></i>
+                                        <?php endif; ?>
+                                    <?php endfor; ?>
+                                </div>
+                                <span class="rating-text"><?php echo $consultant['average_rating']; ?> (<?php echo $consultant['review_count']; ?> reviews)</span>
+                            </div>
                         </div>
-                        
                         <div class="consultant-content">
                             <div class="consultant-header">
                                 <h3><?php echo htmlspecialchars($consultant['first_name'] . ' ' . $consultant['last_name']); ?></h3>
-                                <div class="consultant-rating">
-                                    <div class="stars">
-                                        <?php for ($i = 1; $i <= 5; $i++): ?>
-                                            <?php if ($i <= floor($consultant['average_rating'])): ?>
-                                                <i class="fas fa-star"></i>
-                                            <?php elseif ($i - 0.5 <= $consultant['average_rating']): ?>
-                                                <i class="fas fa-star-half-alt"></i>
-                                            <?php else: ?>
-                                                <i class="far fa-star"></i>
-                                            <?php endif; ?>
-                                        <?php endfor; ?>
-                                    </div>
-                                    <span class="rating-text"><?php echo $consultant['average_rating']; ?> (<?php echo $consultant['review_count']; ?> reviews)</span>
-                                </div>
                             </div>
                             
                             <div class="consultant-details">
@@ -797,7 +663,145 @@ if (isset($_GET['success'])) {
                         </div>
                     </div>
                 <?php endforeach; ?>
-            <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upcoming Bookings Tab -->
+    <div class="tab-content" id="upcoming-tab">
+        <div class="section">
+            <div class="section-header">
+                <h2>Upcoming Appointments</h2>
+            </div>
+            <div class="booking-list">
+                <?php if (empty($upcoming_bookings)): ?>
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-alt"></i>
+                        <p>You don't have any upcoming appointments.</p>
+                        <button type="button" class="btn-link" id="noBookingsBtn">Schedule a consultation</button>
+                    </div>
+                <?php else: ?>
+                    <?php foreach ($upcoming_bookings as $booking): ?>
+                        <div class="booking-card">
+                            <div class="booking-date">
+                                <div class="date">
+                                    <span class="month"><?php echo date('M', strtotime($booking['booking_datetime'])); ?></span>
+                                    <span class="day"><?php echo date('d', strtotime($booking['booking_datetime'])); ?></span>
+                                </div>
+                                <div class="time">
+                                    <?php echo date('h:i A', strtotime($booking['booking_datetime'])); ?> - 
+                                    <?php echo date('h:i A', strtotime($booking['end_datetime'])); ?>
+                                </div>
+                            </div>
+                            
+                            <div class="booking-details">
+                                <h3><?php echo htmlspecialchars($booking['service_name'] . ' (' . $booking['visa_type'] . ' - ' . $booking['country_name'] . ')'); ?></h3>
+                                <p class="booking-info">
+                                    <i class="fas fa-layer-group"></i> <?php echo htmlspecialchars($booking['consultation_mode']); ?>
+                                </p>
+                                <?php if (!empty($booking['consultant_name'])): ?>
+                                    <p class="consultant">
+                                        <i class="fas fa-user"></i> 
+                                        <?php echo htmlspecialchars($booking['consultant_name']); ?> 
+                                        (<?php echo htmlspecialchars($booking['consultant_role']); ?>)
+                                    </p>
+                                <?php else: ?>
+                                    <p class="consultant">
+                                        <i class="fas fa-user"></i> Consultant not yet assigned
+                                    </p>
+                                <?php endif; ?>
+                                
+                                <p class="status">
+                                    <span class="status-badge" style="background-color: <?php echo $booking['status_color']; ?>10; color: <?php echo $booking['status_color']; ?>;">
+                                        <?php echo ucfirst($booking['status_name']); ?>
+                                    </span>
+                                </p>
+                            </div>
+                            
+                            <div class="booking-actions">
+                                <?php if ($booking['status_name'] !== 'cancelled_by_user' && $booking['status_name'] !== 'cancelled_by_admin'): ?>
+                                    <button type="button" class="btn-action btn-cancel" 
+                                            onclick="prepareCancel(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['reference_number']); ?>')">
+                                        <i class="fas fa-times"></i> Cancel
+                                    </button>
+                                <?php endif; ?>
+                                
+                                <?php if (!empty($booking['meeting_link']) && $booking['status_name'] === 'confirmed'): ?>
+                                    <a href="<?php echo htmlspecialchars($booking['meeting_link']); ?>" target="_blank" class="btn-action btn-primary">
+                                        <i class="fas fa-video"></i> Join Meeting
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- Past Bookings Tab -->
+    <div class="tab-content" id="past-tab">
+        <div class="section">
+            <div class="section-header">
+                <h2>Past Appointments</h2>
+                <a href="booking_history.php" class="view-all">View All</a>
+            </div>
+            <div class="booking-list">
+                <?php if (empty($past_bookings)): ?>
+                    <div class="empty-state">
+                        <i class="fas fa-history"></i>
+                        <p>You don't have any past appointments.</p>
+                    </div>
+                <?php else: ?>
+                    <?php foreach ($past_bookings as $booking): ?>
+                        <div class="booking-card past">
+                            <div class="booking-date">
+                                <div class="date">
+                                    <span class="month"><?php echo date('M', strtotime($booking['booking_datetime'])); ?></span>
+                                    <span class="day"><?php echo date('d', strtotime($booking['booking_datetime'])); ?></span>
+                                </div>
+                                <div class="time">
+                                    <?php echo date('h:i A', strtotime($booking['booking_datetime'])); ?> - 
+                                    <?php echo date('h:i A', strtotime($booking['end_datetime'])); ?>
+                                </div>
+                            </div>
+                            
+                            <div class="booking-details">
+                                <h3><?php echo htmlspecialchars($booking['service_name'] . ' (' . $booking['visa_type'] . ' - ' . $booking['country_name'] . ')'); ?></h3>
+                                <p class="booking-info">
+                                    <i class="fas fa-layer-group"></i> <?php echo htmlspecialchars($booking['consultation_mode']); ?>
+                                </p>
+                                <?php if (!empty($booking['consultant_name'])): ?>
+                                    <p class="consultant">
+                                        <i class="fas fa-user"></i> 
+                                        <?php echo htmlspecialchars($booking['consultant_name']); ?> 
+                                        (<?php echo htmlspecialchars($booking['consultant_role']); ?>)
+                                    </p>
+                                <?php endif; ?>
+                                
+                                <p class="status">
+                                    <span class="status-badge" style="background-color: <?php echo $booking['status_color']; ?>10; color: <?php echo $booking['status_color']; ?>;">
+                                        <?php echo ucfirst($booking['status_name']); ?>
+                                    </span>
+                                </p>
+                            </div>
+                            
+                            <div class="booking-actions">
+                                <?php if ($booking['status_name'] === 'completed'): ?>
+                                    <a href="leave_feedback.php?id=<?php echo $booking['id']; ?>" class="btn-action btn-secondary">
+                                        <i class="fas fa-star"></i> Leave Feedback
+                                    </a>
+                                <?php endif; ?>
+                                
+                                <button type="button" class="btn-action btn-view" 
+                                        onclick="viewBookingDetails(<?php echo $booking['id']; ?>)">
+                                    <i class="fas fa-info-circle"></i> Details
+                                </button>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 </div>
@@ -1347,7 +1351,7 @@ if (isset($_GET['success'])) {
 
 .consultant-card.horizontal {
     display: grid;
-    grid-template-columns: 180px 1fr 200px;
+    grid-template-columns: 160px 1fr 200px;
     background-color: white;
     border-radius: 8px;
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
@@ -1360,44 +1364,16 @@ if (isset($_GET['success'])) {
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
 }
 
-.consultant-card.horizontal .consultant-photo {
-    width: 100%;
-    height: 100%;
-    background-color: var(--primary-color);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 220px;
-}
-
-.consultant-card.horizontal .consultant-photo img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.consultant-card.horizontal .consultant-initials {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 50px;
-    font-weight: 600;
-}
-
 .consultant-card.horizontal .consultant-content {
     padding: 20px;
     display: flex;
     flex-direction: column;
-   
 }
 
 .consultant-card.horizontal .consultant-header {
     display: flex;
-    align-items: center;
-    gap: 15px;
+    flex-direction: column;
+    gap: 10px;
     margin-bottom: 12px;
 }
 
@@ -1405,7 +1381,6 @@ if (isset($_GET['success'])) {
     margin: 0;
     font-size: 1.3rem;
     color: var(--primary-color);
-    white-space: nowrap;
 }
 
 .consultant-rating {
@@ -1601,6 +1576,68 @@ if (isset($_GET['success'])) {
         flex-direction: column;
     }
 }
+
+.consultant-photo-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 20px 0;
+    background: #f8f9fc;
+}
+
+.consultant-photo {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.consultant-initials {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    font-weight: bold;
+}
+
+.consultant-rating {
+    margin-top: 12px;
+    text-align: center;
+}
+
+.tabs {
+    display: flex;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    padding: 12px 24px;
+    font-size: 1rem;
+    color: var(--secondary-color);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: color 0.2s, border-bottom 0.2s;
+}
+
+.tab-btn.active {
+    color: var(--primary-color);
+    border-bottom: 3px solid var(--primary-color);
+    font-weight: bold;
+}
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
 </style>
 
 <script>
@@ -1940,6 +1977,15 @@ function selectConsultant(consultantId, consultantName) {
         clientNotesField.value = noteText;
     }
 }
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+        this.classList.add('active');
+        document.getElementById(this.getAttribute('data-tab')).classList.add('active');
+    });
+});
 </script>
 
 <?php
