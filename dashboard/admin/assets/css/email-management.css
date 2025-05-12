@@ -680,19 +680,20 @@ textarea.form-control {
 }
 
 .template-card {
-    border: 1px solid var(--border-color);
+    position: relative;
     border-radius: 8px;
     overflow: hidden;
-    background-color: white;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    transition: all 0.3s ease;
+    background: white;
+    transition: transform 0.2s, box-shadow 0.2s;
     display: flex;
     flex-direction: column;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    height: 280px; /* Fixed height */
 }
 
 .template-card:hover {
-    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
     transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .template-header {
@@ -818,4 +819,213 @@ textarea.form-control {
     .templates-grid {
         grid-template-columns: 1fr;
     }
+}
+
+/* Menu position in top right */
+.template-actions-menu {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 20;
+}
+
+.template-menu-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+    cursor: pointer;
+    color: #6c757d;
+    transition: all 0.2s;
+}
+
+.template-menu-trigger:hover {
+    background-color: white;
+    color: var(--primary-color);
+}
+
+.template-menu-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    min-width: 160px;
+    background: white;
+    border-radius: 6px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+    z-index: 30;
+    display: none;
+    overflow: hidden;
+    margin-top: 5px;
+}
+
+.template-actions-menu:hover .template-menu-trigger {
+    background-color: white;
+    color: var(--primary-color);
+}
+
+/* Menu items styling */
+.menu-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 15px;
+    color: #333;
+    text-decoration: none;
+    transition: background-color 0.2s;
+    cursor: pointer;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.menu-item i {
+    margin-right: 10px;
+    width: 18px;
+    text-align: center;
+    font-size: 15px;
+}
+
+.menu-item:hover {
+    background-color: #f5f7fa;
+}
+
+.delete-item {
+    color: var(--danger-color);
+}
+
+.delete-item:hover {
+    background-color: #fff5f5;
+}
+
+/* Email view modal styles */
+.email-view-modal {
+    max-width: 700px;
+    width: 100%;
+}
+
+.email-metadata {
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border-color);
+    background-color: #f9f9f9;
+}
+
+.email-metadata-row {
+    display: flex;
+    margin-bottom: 8px;
+}
+
+.email-metadata-row:last-child {
+    margin-bottom: 0;
+}
+
+.email-metadata-label {
+    width: 60px;
+    font-weight: 600;
+    color: var(--dark-color);
+}
+
+.email-metadata-value {
+    flex: 1;
+    word-break: break-word;
+}
+
+.email-content {
+    min-height: 200px;
+    border-top: none;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: space-between;
+    padding: 15px 20px;
+    border-top: 1px solid var(--border-color);
+    background-color: #f9f9f9;
+}
+
+.close-email-btn {
+    margin-right: auto;
+}
+
+.reply-btn {
+    margin-left: auto;
+}
+
+/* Action buttons in Sent/Queued tab */
+.actions-cell {
+    display: flex;
+    gap: 5px;
+    justify-content: flex-start;
+}
+
+.btn-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    background-color: #f5f7fa;
+    border: 1px solid #e5e9f2;
+    color: #6c757d;
+    transition: all 0.2s;
+    cursor: pointer;
+    padding: 0;
+}
+
+.btn-action:hover {
+    background-color: #e9ecef;
+    color: var(--primary-color);
+}
+
+.btn-action.btn-danger {
+    color: var(--danger-color);
+}
+
+.btn-action.btn-danger:hover {
+    background-color: #fff5f5;
+}
+
+.send-now-email {
+    color: #28a745;
+}
+
+.send-now-email:hover {
+    background-color: #f0fff4;
+    color: #28a745;
+}
+
+/* Status badge styles */
+.status-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 4px;
+    text-transform: capitalize;
+}
+
+.status-badge.pending {
+    background-color: #fff8e6;
+    color: #f59f00;
+}
+
+.status-badge.processing {
+    background-color: #e3f2fd;
+    color: #2196f3;
+}
+
+.status-badge.sent {
+    background-color: #e8f5e9;
+    color: #4caf50;
+}
+
+.status-badge.failed {
+    background-color: #ffebee;
+    color: #f44336;
 }

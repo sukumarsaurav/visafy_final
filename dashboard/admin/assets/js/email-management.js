@@ -236,4 +236,99 @@ function deleteTemplate(templateId) {
             alert('An error occurred while processing your request. Please try again.');
         });
     }
-} 
+}
+
+// Show email details in a modal
+function showEmailDetails(email) {
+    console.log('Showing email details:', email);
+    
+    const modal = document.getElementById('email-details-modal');
+    if (!modal) {
+        console.error('Email details modal not found');
+        return;
+    }
+    
+    if (email.status === 'sent') {
+        // For sent emails
+        modal.querySelector('.modal-title').textContent = email.subject || 'No Subject';
+        modal.querySelector('.email-from').textContent = email.sender_email || 'N/A';
+        modal.querySelector('.email-to').textContent = 'You';
+        
+        // Show status for sent emails
+        modal.querySelector('.status-row').style.display = 'flex';
+        let statusHtml = '';
+        switch (email.status) {
+            case 'pending':
+                statusHtml = '<span class="status-badge pending">Pending</span>';
+                break;
+            case 'processing':
+                statusHtml = '<span class="status-badge processing">Processing</span>';
+                break;
+            case 'sent':
+                statusHtml = '<span class="status-badge sent">Sent</span>';
+                break;
+            case 'failed':
+                statusHtml = '<span class="status-badge failed">Failed</span>';
+                break;
+            default:
+                statusHtml = email.status || 'Unknown';
+        }
+        modal.querySelector('.email-status').innerHTML = statusHtml;
+        
+        // Hide reply button for sent emails
+        modal.querySelector('.reply-btn').style.display = 'none';
+    } else {
+        // For received emails
+        modal.querySelector('.modal-title').textContent = email.subject || 'No Subject';
+        modal.querySelector('.email-from').textContent = email.sender_email || 'N/A';
+        modal.querySelector('.email-to').textContent = 'You';
+        
+        // Hide CC and BCC for received emails
+        modal.querySelector('.cc-row').style.display = 'none';
+        modal.querySelector('.bcc-row').style.display = 'none';
+        
+        // Date for received emails
+        modal.querySelector('.email-date').textContent = 
+            email.received_at ? 'Received: ' + formatDate(email.received_at) : 'N/A';
+        
+        // Hide status for received emails
+        modal.querySelector('.status-row').style.display = 'none';
+        
+        // Show reply button for received emails
+        modal.querySelector('.reply-btn').style.display = 'inline-flex';
+    }
+    
+    // Set email content
+    modal.querySelector('.email-content').innerHTML = email.content || '<p>No content</p>';
+    
+    // Show the modal
+    modal.style.display = 'block';
+}
+
+// Helper function to format dates
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString; // Return original if invalid
+    
+    return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+// Close modals with ESC key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => {
+            if (modal.style.display === 'block') {
+                modal.style.display = 'none';
+            }
+        });
+    }
+}); 
