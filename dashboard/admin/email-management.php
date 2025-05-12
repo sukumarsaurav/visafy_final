@@ -322,13 +322,22 @@ while ($row = $result->fetch_assoc()) {
                     <div class="templates-grid">
                         <?php foreach ($templates as $template): ?>
                             <div class="template-card">
-                                <div class="template-header">
-                                    <h4><?php echo htmlspecialchars($template['name']); ?></h4>
-                                    <div class="template-type"><?php echo ucwords(str_replace('_', ' ', $template['template_type'])); ?></div>
+                                <!-- Three dots menu -->
+                                <div class="template-actions-menu">
+                                    <span class="template-menu-trigger"><i class="fas fa-ellipsis-v"></i></span>
+                                    <div class="template-menu-dropdown">
+                                        <a href="template_builder.php?id=<?php echo $template['id']; ?>" class="menu-item">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </a>
+                                        <button type="button" class="menu-item delete-item" 
+                                                data-id="<?php echo $template['id']; ?>" 
+                                                onclick="return deleteTemplate(<?php echo $template['id']; ?>)">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                    </div>
                                 </div>
-                                <div class="template-subject"><?php echo htmlspecialchars($template['subject']); ?></div>
                                 
-                                <!-- Thumbnail preview instead of full content -->
+                                <!-- Template preview (thumbnail) -->
                                 <div class="template-thumbnail">
                                     <div class="template-thumbnail-wrapper">
                                         <div class="template-thumbnail-content">
@@ -337,7 +346,7 @@ while ($row = $result->fetch_assoc()) {
                                             $content = $template['content'];
                                             // Strip script tags for security
                                             $content = preg_replace('/<script\b[^>]*>(.*?)<\/script>/is', '', $content);
-                                            // Output the thumbnail preview with limited height
+                                            // Output the thumbnail preview
                                             echo $content; 
                                             ?>
                                         </div>
@@ -347,18 +356,9 @@ while ($row = $result->fetch_assoc()) {
                                     </button>
                                 </div>
                                 
-                                <div class="template-meta">
-                                    <span class="date">Created: <?php echo date('M d, Y', strtotime($template['created_at'])); ?></span>
-                                </div>
-                                <div class="template-actions">
-                                    <a href="template_builder.php?id=<?php echo $template['id']; ?>" class="btn-action">
-                                        <i class="fas fa-edit"></i> Edit
-                                    </a>
-                                    <button type="button" class="btn-action btn-danger delete-template" 
-                                            data-id="<?php echo $template['id']; ?>" 
-                                            onclick="return deleteTemplate(<?php echo $template['id']; ?>)">
-                                        <i class="fas fa-trash"></i> Delete
-                                    </button>
+                                <!-- Template name in footer -->
+                                <div class="template-footer">
+                                    <h5 title="<?php echo htmlspecialchars($template['name']); ?>"><?php echo htmlspecialchars($template['name']); ?></h5>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -812,7 +812,7 @@ while ($row = $result->fetch_assoc()) {
         });
         
         // Delete template functionality
-        const deleteButtons = document.querySelectorAll('.delete-template');
+        const deleteButtons = document.querySelectorAll('.delete-item');
         
         console.log('Delete buttons found:', deleteButtons.length);
         
@@ -1121,6 +1121,35 @@ while ($row = $result->fetch_assoc()) {
                         
                         showEmailModal(email, emailType);
                     });
+            });
+        });
+        
+        // Handle dropdown menu interactions
+        document.addEventListener('click', function(e) {
+            const dropdowns = document.querySelectorAll('.template-menu-dropdown');
+            if (!e.target.closest('.template-actions-menu')) {
+                dropdowns.forEach(dropdown => {
+                    dropdown.style.display = 'none';
+                });
+            }
+        });
+
+        // Toggle dropdowns when clicking the trigger
+        const menuTriggers = document.querySelectorAll('.template-menu-trigger');
+        menuTriggers.forEach(trigger => {
+            trigger.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const dropdown = this.nextElementSibling;
+                
+                // Close all other dropdowns
+                document.querySelectorAll('.template-menu-dropdown').forEach(d => {
+                    if (d !== dropdown) {
+                        d.style.display = 'none';
+                    }
+                });
+                
+                // Toggle this dropdown
+                dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
             });
         });
     });
@@ -1489,37 +1518,28 @@ while ($row = $result->fetch_assoc()) {
     /* Template thumbnail styles */
     .template-thumbnail {
         position: relative;
-        height: 200px;
+        flex-grow: 1;
         overflow: hidden;
         background-color: white;
-        border-bottom: 1px solid var(--border-color);
         display: flex;
         flex-direction: column;
+        height: calc(100% - 40px); /* Account for footer */
     }
     
     .template-thumbnail-wrapper {
         position: relative;
-        height: 160px;
+        flex-grow: 1;
         overflow: hidden;
     }
     
     .template-thumbnail-content {
         transform: scale(0.5);
-        transform-origin: top left;
+        transform-origin: top center;
         width: 200%;
         height: 200%;
         pointer-events: none;
         padding: 15px;
         overflow: hidden;
-    }
-    
-    .template-thumbnail-content * {
-        max-width: 100% !important;
-    }
-    
-    .template-thumbnail-content img {
-        max-width: 100% !important;
-        height: auto !important;
     }
     
     .template-thumbnail:after {
@@ -1528,11 +1548,12 @@ while ($row = $result->fetch_assoc()) {
         bottom: 40px;
         left: 0;
         right: 0;
-        height: 60px;
+        height: 80px;
         background: linear-gradient(transparent, white);
         pointer-events: none;
     }
     
+    /* Preview button styling */
     .preview-btn {
         position: absolute;
         bottom: 0;
@@ -1551,6 +1572,14 @@ while ($row = $result->fetch_assoc()) {
         border-top: 1px solid #eee;
         transition: background-color 0.2s;
         z-index: 5;
+        opacity: 0;
+        transform: translateY(100%);
+        transition: opacity 0.3s, transform 0.3s;
+    }
+    
+    .template-card:hover .preview-btn {
+        opacity: 1;
+        transform: translateY(0);
     }
     
     .preview-btn:hover {
@@ -1558,194 +1587,54 @@ while ($row = $result->fetch_assoc()) {
         color: white;
     }
     
-    /* Modal styles for template preview */
-    .modal {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.7);
-        z-index: 1000;
-        overflow: auto;
-    }
-    
-    .modal-content {
-        background: white;
-        margin: 40px auto;
-        max-width: 800px;
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-    }
-    
-    .modal-header {
+    /* Template footer with just the name */
+    .template-footer {
+        height: 40px;
+        padding: 0 12px;
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        padding: 15px 20px;
-        background: var(--light-color);
-        border-bottom: 1px solid var(--border-color);
+        background-color: #f9f9f9;
+        border-top: 1px solid #eee;
     }
     
-    .modal-title {
+    .template-footer h5 {
         margin: 0;
-        font-size: 18px;
-        color: var(--primary-color);
-    }
-    
-    .close-modal {
-        background: none;
-        border: none;
-        font-size: 22px;
-        color: #999;
-        cursor: pointer;
-    }
-    
-    .close-modal:hover {
-        color: var(--danger-color);
-    }
-    
-    .modal-body {
-        padding: 20px;
-        max-height: 70vh;
-        overflow: auto;
-    }
-    
-    /* Email compose styles */
-    .email-compose-header {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 15px;
-        margin-bottom: 15px;
-    }
-    
-    .schedule-input {
-        display: flex;
-        gap: 10px;
-    }
-    
-    #clear_schedule {
-        white-space: nowrap;
-    }
-    
-    .email-action-buttons {
-        display: flex;
-        gap: 10px;
-        margin-top: 20px;
-    }
-    
-    .secondary-btn {
-        background-color: #f8f9fa;
-        color: var(--primary-color);
-        border: 1px solid var(--border-color);
-        padding: 10px 20px;
-        border-radius: 4px;
-        font-weight: 500;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    
-    .secondary-btn:hover {
-        background-color: #e9ecef;
-    }
-    
-    /* Additional styling for rich text editor */
-    .ck-editor__editable {
-        min-height: 300px;
-    }
-    
-    .ck-content {
         font-size: 14px;
+        font-weight: 500;
+        color: #333;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        width: 100%;
     }
     
-    /* Responsive adjustments */
-    @media (max-width: 992px) {
-        .email-compose-header {
-            grid-template-columns: 1fr;
+    /* Templates grid spacing */
+    .templates-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 25px;
+        margin-top: 25px;
+    }
+    
+    @media (max-width: 768px) {
+        .templates-grid {
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 15px;
         }
     }
     
-    /* Placeholder spinner for email sending */
-    .sending-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(255, 255, 255, 0.7);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-direction: column;
-        z-index: 9999;
+    /* Add this for empty state styling */
+    .empty-state {
+        text-align: center;
+        padding: 30px;
+        background-color: #f9f9f9;
+        border-radius: 8px;
+        grid-column: 1 / -1;
     }
     
-    .sending-spinner {
-        font-size: 40px;
-        color: var(--primary-color);
+    .empty-state p {
         margin-bottom: 15px;
-    }
-    
-    .sending-message {
-        font-size: 18px;
-        color: var(--primary-color);
-    }
-
-    /* Email view modal styles */
-    .email-view-modal {
-        max-width: 700px;
-        width: 100%;
-    }
-
-    .email-metadata {
-        padding: 15px 20px;
-        border-bottom: 1px solid var(--border-color);
-        background-color: #f9f9f9;
-    }
-
-    .email-metadata-row {
-        display: flex;
-        margin-bottom: 8px;
-    }
-
-    .email-metadata-row:last-child {
-        margin-bottom: 0;
-    }
-
-    .email-metadata-label {
-        width: 60px;
-        font-weight: 600;
-        color: var(--dark-color);
-    }
-
-    .email-metadata-value {
-        flex: 1;
-        word-break: break-word;
-    }
-
-    .email-content {
-        min-height: 200px;
-        border-top: none;
-    }
-
-    .modal-footer {
-        display: flex;
-        justify-content: space-between;
-        padding: 15px 20px;
-        border-top: 1px solid var(--border-color);
-        background-color: #f9f9f9;
-    }
-
-    .close-email-btn {
-        margin-right: auto;
-    }
-
-    .reply-btn {
-        margin-left: auto;
+        color: #6c757d;
     }
 </style>
 
