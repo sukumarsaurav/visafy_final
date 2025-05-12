@@ -530,7 +530,10 @@ while ($row = $result->fetch_assoc()) {
                                                 <i class="fas fa-eye"></i>
                                             </button>
                                             <?php if ($email['status'] == 'pending'): ?>
-                                                <button class="btn-action btn-danger cancel-email" data-id="<?php echo $email['id']; ?>">
+                                                <button class="btn-action send-now-email" data-id="<?php echo $email['id']; ?>" title="Send Now">
+                                                    <i class="fas fa-paper-plane"></i>
+                                                </button>
+                                                <button class="btn-action btn-danger cancel-email" data-id="<?php echo $email['id']; ?>" title="Cancel">
                                                     <i class="fas fa-times"></i>
                                                 </button>
                                             <?php endif; ?>
@@ -1152,6 +1155,107 @@ while ($row = $result->fetch_assoc()) {
                 dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
             });
         });
+
+        // Send Now functionality
+        const sendNowButtons = document.querySelectorAll('.send-now-email');
+        console.log('Send Now buttons found:', sendNowButtons.length);
+
+        sendNowButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const emailId = this.getAttribute('data-id');
+                
+                if (confirm('Are you sure you want to send this email immediately?')) {
+                    // Show processing indicator
+                    document.body.style.cursor = 'wait';
+                    
+                    // Send AJAX request
+                    fetch('ajax_handlers/send_email_now.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: 'email_id=' + emailId
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        document.body.style.cursor = 'default';
+                        
+                        if (data.success) {
+                            // Update the UI to reflect the change without reloading
+                            const row = this.closest('tr');
+                            if (row) {
+                                // Update status cell
+                                const statusCell = row.querySelector('td:nth-child(3)');
+                                if (statusCell) {
+                                    statusCell.innerHTML = '<span class="status-badge processing">Processing</span>';
+                                }
+                                
+                                // Hide the send now and cancel buttons
+                                this.style.display = 'none';
+                                const cancelBtn = row.querySelector('.cancel-email');
+                                if (cancelBtn) {
+                                    cancelBtn.style.display = 'none';
+                                }
+                            }
+                            
+                            alert('Email has been queued for immediate sending');
+                        } else {
+                            alert('Error: ' + (data.message || 'Could not send email'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        document.body.style.cursor = 'default';
+                        alert('An error occurred while processing your request');
+                    });
+                }
+            });
+        });
+
+        // Cancel email functionality
+        const cancelButtons = document.querySelectorAll('.cancel-email');
+        console.log('Cancel email buttons found:', cancelButtons.length);
+
+        cancelButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const emailId = this.getAttribute('data-id');
+                
+                if (confirm('Are you sure you want to cancel this email? This action cannot be undone.')) {
+                    // Show processing indicator
+                    document.body.style.cursor = 'wait';
+                    
+                    // Send AJAX request
+                    fetch('ajax_handlers/cancel_email.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: 'email_id=' + emailId
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        document.body.style.cursor = 'default';
+                        
+                        if (data.success) {
+                            // Remove the row from the table
+                            const row = this.closest('tr');
+                            if (row) {
+                                row.remove();
+                            }
+                            
+                            alert('Email has been cancelled');
+                        } else {
+                            alert('Error: ' + (data.message || 'Could not cancel email'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        document.body.style.cursor = 'default';
+                        alert('An error occurred while processing your request');
+                    });
+                }
+            });
+        });
     });
     
     // Global delete function that can be called directly from the onclick attribute
@@ -1635,6 +1739,80 @@ while ($row = $result->fetch_assoc()) {
     .empty-state p {
         margin-bottom: 15px;
         color: #6c757d;
+    }
+
+    /* Add to the existing <style> section */
+    .actions-cell {
+        display: flex;
+        gap: 5px;
+        justify-content: flex-start;
+    }
+
+    .btn-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 4px;
+        background-color: #f5f7fa;
+        border: 1px solid #e5e9f2;
+        color: #6c757d;
+        transition: all 0.2s;
+        cursor: pointer;
+        padding: 0;
+    }
+
+    .btn-action:hover {
+        background-color: #e9ecef;
+        color: var(--primary-color);
+    }
+
+    .btn-action.btn-danger {
+        color: var(--danger-color);
+    }
+
+    .btn-action.btn-danger:hover {
+        background-color: #fff5f5;
+    }
+
+    .send-now-email {
+        color: #28a745;
+    }
+
+    .send-now-email:hover {
+        background-color: #f0fff4;
+        color: #28a745;
+    }
+
+    /* Status badge styles */
+    .status-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        font-size: 12px;
+        font-weight: 500;
+        border-radius: 4px;
+        text-transform: capitalize;
+    }
+
+    .status-badge.pending {
+        background-color: #fff8e6;
+        color: #f59f00;
+    }
+
+    .status-badge.processing {
+        background-color: #e3f2fd;
+        color: #2196f3;
+    }
+
+    .status-badge.sent {
+        background-color: #e8f5e9;
+        color: #4caf50;
+    }
+
+    .status-badge.failed {
+        background-color: #ffebee;
+        color: #f44336;
     }
 </style>
 
