@@ -124,3 +124,82 @@ CREATE TABLE `generated_documents` (
   CONSTRAINT `generated_client_id_fk` FOREIGN KEY (`client_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT,
   CONSTRAINT `generated_created_by_fk` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `email_templates` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `subject` varchar(255) NOT NULL,
+  `content` longtext NOT NULL,
+  `template_type` enum('general','welcome','password_reset','booking_confirmation','booking_reminder','booking_cancellation','application_status','document_request','document_approval','document_rejection','marketing','newsletter') NOT NULL DEFAULT 'general',
+  `created_by` int(11) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `created_by` (`created_by`),
+  KEY `template_type` (`template_type`),
+  CONSTRAINT `email_templates_created_by_fk` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Create email queue table if it doesn't exist
+CREATE TABLE IF NOT EXISTS `email_queue` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `recipient_id` int(11) DEFAULT NULL COMMENT 'User ID if recipient exists in system',
+  `recipient_email` varchar(100) NOT NULL,
+  `subject` varchar(255) NOT NULL,
+  `content` longtext NOT NULL,
+  `status` enum('pending','processing','sent','failed') NOT NULL DEFAULT 'pending',
+  `error_message` text DEFAULT NULL,
+  `scheduled_time` datetime NOT NULL,
+  `sent_at` datetime DEFAULT NULL,
+  `created_by` int(11) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `recipient_id` (`recipient_id`),
+  KEY `created_by` (`created_by`),
+  KEY `status` (`status`),
+  KEY `scheduled_time` (`scheduled_time`),
+  CONSTRAINT `email_queue_recipient_id_fk` FOREIGN KEY (`recipient_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `email_queue_created_by_fk` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Create received emails table if it doesn't exist
+CREATE TABLE IF NOT EXISTS `received_emails` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `sender_id` int(11) DEFAULT NULL COMMENT 'User ID if sender exists in system',
+  `sender_email` varchar(100) NOT NULL,
+  `subject` varchar(255) NOT NULL,
+  `content` longtext NOT NULL,
+  `received_at` datetime NOT NULL,
+  `is_read` tinyint(1) NOT NULL DEFAULT 0,
+  `read_by` int(11) DEFAULT NULL,
+  `read_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `sender_id` (`sender_id`),
+  KEY `read_by` (`read_by`),
+  CONSTRAINT `received_emails_sender_id_fk` FOREIGN KEY (`sender_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `received_emails_read_by_fk` FOREIGN KEY (`read_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Create email automation settings table if it doesn't exist
+CREATE TABLE IF NOT EXISTS `email_automation_settings` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `setting_key` varchar(50) NOT NULL,
+  `setting_value` text NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `setting_key` (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Insert default email automation settings if they don't exist
+INSERT IGNORE INTO `email_automation_settings` (`setting_key`, `setting_value`) VALUES
+('booking_confirmation_enabled', '1'),
+('booking_reminder_enabled', '1'),
+('booking_reminder_hours', '24'),
+('booking_cancellation_enabled', '1'),
+('application_status_enabled', '1'),
+('document_request_enabled', '1'),
+('document_review_enabled', '1'),
+('welcome_email_enabled', '1'),
+('password_reset_enabled', '1');

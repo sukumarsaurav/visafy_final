@@ -246,6 +246,11 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                     <span class="nav-item-text">Messages</span>
                 </a>
 
+                <div class="sidebar-divider"></div>
+                <a href="email-management.php" class="nav-item <?php echo $current_page == 'email-management' ? 'active' : ''; ?>">
+                    <i class="fas fa-mail-bulk"></i>
+                    <span class="nav-item-text">Email Management</span>
+                </a>
 
                 <div class="sidebar-divider"></div>
 

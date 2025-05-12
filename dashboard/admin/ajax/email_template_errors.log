@@ -1,0 +1,12 @@
+[2025-05-11 11:36:10] API Key found (first 5 chars): sk-pr...
+[2025-05-11 11:36:10] Request data: {"model":"gpt-3.5-turbo","messages":[{"role":"system","content":"You are an HTML email template generator. Create professional, responsive email templates with clean HTML and CSS. Include placeholder variables in curly braces like {first_name}, {email}, etc. where appropriate. Make templates visually appealing and optimized for email clients."},{"role":"user","content":"Generate an HTML email template for general email with subject \"welcome to visafy\": welcome message to visafy. The template should use responsive design and include placeholders like {first_name}, {email}, etc. where appropriate."}],"temperature":0.7,"max_tokens":1500}
+[2025-05-11 11:36:13] API HTTP response code: 200
+[2025-05-11 11:36:13] Exception: Table 'u911550082_visafy_final.system_logs' doesn't exist
+#0 /Users/sukumarsaurav/templates/visafy/dashboard/admin/ajax/generate_email_template.php(211): mysqli->prepare('INSERT INTO sys...')
+#1 {main}
+[2025-05-11 11:37:39] API Key found (first 5 chars): sk-pr...
+[2025-05-11 11:37:39] Request data: {"model":"gpt-3.5-turbo","messages":[{"role":"system","content":"You are an HTML email template generator. Create professional, responsive email templates with clean HTML and CSS. Include placeholder variables in curly braces like {first_name}, {email}, etc. where appropriate. Make templates visually appealing and optimized for email clients."},{"role":"user","content":"Generate an HTML email template for general email with subject \"welcome to visafy\": create welcome message with proper style header footer body footer and header having background color. The template should use responsive design and include placeholders like {first_name}, {email}, etc. where appropriate."}],"temperature":0.7,"max_tokens":1500}
+[2025-05-11 11:37:43] API HTTP response code: 200
+[2025-05-11 11:37:43] Exception: Table 'u911550082_visafy_final.system_logs' doesn't exist
+#0 /Users/sukumarsaurav/templates/visafy/dashboard/admin/ajax/generate_email_template.php(211): mysqli->prepare('INSERT INTO sys...')
+#1 {main}
